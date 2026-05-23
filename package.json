@@ -1,0 +1,31 @@
+{
+  "name": "projects",
+  "version": "1.0.0",
+  "description": "Custom file viewer and uploader.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/server.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "projectS"
+  },
+  "keywords": [
+    "sharex"
+  ],
+  "author": "kukasz",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@fastify/multipart": "^10.0.0",
+    "@fastify/static": "^9.1.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "nanoid": "^5.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
