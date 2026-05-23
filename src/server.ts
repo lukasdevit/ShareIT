@@ -32,7 +32,7 @@ app.post("/upload", async (request, reply) => {
     const file = await request.file();
 
     if (!file) {
-        return reply.code(400).send({ error: "No file"});
+        return reply.code(400).send({ error: "You didn't choose a file to upload you dumb fucker"});
     }
 
     const id = nanoid(10);
