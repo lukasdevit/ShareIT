@@ -1,5 +1,6 @@
 {
   "name": "projects",
+  "type": "module",
   "version": "1.0.0",
   "description": "Custom file viewer and uploader.",
   "main": "index.js",
