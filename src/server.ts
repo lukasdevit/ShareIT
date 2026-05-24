@@ -5,6 +5,7 @@ import fs from "fs";
 import { PORT, UPLOAD_DIR } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
+import { initScanner } from "./services/scanService.js";
 
 const app = Fastify({ logger: true });
 
@@ -17,6 +18,8 @@ app.register(staticPlugin, { root: UPLOAD_DIR, prefix: "/file/" });
 
 app.register(uploadRoutes);
 app.register(filesRoutes);
+
+await initScanner();
 
 await app.listen({ port: PORT });
 console.log(`Server listening on port ${PORT}`);
