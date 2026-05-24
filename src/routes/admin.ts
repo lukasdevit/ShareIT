@@ -1,0 +1,269 @@
+import type { FastifyInstance } from "fastify";
+import fs from "fs";
+import bcrypt from "bcrypt";
+import { db } from "../db/database.js";
+import { requireAdmin } from "./auth.js";
+
+const BCRYPT_ROUNDS = 10;
+
+interface UserRow {
+  id: number;
+  username: string;
+  password_hash: string;
+  created_at: string;
+  storage_limit: number;
+  is_admin: number;
+}
+
+export async function adminRoutes(app: FastifyInstance) {
+  // All admin routes require admin authentication
+  app.addHook("preHandler", requireAdmin);
+
+  // List all users with file count and storage used
+  app.get("/admin/users", async (request, reply) => {
+    return new Promise((resolve) => {
+      db.all(
+        `SELECT 
+          u.id, u.username, u.created_at, u.storage_limit, u.is_admin,
+          COALESCE(SUM(f.size), 0) AS used,
+          COUNT(f.id) AS file_count
+         FROM users u
+         LEFT JOIN files f ON f.user_id = u.id
+         GROUP BY u.id
+         ORDER BY u.id`,
+        (err, rows) => {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+          } else {
+            reply.send(rows);
+          }
+          resolve(undefined);
+        }
+      );
+    });
+  });
+
+  // Update a user (storage_limit, is_admin, or reset password)
+  app.patch("/admin/users/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { storage_limit, is_admin, new_password } = request.body as {
+      storage_limit?: number;
+      is_admin?: boolean;
+      new_password?: string;
+    };
+
+    // Build dynamic update
+    const sets: string[] = [];
+    const values: (number | string)[] = [];
+
+    if (storage_limit !== undefined) {
+      if (storage_limit < 0) {
+        return reply.code(400).send({ error: "Storage limit cannot be negative" });
+      }
+      sets.push("storage_limit = ?");
+      values.push(storage_limit);
+    }
+
+    if (is_admin !== undefined) {
+      sets.push("is_admin = ?");
+      values.push(is_admin ? 1 : 0);
+    }
+
+    if (new_password !== undefined) {
+      if (new_password.length < 6) {
+        return reply.code(400).send({ error: "New password must be at least 6 chars" });
+      }
+      const hash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
+      sets.push("password_hash = ?");
+      values.push(hash);
+    }
+
+    if (sets.length === 0) {
+      return reply.code(400).send({ error: "No fields to update" });
+    }
+
+    values.push(id);
+
+    return new Promise((resolve) => {
+      db.run(
+        `UPDATE users SET ${sets.join(", ")} WHERE id = ?`,
+        values,
+        function (err) {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+          } else if (this.changes === 0) {
+            reply.code(404).send({ error: "User not found" });
+          } else {
+            reply.send({ ok: true });
+          }
+          resolve(undefined);
+        }
+      );
+    });
+  });
+
+  // Delete a user and all their files
+  app.delete("/admin/users/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = Number(id);
+    const currentUser = (request as any).user as { id: number };
+
+    if (userId === currentUser.id) {
+      return reply.code(400).send({ error: "Cannot delete yourself" });
+    }
+
+    return new Promise((resolve) => {
+      // Get user's files first to delete from disk
+      db.all(
+        `SELECT path FROM files WHERE user_id = ?`,
+        [userId],
+        (err, rows: { path: string }[]) => {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+            resolve(undefined);
+            return;
+          }
+
+          // Delete files from disk
+          for (const row of rows) {
+            try { fs.unlinkSync(row.path); } catch { /* already gone */ }
+          }
+
+          // Delete from database (files + user)
+          db.run(`DELETE FROM files WHERE user_id = ?`, [userId]);
+          db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err2) {
+            if (err2) {
+              reply.code(500).send({ error: err2.message });
+            } else if (this.changes === 0) {
+              reply.code(404).send({ error: "User not found" });
+            } else {
+              reply.send({ ok: true, files_deleted: rows.length });
+            }
+            resolve(undefined);
+          });
+        }
+      );
+    });
+  });
+
+  // Execute raw SQL
+  app.post("/admin/db", async (request, reply) => {
+    const { sql } = request.body as { sql?: string };
+
+    if (!sql || !sql.trim()) {
+      return reply.code(400).send({ error: "SQL query required" });
+    }
+
+    const trimmed = sql.trim();
+
+    // Block destructive operations on system tables
+    const upper = trimmed.toUpperCase();
+    if (
+      (upper.includes("DROP") && upper.includes("TABLE")) ||
+      upper.startsWith("VACUUM") ||
+      upper.startsWith("REINDEX") ||
+      upper.startsWith("ATTACH") ||
+      upper.startsWith("DETACH")
+    ) {
+      return reply.code(403).send({ error: "Destructive DDL not allowed via editor" });
+    }
+
+    const isRead = /^(SELECT|PRAGMA|EXPLAIN|WITH|DESCRIBE)\b/i.test(trimmed);
+
+    if (isRead) {
+      return new Promise((resolve) => {
+        db.all(trimmed, (err, rows) => {
+          if (err) {
+            reply.code(400).send({ error: err.message });
+          } else {
+            // Extract column names from first row keys
+            const columns = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
+            reply.send({ type: "read", columns, rows, rowCount: rows?.length ?? 0 });
+          }
+          resolve(undefined);
+        });
+      });
+    }
+
+    // Write query
+    return new Promise((resolve) => {
+      db.run(trimmed, function (err) {
+        if (err) {
+          reply.code(400).send({ error: err.message });
+          resolve(undefined);
+        } else {
+          // After any write, check we still have at least one admin
+          db.get(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`, (err2, row: { cnt: number } | undefined) => {
+            const result: { type: string; changes: number; lastID: number; warning?: string } = {
+              type: "write",
+              changes: this.changes,
+              lastID: this.lastID,
+            };
+            if (!err2 && row && row.cnt === 0) {
+              result.warning = "⚠️ No admin users remain! Grant admin to at least one user.";
+            }
+            reply.send(result);
+            resolve(undefined);
+          });
+        }
+      });
+    });
+  });
+
+  // Get all tables with their schemas
+  app.get("/admin/db/tables", async (_request, reply) => {
+    return new Promise((resolve) => {
+      db.all(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+        (err, tables: { name: string }[]) => {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+            resolve(undefined);
+            return;
+          }
+
+          const results: { name: string; columns: { name: string; type: string; notnull: number; pk: number }[]; rowCount: number }[] = [];
+          let completed = 0;
+
+          if (tables.length === 0) {
+            reply.send([]);
+            resolve(undefined);
+            return;
+          }
+
+          for (const table of tables) {
+            db.all(`PRAGMA table_info(${table.name})`, (err2, cols) => {
+              if (!err2) {
+                db.get(`SELECT COUNT(*) AS count FROM "${table.name}"`, (err3, row: { count: number }) => {
+                  results.push({
+                    name: table.name,
+                    columns: (cols as { name: string; type: string; notnull: number; pk: number }[]).map((c) => ({
+                      name: c.name,
+                      type: c.type,
+                      notnull: c.notnull,
+                      pk: c.pk,
+                    })),
+                    rowCount: row?.count ?? 0,
+                  });
+                  completed++;
+                  if (completed === tables.length) {
+                    results.sort((a, b) => a.name.localeCompare(b.name));
+                    reply.send(results);
+                    resolve(undefined);
+                  }
+                });
+              } else {
+                completed++;
+                if (completed === tables.length) {
+                  results.sort((a, b) => a.name.localeCompare(b.name));
+                  reply.send(results);
+                  resolve(undefined);
+                }
+              }
+            });
+          }
+        }
+      );
+    });
+  });
+}

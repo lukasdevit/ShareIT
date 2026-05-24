@@ -9,6 +9,7 @@ import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
 import { sharexRoutes } from "./routes/sharex.js";
 import { authRoutes } from "./routes/auth.js";
+import { adminRoutes } from "./routes/admin.js";
 import { initScanner } from "./services/scanService.js";
 
 export interface AppOptions {
@@ -54,6 +55,7 @@ export async function buildApp(opts: AppOptions = {}) {
   await app.register(filesRoutes);
   await app.register(sharexRoutes);
   await app.register(authRoutes);
+  await app.register(adminRoutes);
 
   // Note: scanner init is skipped in tests automatically (ClamAV not available)
   await initScanner();

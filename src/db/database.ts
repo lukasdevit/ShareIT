@@ -39,9 +39,25 @@ db.run(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    storage_limit INTEGER NOT NULL DEFAULT 10737418240,
+    is_admin INTEGER NOT NULL DEFAULT 0
   )
 `);
+
+// Add storage_limit column for existing databases that may not have it
+db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT 10737418240`, (err) => {
+  if (err && !err.message.includes("duplicate column")) {
+    // Column already exists or other expected error — ignore
+  }
+});
+
+// Add is_admin column for existing databases that may not have it
+db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`, (err) => {
+  if (err && !err.message.includes("duplicate column")) {
+    // Column already exists or other expected error — ignore
+  }
+});
 
 export function closeDb(): void {
   db.close();
