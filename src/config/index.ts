@@ -24,6 +24,6 @@ export const ALLOWED_MIME_TYPES = (process.env.ALLOWED_MIME_TYPES || [
   .map((t) => t.trim());
 
 export const RATE_LIMIT = {
-  max: Number(process.env.RATE_LIMIT_MAX || 10),
+  max: Number(process.env.RATE_LIMIT_MAX || 1000),
   timeWindow: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000), // 1 minute
 };

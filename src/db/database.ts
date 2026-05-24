@@ -19,6 +19,7 @@ db.run(`
     path TEXT NOT NULL,
     size INTEGER NOT NULL,
     mime_type TEXT NOT NULL,
+    user_id INTEGER,
     created_at TEXT NOT NULL
   )
 `);

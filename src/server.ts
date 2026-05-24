@@ -1,11 +1,9 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
-import staticPlugin from "@fastify/static";
-import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
 import fs from "fs";
-import { PORT, UPLOAD_DIR, RATE_LIMIT } from "./config/index.js";
+import { PORT, UPLOAD_DIR } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
 import { sharexRoutes } from "./routes/sharex.js";
@@ -19,10 +17,16 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 app.register(multipart, { limits: { fileSize: 1 * 1024 * 1024 * 1024 } });
-app.register(staticPlugin, { root: UPLOAD_DIR, prefix: "/file/" });
 
-app.register(rateLimit, { max: RATE_LIMIT.max, timeWindow: RATE_LIMIT.timeWindow });
-app.register(helmet, { crossOriginResourcePolicy: { policy: "cross-origin" } });
+app.register(helmet, {
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      "img-src": ["'self'", "data:", "blob:", "*"],
+    },
+  },
+  xContentTypeOptions: false,
+});
 app.register(cors, { origin: true, methods: ["GET", "POST", "DELETE", "OPTIONS"] });
 
 app.register(uploadRoutes);
