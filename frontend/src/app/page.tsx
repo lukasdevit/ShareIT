@@ -34,7 +34,22 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const imageFiles = files.filter((f) => isImage(f.mime_type));
+
+  // Keyboard: close lightbox on Escape, arrow keys to navigate
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft") setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1));
+      if (e.key === "ArrowRight") setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, imageFiles.length]);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -171,9 +186,10 @@ export default function Home() {
                   Images ({images.length})
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {images.map((f) => (
+                  {images.map((f, idx) => (
                     <div
                       key={f.id}
+                      onClick={() => setLightboxIndex(idx)}
                       className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer"
                     >
                       <img
@@ -261,6 +277,108 @@ export default function Home() {
             {files.length === 0 && (
               <p className="text-sm text-zinc-600">No files uploaded yet.</p>
             )}
+          </div>
+        );
+      })()}
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (() => {
+        const img = imageFiles[lightboxIndex];
+        if (!img) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+            onClick={() => setLightboxIndex(null)}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+              onClick={() => setLightboxIndex(null)}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Prev arrow */}
+            {lightboxIndex > 0 && (
+              <button
+                className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1)); }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Next arrow */}
+            {lightboxIndex < imageFiles.length - 1 && (
+              <button
+                className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1)); }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Preload adjacent images */}
+            {lightboxIndex > 0 && (
+              <img src={`${API}/file/${imageFiles[lightboxIndex - 1].filename}`} className="hidden" />
+            )}
+            {lightboxIndex < imageFiles.length - 1 && (
+              <img src={`${API}/file/${imageFiles[lightboxIndex + 1].filename}`} className="hidden" />
+            )}
+
+            {/* Loading spinner */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-8 h-8 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+
+            {/* Image with fade-in */}
+            <img
+              key={img.filename}
+              src={`${API}/file/${img.filename}`}
+              alt={img.original_name}
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg opacity-0 transition-opacity duration-300"
+              onLoad={(e) => (e.currentTarget.style.opacity = "1")}
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {/* Info bar */}
+            <div
+              className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{img.original_name}</p>
+                  <p className="text-xs text-zinc-400">
+                    {formatSize(img.size)} · {formatDate(img.created_at)} · {lightboxIndex + 1}/{imageFiles.length}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => copyLink(img.filename, img.id)}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                  >
+                    {copiedId === img.id ? "Copied!" : "Copy link"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(img.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      deletingId === img.id
+                        ? "bg-red-600 text-white"
+                        : "bg-zinc-800 hover:bg-red-800 text-zinc-300"
+                    }`}
+                  >
+                    {deletingId === img.id ? "Confirm?" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         );
       })()}
