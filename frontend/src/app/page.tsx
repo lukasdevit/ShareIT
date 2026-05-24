@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { marked } from "marked";
 
 const API = "http://localhost:3000";
 
@@ -441,6 +442,11 @@ export default function Home() {
                 <div className="flex items-center justify-center h-32">
                   <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
                 </div>
+              ) : viewingFile.mime_type === "text/markdown" || viewingFile.original_name.endsWith(".md") ? (
+                <div
+                  className="p-4 text-sm text-zinc-300 markdown-body"
+                  dangerouslySetInnerHTML={{ __html: marked.parse(fileContent) as string }}
+                />
               ) : (
                 <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{fileContent}</pre>
               )}
