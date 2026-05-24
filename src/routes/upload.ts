@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import path from "path";
 import { BASE_URL } from "../config/index.js";
-import { saveFile, validateFile } from "../services/fileService.js";
+import { saveFile, validateFile, sanitizeFilename } from "../services/fileService.js";
 
 export async function uploadRoutes(app: FastifyInstance) {
   app.post("/upload", async (request, reply) => {
@@ -12,7 +12,9 @@ export async function uploadRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "No file was uploaded" });
     }
 
-    const validationError = validateFile(file.mimetype, file.filename);
+    const originalName = sanitizeFilename(file.filename);
+
+    const validationError = validateFile(file.mimetype, originalName);
     if (validationError) {
       return reply.code(415).send({ error: validationError });
     }
@@ -21,7 +23,7 @@ export async function uploadRoutes(app: FastifyInstance) {
     const ext = path.extname(file.filename);
     const filename = `${id}${ext}`;
 
-    await saveFile(file.file, filename, file.filename, file.mimetype);
+    await saveFile(file.file, filename, originalName, file.mimetype);
 
     return reply.send({ url: `${BASE_URL}/file/${filename}` });
   });

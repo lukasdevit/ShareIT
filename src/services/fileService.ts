@@ -6,6 +6,26 @@ import { UPLOAD_DIR } from "../config/index.js";
 import { ALLOWED_MIME_TYPES } from "../config/index.js";
 import { scanFile } from "./scanService.js";
 
+export function sanitizeFilename(name: string): string {
+  // Strip any path traversal — keep only the basename
+  let safe = path.basename(name);
+
+  // Remove null bytes (directory traversal attack vector)
+  safe = safe.replace(/\0/g, "");
+
+  // Trim whitespace
+  safe = safe.trim();
+
+  // Limit length to 255 chars (common filesystem limit)
+  if (safe.length > 255) {
+    const ext = path.extname(safe);
+    safe = safe.substring(0, 255 - ext.length) + ext;
+  }
+
+  // Default fallback if everything got stripped
+  return safe || "untitled";
+}
+
 export async function saveFile(
   fileStream: NodeJS.ReadableStream,
   filename: string,
@@ -45,7 +65,7 @@ export async function saveFile(
   });
 }
 
-export function validateFile(mimeType: string, originalName: string): string | null {
+export function validateFile(mimeType: string, _originalName: string): string | null {
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return `File type "${mimeType}" is not allowed`;
   }
