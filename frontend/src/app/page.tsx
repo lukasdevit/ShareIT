@@ -23,6 +23,10 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+function isImage(mime: string): boolean {
+  return mime.startsWith("image/");
+}
+
 export default function Home() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -154,51 +158,112 @@ export default function Home() {
       </div>
 
       {/* File list */}
-      <div className="w-full max-w-2xl px-4 pb-16">
-        <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
-          Recent files ({files.length})
-        </h2>
+      {(() => {
+        const images = files.filter((f) => isImage(f.mime_type));
+        const others = files.filter((f) => !isImage(f.mime_type));
 
-        {files.length === 0 ? (
-          <p className="text-sm text-zinc-600">No files uploaded yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {files.map((f) => (
-              <li
-                key={f.id}
-                className="flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-200 truncate">
-                    {f.original_name}
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    {formatSize(f.size)} · {formatDate(f.created_at)}
-                  </p>
+        return (
+          <div className="w-full max-w-2xl px-4 pb-16 space-y-8">
+            {/* Image gallery */}
+            {images.length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
+                  Images ({images.length})
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {images.map((f) => (
+                    <div
+                      key={f.id}
+                      className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer"
+                    >
+                      <img
+                        src={`${API}/file/${f.filename}`}
+                        alt={f.original_name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
+                        <p className="text-xs text-white truncate">{f.original_name}</p>
+                        <p className="text-xs text-zinc-400">
+                          {formatSize(f.size)} · {formatDate(f.created_at)}
+                        </p>
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copyLink(f.filename, f.id); }}
+                            className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200"
+                          >
+                            {copiedId === f.id ? "Copied!" : "Copy"}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(f.id); }}
+                            className={`px-2 py-0.5 rounded text-xs ${
+                              deletingId === f.id
+                                ? "bg-red-600 text-white"
+                                : "bg-zinc-700 hover:bg-red-800 text-zinc-300"
+                            }`}
+                          >
+                            {deletingId === f.id ? "Confirm?" : "Delete"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => copyLink(f.filename, f.id)}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-                  >
-                    {copiedId === f.id ? "Copied!" : "Copy link"}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(f.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      deletingId === f.id
-                        ? "bg-red-600 hover:bg-red-500 text-white"
-                        : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"
-                    }`}
-                  >
-                    {deletingId === f.id ? "Confirm?" : "Delete"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              </section>
+            )}
+
+            {/* Other files */}
+            {others.length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
+                  Files ({others.length})
+                </h2>
+                <ul className="space-y-2">
+                  {others.map((f) => (
+                    <li
+                      key={f.id}
+                      className="flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 truncate">
+                          {f.original_name}
+                        </p>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          {formatSize(f.size)} · {formatDate(f.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => copyLink(f.filename, f.id)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                        >
+                          {copiedId === f.id ? "Copied!" : "Copy link"}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(f.id)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                            deletingId === f.id
+                              ? "bg-red-600 hover:bg-red-500 text-white"
+                              : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"
+                          }`}
+                        >
+                          {deletingId === f.id ? "Confirm?" : "Delete"}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Empty state */}
+            {files.length === 0 && (
+              <p className="text-sm text-zinc-600">No files uploaded yet.</p>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
