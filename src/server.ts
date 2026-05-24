@@ -1,20 +1,14 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
 import staticPlugin from "@fastify/static";
-import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { db } from "./db/database.js";
-
-dotenv.config();
+import { PORT, BASE_URL, UPLOAD_DIR } from "./config/index.js";
 
 const app = Fastify({ logger: true });
-
-const PORT = Number(process.env.PORT || 3000);
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
