@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isImage, isText } from "../lib/utils";
-import type { FileInfo, UserInfo } from "../lib/types";
+import type { FileInfo, FilePage, UserInfo } from "../lib/types";
 import { LoginForm } from "../components/LoginForm";
 import { UploadZone } from "../components/UploadZone";
 import { ImageGallery } from "../components/ImageGallery";
@@ -11,7 +11,7 @@ import { Lightbox } from "../components/Lightbox";
 import { TextViewer } from "../components/TextViewer";
 import { SettingsPage } from "../components/SettingsPage";
 
-const API = "http://localhost:3000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
@@ -22,6 +22,9 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [files, setFiles] = useState<FileInfo[]>([]);
+  const [filePage, setFilePage] = useState(1);
+  const [fileTotalPages, setFileTotalPages] = useState(0);
+  const [fileTotal, setFileTotal] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +77,20 @@ export default function Home() {
   }, [lightboxIndex, viewingFile, imageFiles.length]);
 
   // Files
-  const fetchFiles = useCallback(async () => {
+  const fetchFiles = useCallback(async (page = 1) => {
     if (!user) return;
-    try { const r = await apiFetch("/files"); if (r.ok) setFiles(await r.json()); } catch { /* */ }
+    try {
+      const r = await apiFetch(`/files?page=${page}&limit=50`);
+      if (r.ok) {
+        const d: FilePage = await r.json();
+        setFiles(d.files);
+        setFilePage(d.page);
+        setFileTotalPages(d.totalPages);
+        setFileTotal(d.total);
+      }
+    } catch { /* */ }
   }, [user]);
-  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(1); }, [fetchFiles]);
 
   // Auth
   async function handleAuth(e: React.FormEvent) {
@@ -98,7 +110,7 @@ export default function Home() {
       const f = new FormData(); f.append("file", file);
       const r = await apiFetch("/upload", { method: "POST", body: f });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Upload failed");
-      await fetchFiles();
+      await fetchFiles(1);
     } catch (e) { setError((e as Error).message); } finally { setUploading(false); }
   }
   function handleDrop(e: React.DragEvent) { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }
@@ -142,6 +154,29 @@ export default function Home() {
               return others.length > 0 ? <FileList files={others} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onOpenViewer={openViewer} /> : null;
             })()}
             {files.length === 0 && <p className="text-sm text-zinc-600">No files uploaded yet.</p>}
+
+            {fileTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => fetchFiles(filePage - 1)}
+                  disabled={filePage <= 1}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs text-zinc-500">
+                  Page {filePage} of {fileTotalPages}
+                  <span className="text-zinc-600 ml-1">({fileTotal} files)</span>
+                </span>
+                <button
+                  onClick={() => fetchFiles(filePage + 1)}
+                  disabled={filePage >= fileTotalPages}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
 
           {lightboxIndex !== null && lightboxIndex < imageFiles.length && (

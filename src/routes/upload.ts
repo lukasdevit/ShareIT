@@ -24,7 +24,7 @@ export async function uploadRoutes(app: FastifyInstance) {
     const ext = path.extname(file.filename);
     const filename = `${id}${ext}`;
 
-    const userId = (request as any).user?.id;
+    const userId = request.user?.id;
     await saveFile(file.file, filename, originalName, file.mimetype, userId);
 
     return reply.send({ url: `${BASE_URL}/file/${filename}` });

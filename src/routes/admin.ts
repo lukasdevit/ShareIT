@@ -106,7 +106,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.delete("/admin/users/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = Number(id);
-    const currentUser = (request as any).user as { id: number };
+    const currentUser = request.user!;
 
     if (userId === currentUser.id) {
       return reply.code(400).send({ error: "Cannot delete yourself" });

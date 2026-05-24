@@ -41,6 +41,15 @@ export async function saveFile(
 
   const stats = fs.statSync(filepath);
 
+  // Check storage quota before proceeding
+  if (userId) {
+    const quota = await getUserQuota(userId);
+    if (quota.used + stats.size > quota.limit) {
+      fs.unlinkSync(filepath);
+      throw new Error(`Storage quota exceeded (${formatBytes(quota.used)} used + ${formatBytes(stats.size)} > ${formatBytes(quota.limit)} limit)`);
+    }
+  }
+
   const scanResult = await scanFile(filepath);
   if (!scanResult.clean) {
     fs.unlinkSync(filepath);
@@ -52,11 +61,37 @@ export async function saveFile(
       `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [filename, originalName, filepath, stats.size, mimeType, userId ?? null, new Date().toISOString()],
       (err) => {
-        if (err) reject(err);
-        else resolve(filepath);
+        if (err) {
+          try { fs.unlinkSync(filepath); } catch { /* */ }
+          reject(err);
+        } else {
+          resolve(filepath);
+        }
       }
     );
   });
+}
+
+function getUserQuota(userId: number): Promise<{ used: number; limit: number }> {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT u.storage_limit AS limit, COALESCE(SUM(f.size), 0) AS used
+       FROM users u LEFT JOIN files f ON f.user_id = u.id
+       WHERE u.id = ?`,
+      [userId],
+      (err, row: { used: number; limit: number } | undefined) => {
+        if (err) reject(err);
+        else resolve(row ?? { used: 0, limit: 0 });
+      }
+    );
+  });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 export function validateFile(mimeType: string, _originalName: string): string | null {

@@ -24,7 +24,7 @@ export async function sharexRoutes(app: FastifyInstance) {
     const ext = path.extname(file.filename);
     const filename = `${id}${ext}`;
 
-    const userId = (request as any).user?.id;
+    const userId = request.user?.id;
     await saveFile(file.file, filename, originalName, file.mimetype, userId);
 
     return reply.send({ url: `${BASE_URL}/file/${filename}` });
@@ -33,7 +33,7 @@ export async function sharexRoutes(app: FastifyInstance) {
   // Config generator — per-user, embeds token in headers
   app.get("/sharex/config", { preHandler: [requireAuth] }, async (request, reply) => {
     const token = getTokenFromHeader(request);
-    const username = (request as any).user?.username || "ShareIT";
+    const username = request.user?.username || "ShareIT";
 
     const config = {
       Version: "17.0.0",

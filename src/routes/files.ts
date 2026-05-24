@@ -30,30 +30,52 @@ export async function filesRoutes(app: FastifyInstance) {
             return;
           }
 
-          const fileBuffer = fs.readFileSync(file.path);
+          const stat = fs.statSync(file.path);
           reply.header("Content-Type", file.mime_type);
-          reply.header("Content-Length", fileBuffer.length);
+          reply.header("Content-Length", stat.size);
           reply.header("Cache-Control", "public, max-age=31536000");
           reply.header("Access-Control-Allow-Origin", "*");
-          reply.send(fileBuffer);
+          reply.send(fs.createReadStream(file.path));
         }
       );
     });
   });
 
   app.get("/files", { preHandler: [requireAuth] }, async (request, reply) => {
-    const userId = (request as any).user?.id;
+    const userId = request.user?.id;
+    const query = request.query as { page?: string; limit?: string };
+    const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit || "50", 10) || 50));
+    const offset = (page - 1) * limit;
+
     return new Promise((resolve) => {
-      db.all(
-        `SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC`,
+      db.get(
+        `SELECT COUNT(*) AS total FROM files WHERE user_id = ?`,
         [userId],
-        (err, rows) => {
+        (err, row: { total: number } | undefined) => {
           if (err) {
             reply.code(500).send({ error: err.message });
-          } else {
-            reply.send(rows);
+            resolve(undefined);
+            return;
           }
-          resolve(undefined);
+          const total = row?.total ?? 0;
+          db.all(
+            `SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            [userId, limit, offset],
+            (err2, files) => {
+              if (err2) {
+                reply.code(500).send({ error: err2.message });
+              } else {
+                reply.send({
+                  files,
+                  total,
+                  page,
+                  totalPages: Math.ceil(total / limit),
+                });
+              }
+              resolve(undefined);
+            }
+          );
         }
       );
     });
@@ -61,7 +83,7 @@ export async function filesRoutes(app: FastifyInstance) {
 
   app.delete("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.id;
+    const userId = request.user?.id;
 
     return new Promise((resolve) => {
       db.get(

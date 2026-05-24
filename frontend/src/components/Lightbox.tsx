@@ -3,7 +3,7 @@
 import { formatSize, formatDate } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
 
-const API = "http://localhost:3000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 interface Props {
   image: FileInfo;

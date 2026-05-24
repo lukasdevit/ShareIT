@@ -3,6 +3,12 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { db } from "../db/database.js";
 
+declare module "fastify" {
+  interface FastifyRequest {
+    user?: JwtPayload;
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
 const BCRYPT_ROUNDS = 10;
 
@@ -35,14 +41,13 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   if (!token) return reply.code(401).send({ error: "Missing token" });
   const payload = verifyToken(token);
   if (!payload) return reply.code(401).send({ error: "Invalid or expired token" });
-  (request as any).user = payload;
+  request.user = payload;
 }
 
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
   await requireAuth(request, reply);
   if (reply.sent) return;
-  const user = (request as any).user as JwtPayload;
-  if (!user.isAdmin) {
+  if (!request.user?.isAdmin) {
     return reply.code(403).send({ error: "Admin only" });
   }
 }
@@ -124,13 +129,13 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Current user
   app.get("/auth/me", { preHandler: [requireAuth] }, async (request, reply) => {
-    const user = (request as any).user as JwtPayload;
+    const user = request.user!;
     return reply.send({ user: { id: user.id, username: user.username, isAdmin: user.isAdmin } });
   });
 
   // Change password
   app.post("/auth/change-password", { preHandler: [requireAuth] }, async (request, reply) => {
-    const user = (request as any).user as JwtPayload;
+    const user = request.user!;
     const { currentPassword, newPassword } = request.body as {
       currentPassword?: string;
       newPassword?: string;
@@ -177,7 +182,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Storage info
   app.get("/auth/storage", { preHandler: [requireAuth] }, async (request, reply) => {
-    const user = (request as any).user as JwtPayload;
+    const user = request.user!;
 
     return new Promise((resolve) => {
       db.get(

@@ -7,6 +7,13 @@ export interface FileInfo {
   created_at: string;
 }
 
+export interface FilePage {
+  files: FileInfo[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export interface StorageInfo {
   used: number;
   limit: number;
