@@ -30,9 +30,12 @@ export async function saveFile(
   fileStream: NodeJS.ReadableStream,
   filename: string,
   originalName: string,
-  mimeType: string
+  mimeType: string,
+  userId?: number
 ): Promise<string> {
-  const filepath = path.join(UPLOAD_DIR, filename);
+  const userDir = userId ? path.join(UPLOAD_DIR, String(userId)) : UPLOAD_DIR;
+  if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
+  const filepath = path.join(userDir, filename);
 
   await pipeline(fileStream, fs.createWriteStream(filepath));
 
@@ -40,23 +43,14 @@ export async function saveFile(
 
   const scanResult = await scanFile(filepath);
   if (!scanResult.clean) {
-    fs.unlinkSync(filepath); // delete the infected file
+    fs.unlinkSync(filepath);
     throw new Error(`Virus detected: ${scanResult.viruses.join(", ")}`);
   }
 
-  //    console.log("File uploaded:", {
-  //    originalName,
-  //    storedName: filename,
-  //    path: filepath,
-  //    size: stats.size,
-  //    mimeType,
-  //    createdAt: new Date().toISOString(),
-  //  });
-
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO files (filename, original_name, path, size, mime_type, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      [filename, originalName, filepath, stats.size, mimeType, new Date().toISOString()],
+      `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [filename, originalName, filepath, stats.size, mimeType, userId ?? null, new Date().toISOString()],
       (err) => {
         if (err) reject(err);
         else resolve(filepath);
