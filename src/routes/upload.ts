@@ -3,9 +3,10 @@ import { nanoid } from "nanoid";
 import path from "path";
 import { BASE_URL } from "../config/index.js";
 import { saveFile, validateFile, sanitizeFilename } from "../services/fileService.js";
+import { requireAuth } from "./auth.js";
 
 export async function uploadRoutes(app: FastifyInstance) {
-  app.post("/upload", async (request, reply) => {
+  app.post("/upload", { preHandler: [requireAuth] }, async (request, reply) => {
     const file = await request.file();
 
     if (!file) {
