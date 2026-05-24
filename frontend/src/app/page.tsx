@@ -1,0 +1,173 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+
+const API = "http://localhost:3000";
+
+interface FileInfo {
+  id: number;
+  filename: string;
+  original_name: string;
+  size: number;
+  mime_type: string;
+  created_at: string;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString();
+}
+
+export default function Home() {
+  const [files, setFiles] = useState<FileInfo[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchFiles = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/files`);
+      if (res.ok) setFiles(await res.json());
+    } catch {
+      // backend not running — ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  async function upload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const res = await fetch(`${API}/upload`, { method: "POST", body: form });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+
+      await fetchFiles();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) upload(file);
+  }
+
+  async function copyLink(filename: string, id: number) {
+    await navigator.clipboard.writeText(`${API}/file/${filename}`);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  return (
+    <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+      {/* Header */}
+      <header className="w-full max-w-2xl pt-12 pb-6 px-4">
+        <h1 className="text-2xl font-semibold tracking-tight">📁 FileDrop</h1>
+        <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
+      </header>
+
+      {/* Upload zone */}
+      <div className="w-full max-w-2xl px-4 mb-8">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`
+            relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed
+            cursor-pointer transition-all select-none
+            ${dragOver
+              ? "border-blue-400 bg-blue-500/10"
+              : "border-zinc-700 hover:border-zinc-500 bg-zinc-900"
+            }
+            ${uploading ? "pointer-events-none opacity-50" : ""}
+          `}
+        >
+          {uploading ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-zinc-400">Uploading...</span>
+            </div>
+          ) : (
+            <>
+              <svg className="w-8 h-8 mb-2 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
+            </>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) upload(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        {error && (
+          <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* File list */}
+      <div className="w-full max-w-2xl px-4 pb-16">
+        <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
+          Recent files ({files.length})
+        </h2>
+
+        {files.length === 0 ? (
+          <p className="text-sm text-zinc-600">No files uploaded yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {files.map((f) => (
+              <li
+                key={f.id}
+                className="flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-200 truncate">
+                    {f.original_name}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {formatSize(f.size)} · {formatDate(f.created_at)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => copyLink(f.filename, f.id)}
+                  className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                >
+                  {copiedId === f.id ? "Copied!" : "Copy link"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
