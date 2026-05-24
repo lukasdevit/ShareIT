@@ -29,6 +29,7 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFiles = useCallback(async () => {
@@ -75,6 +76,24 @@ export default function Home() {
     await navigator.clipboard.writeText(`${API}/file/${filename}`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function handleDelete(id: number) {
+    if (deletingId === id) {
+      // Confirm delete
+      try {
+        const res = await fetch(`${API}/file/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Delete failed");
+        setFiles((prev) => prev.filter((f) => f.id !== id));
+      } catch (e) {
+        setError((e as Error).message);
+      }
+      setDeletingId(null);
+    } else {
+      // First click — ask for confirmation
+      setDeletingId(id);
+      setTimeout(() => setDeletingId(null), 4000);
+    }
   }
 
   return (
@@ -157,12 +176,24 @@ export default function Home() {
                     {formatSize(f.size)} · {formatDate(f.created_at)}
                   </p>
                 </div>
-                <button
-                  onClick={() => copyLink(f.filename, f.id)}
-                  className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-                >
-                  {copiedId === f.id ? "Copied!" : "Copy link"}
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => copyLink(f.filename, f.id)}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                  >
+                    {copiedId === f.id ? "Copied!" : "Copy link"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(f.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      deletingId === f.id
+                        ? "bg-red-600 hover:bg-red-500 text-white"
+                        : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"
+                    }`}
+                  >
+                    {deletingId === f.id ? "Confirm?" : "Delete"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

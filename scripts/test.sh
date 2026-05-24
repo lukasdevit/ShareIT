@@ -63,6 +63,25 @@ else
   echo "  ⚠ No files to test serving — upload one first"
 fi
 
+# -------------------- Test 7: Delete file --------------------
+bold "Test 7 — DELETE /file/:id"
+if [ "$FILE_COUNT" -gt 0 ]; then
+  FIRST_ID=$(echo "$BODY" | grep -oP '"id":\K\d+' | head -1)
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/file/$FIRST_ID")
+  assert_status "delete file id=$FIRST_ID" 200 "$HTTP"
+
+  # Verify it's gone
+  VERIFY=$(curl -s "$BASE/files" | grep -c "\"id\":$FIRST_ID" || true)
+  if [ "$VERIFY" -eq 0 ]; then
+    green "  ✓ file removed from list"
+  else
+    red "  ✗ file still in list after delete"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  echo "  ⚠ No files to test delete — upload one first"
+fi
+
 # -------------------- Cleanup --------------------
 rm -f /tmp/test_allowed.txt /tmp/test_blocked.exe /tmp/eicar.txt
 

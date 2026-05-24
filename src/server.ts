@@ -20,8 +20,8 @@ app.register(multipart, { limits: { fileSize: 1 * 1024 * 1024 * 1024 } });
 app.register(staticPlugin, { root: UPLOAD_DIR, prefix: "/file/" });
 
 app.register(rateLimit, { max: RATE_LIMIT.max, timeWindow: RATE_LIMIT.timeWindow });
-app.register(helmet);
-app.register(cors, { origin: true });
+app.register(helmet, { crossOriginResourcePolicy: { policy: "cross-origin" } });
+app.register(cors, { origin: true, methods: ["GET", "POST", "DELETE", "OPTIONS"] });
 
 app.register(uploadRoutes);
 app.register(filesRoutes);
