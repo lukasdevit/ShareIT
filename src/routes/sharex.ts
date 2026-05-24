@@ -31,14 +31,14 @@ export async function sharexRoutes(app: FastifyInstance) {
   // Config generator for ShareX
   app.get("/sharex/config", async (_request, reply) => {
     const config = {
+      Version: "17.0.0",
       Name: "ShareIT",
-      DestinationType: "ImageUploader, FileUploader",
-      RequestType: "POST",
+      DestinationType: "ImageUploader,FileUploader",
+      RequestMethod: "POST",
       RequestURL: `${BASE_URL}/sharex/upload`,
       FileFormName: "file",
-      ResponseType: "Text",
-      URL: "$json:url$",
-      Headers: {},
+      Body: "MultipartFormData",
+      URL: "{json:url}",
     };
 
     return reply

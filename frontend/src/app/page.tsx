@@ -122,7 +122,16 @@ export default function Home() {
         <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
         <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
         <button
-          onClick={() => { window.open(`${API}/sharex/config`, "_blank"); }}
+          onClick={async () => {
+            const res = await fetch(`${API}/sharex/config`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "ShareIT.sxcu";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
           className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
         >
           ⬇ Download ShareX Config
