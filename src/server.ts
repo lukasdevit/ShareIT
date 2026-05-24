@@ -8,6 +8,7 @@ import fs from "fs";
 import { PORT, UPLOAD_DIR, RATE_LIMIT } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
+import { sharexRoutes } from "./routes/sharex.js";
 import { initScanner } from "./services/scanService.js";
 
 const app = Fastify({ logger: true });
@@ -20,11 +21,12 @@ app.register(multipart, { limits: { fileSize: 1 * 1024 * 1024 * 1024 } });
 app.register(staticPlugin, { root: UPLOAD_DIR, prefix: "/file/" });
 
 app.register(rateLimit, { max: RATE_LIMIT.max, timeWindow: RATE_LIMIT.timeWindow });
-app.register(helmet);
-app.register(cors, { origin: true });
+app.register(helmet, { crossOriginResourcePolicy: { policy: "cross-origin" } });
+app.register(cors, { origin: true, methods: ["GET", "POST", "DELETE", "OPTIONS"] });
 
 app.register(uploadRoutes);
 app.register(filesRoutes);
+app.register(sharexRoutes);
 
 await initScanner();
 
