@@ -8,6 +8,7 @@ import fs from "fs";
 import { PORT, UPLOAD_DIR, RATE_LIMIT } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
+import { sharexRoutes } from "./routes/sharex.js";
 import { initScanner } from "./services/scanService.js";
 
 const app = Fastify({ logger: true });
@@ -25,6 +26,7 @@ app.register(cors, { origin: true, methods: ["GET", "POST", "DELETE", "OPTIONS"]
 
 app.register(uploadRoutes);
 app.register(filesRoutes);
+app.register(sharexRoutes);
 
 await initScanner();
 

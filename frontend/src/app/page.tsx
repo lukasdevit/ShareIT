@@ -121,6 +121,12 @@ export default function Home() {
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
         <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
         <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
+        <button
+          onClick={() => { window.open(`${API}/sharex/config`, "_blank"); }}
+          className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+        >
+          ⬇ Download ShareX Config
+        </button>
       </header>
 
       {/* Upload zone */}
