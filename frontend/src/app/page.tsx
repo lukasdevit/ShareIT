@@ -27,6 +27,10 @@ function isImage(mime: string): boolean {
   return mime.startsWith("image/");
 }
 
+function isText(mime: string): boolean {
+  return mime.startsWith("text/") || mime === "application/json" || mime === "application/xml" || mime.endsWith("+xml") || mime === "application/javascript";
+}
+
 export default function Home() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -35,21 +39,25 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [viewingFile, setViewingFile] = useState<FileInfo | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imageFiles = files.filter((f) => isImage(f.mime_type));
 
   // Keyboard: close lightbox on Escape, arrow keys to navigate
   useEffect(() => {
-    if (lightboxIndex === null) return;
+    if (lightboxIndex === null && viewingFile === null) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setLightboxIndex(null);
-      if (e.key === "ArrowLeft") setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1));
-      if (e.key === "ArrowRight") setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1));
+      if (e.key === "Escape") { setLightboxIndex(null); setViewingFile(null); setFileContent(null); }
+      if (lightboxIndex !== null) {
+        if (e.key === "ArrowLeft") setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1));
+        if (e.key === "ArrowRight") setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1));
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxIndex, imageFiles.length]);
+  }, [lightboxIndex, viewingFile, imageFiles.length]);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -63,6 +71,17 @@ export default function Home() {
   useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  async function openViewer(file: FileInfo) {
+    setViewingFile(file);
+    setFileContent(null);
+    try {
+      const res = await fetch(`${API}/file/${file.filename}`);
+      setFileContent(await res.text());
+    } catch {
+      setFileContent("Failed to load file.");
+    }
+  }
 
   async function upload(file: File) {
     setUploading(true);
@@ -254,7 +273,8 @@ export default function Home() {
                   {others.map((f) => (
                     <li
                       key={f.id}
-                      className="flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+                      className={`flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors ${isText(f.mime_type) ? "cursor-pointer" : ""}`}
+                      onClick={() => isText(f.mime_type) && openViewer(f)}
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-zinc-200 truncate">
@@ -305,7 +325,6 @@ export default function Home() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
             onClick={() => setLightboxIndex(null)}
           >
-            {/* Close button */}
             <button
               className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
               onClick={() => setLightboxIndex(null)}
@@ -314,8 +333,6 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-
-            {/* Prev arrow */}
             {lightboxIndex > 0 && (
               <button
                 className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
@@ -326,8 +343,6 @@ export default function Home() {
                 </svg>
               </button>
             )}
-
-            {/* Next arrow */}
             {lightboxIndex < imageFiles.length - 1 && (
               <button
                 className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
@@ -338,16 +353,12 @@ export default function Home() {
                 </svg>
               </button>
             )}
-
-            {/* Preload adjacent images */}
             {lightboxIndex > 0 && (
               <img src={`${API}/file/${imageFiles[lightboxIndex - 1].filename}`} className="hidden" />
             )}
             {lightboxIndex < imageFiles.length - 1 && (
               <img src={`${API}/file/${imageFiles[lightboxIndex + 1].filename}`} className="hidden" />
             )}
-
-            {/* Image with fade-in */}
             <img
               key={img.filename}
               src={`${API}/file/${img.filename}`}
@@ -356,8 +367,6 @@ export default function Home() {
               onLoad={(e) => (e.currentTarget.style.opacity = "1")}
               onClick={(e) => e.stopPropagation()}
             />
-
-            {/* Info bar */}
             <div
               className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent"
               onClick={(e) => e.stopPropagation()}
@@ -392,6 +401,53 @@ export default function Home() {
           </div>
         );
       })()}
+
+      {/* Text viewer */}
+      {viewingFile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => { setViewingFile(null); setFileContent(null); }}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[85vh] mx-4 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-200 truncate">{viewingFile.original_name}</p>
+                <p className="text-xs text-zinc-500">{formatSize(viewingFile.size)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => copyLink(viewingFile.filename, viewingFile.id)}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                >
+                  {copiedId === viewingFile.id ? "Copied!" : "Copy link"}
+                </button>
+                <button
+                  onClick={() => { setViewingFile(null); setFileContent(null); }}
+                  className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className="overflow-auto max-h-[70vh]">
+              {fileContent === null ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{fileContent}</pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
