@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fs from "fs";
 import { db } from "../db/database.js";
+import { requireAuth } from "./auth.js";
 
 export async function filesRoutes(app: FastifyInstance) {
   app.get("/files", async (_request, reply) => {
@@ -16,7 +17,7 @@ export async function filesRoutes(app: FastifyInstance) {
     });
   });
 
-  app.delete("/file/:id", async (request, reply) => {
+  app.delete("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     return new Promise((resolve) => {

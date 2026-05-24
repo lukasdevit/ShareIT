@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { marked } from "marked";
 
 const API = "http://localhost:3000";
 
@@ -32,6 +33,13 @@ function isText(mime: string): boolean {
 }
 
 export default function Home() {
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: number; username: string } | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authUser, setAuthUser] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -44,6 +52,39 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imageFiles = files.filter((f) => isImage(f.mime_type));
+
+  // Auth helper
+  function authHeaders(): Record<string, string> {
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function apiFetch(path: string, options?: RequestInit) {
+    return fetch(`${API}${path}`, {
+      ...options,
+      headers: { ...authHeaders(), ...(options?.headers || {}) },
+    });
+  }
+
+  // Init auth from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("shareit_token");
+    if (saved) setToken(saved);
+  }, []);
+
+  // Verify token on load
+  useEffect(() => {
+    if (!token) { setUser(null); return; }
+    apiFetch("/auth/me").then(async (r) => {
+      if (r.ok) {
+        const data = await r.json();
+        setUser(data.user);
+        localStorage.setItem("shareit_token", token);
+      } else {
+        setToken(null);
+        localStorage.removeItem("shareit_token");
+      }
+    });
+  }, [token]);
 
   // Keyboard: close lightbox on Escape, arrow keys to navigate
   useEffect(() => {
@@ -63,14 +104,33 @@ export default function Home() {
     try {
       const res = await fetch(`${API}/files`);
       if (res.ok) setFiles(await res.json());
-    } catch {
-      // backend not running — ignore
-    }
+    } catch { /* backend not running */ }
   }, []);
 
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
+  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthError(null);
+    try {
+      const res = await fetch(`${API}/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: authUser, password: authPass }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem("shareit_token", data.token);
+      setAuthUser(""); setAuthPass("");
+    } catch (e) { setAuthError((e as Error).message); }
+  }
+
+  function logout() {
+    setToken(null); setUser(null);
+    localStorage.removeItem("shareit_token");
+  }
 
   async function openViewer(file: FileInfo) {
     setViewingFile(file);
@@ -89,12 +149,9 @@ export default function Home() {
     try {
       const form = new FormData();
       form.append("file", file);
-
-      const res = await fetch(`${API}/upload`, { method: "POST", body: form });
+      const res = await apiFetch("/upload", { method: "POST", body: form });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || "Upload failed");
-
       await fetchFiles();
     } catch (e) {
       setError((e as Error).message);
@@ -120,7 +177,7 @@ export default function Home() {
     if (deletingId === id) {
       // Confirm delete
       try {
-        const res = await fetch(`${API}/file/${id}`, { method: "DELETE" });
+        const res = await apiFetch(`/file/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Delete failed");
         setFiles((prev) => prev.filter((f) => f.id !== id));
       } catch (e) {
@@ -138,17 +195,54 @@ export default function Home() {
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
       {/* Header */}
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
-        <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
-        <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
+            <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
+          </div>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-zinc-400">👤 {user.username}</span>
+              <button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">
+                Logout
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleAuth} className="flex items-center gap-2">
+              <input
+                value={authUser}
+                onChange={(e) => setAuthUser(e.target.value)}
+                placeholder="Username"
+                className="w-24 px-2 py-1 rounded-md text-xs bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
+              />
+              <input
+                type="password"
+                value={authPass}
+                onChange={(e) => setAuthPass(e.target.value)}
+                placeholder="Password"
+                className="w-24 px-2 py-1 rounded-md text-xs bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
+              />
+              <button type="submit" className="px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+                {authMode === "login" ? "Login" : "Register"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(null); }}
+                className="text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                {authMode === "login" ? "Sign up" : "Sign in"}
+              </button>
+            </form>
+          )}
+        </div>
+        {authError && <p className="mt-2 text-xs text-red-400">{authError}</p>}
         <button
           onClick={async () => {
             const res = await fetch(`${API}/sharex/config`);
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
-            a.download = "ShareIT.sxcu";
-            a.click();
+            a.href = url; a.download = "ShareIT.sxcu"; a.click();
             URL.revokeObjectURL(url);
           }}
           className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
@@ -441,6 +535,11 @@ export default function Home() {
                 <div className="flex items-center justify-center h-32">
                   <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
                 </div>
+              ) : viewingFile.mime_type === "text/markdown" || viewingFile.original_name.endsWith(".md") ? (
+                <div
+                  className="p-4 text-sm text-zinc-300 markdown-body"
+                  dangerouslySetInnerHTML={{ __html: marked.parse(fileContent) as string }}
+                />
               ) : (
                 <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{fileContent}</pre>
               )}
