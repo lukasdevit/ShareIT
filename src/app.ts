@@ -16,7 +16,16 @@ export interface AppOptions {
 }
 
 export async function buildApp(opts: AppOptions = {}) {
-  const app = Fastify({ logger: opts.logger ?? false });
+  const app = Fastify({
+    logger: opts.logger
+      ? {
+          transport: {
+            target: "pino-pretty",
+            options: { colorize: true, translateTime: "HH:MM:ss" },
+          },
+        }
+      : false,
+  });
 
   if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });

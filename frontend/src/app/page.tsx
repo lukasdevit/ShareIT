@@ -197,7 +197,7 @@ export default function Home() {
         {user && (
           <button
             onClick={async () => {
-              const res = await fetch(`${API}/sharex/config`);
+              const res = await apiFetch("/sharex/config");
               const blob = await res.blob();
               const a = document.createElement("a");
               a.href = URL.createObjectURL(blob);
