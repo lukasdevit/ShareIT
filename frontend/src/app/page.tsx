@@ -53,7 +53,6 @@ export default function Home() {
 
   const imageFiles = files.filter((f) => isImage(f.mime_type));
 
-  // Auth helper
   function authHeaders(): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
@@ -65,19 +64,16 @@ export default function Home() {
     });
   }
 
-  // Init auth from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("shareit_token");
     if (saved) setToken(saved);
   }, []);
 
-  // Verify token on load
   useEffect(() => {
     if (!token) { setUser(null); return; }
     apiFetch("/auth/me").then(async (r) => {
       if (r.ok) {
-        const data = await r.json();
-        setUser(data.user);
+        setUser((await r.json()).user);
         localStorage.setItem("shareit_token", token);
       } else {
         setToken(null);
@@ -86,7 +82,6 @@ export default function Home() {
     });
   }, [token]);
 
-  // Keyboard: close lightbox on Escape, arrow keys to navigate
   useEffect(() => {
     if (lightboxIndex === null && viewingFile === null) return;
     function onKey(e: KeyboardEvent) {
@@ -101,11 +96,12 @@ export default function Home() {
   }, [lightboxIndex, viewingFile, imageFiles.length]);
 
   const fetchFiles = useCallback(async () => {
+    if (!user) return;
     try {
-      const res = await fetch(`${API}/files`);
+      const res = await apiFetch("/files");
       if (res.ok) setFiles(await res.json());
-    } catch { /* backend not running */ }
-  }, []);
+    } catch { /* ignore */ }
+  }, [user]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
@@ -130,6 +126,7 @@ export default function Home() {
   function logout() {
     setToken(null); setUser(null);
     localStorage.removeItem("shareit_token");
+    setFiles([]);
   }
 
   async function openViewer(file: FileInfo) {
@@ -138,12 +135,10 @@ export default function Home() {
     try {
       const res = await fetch(`${API}/file/${file.filename}`);
       setFileContent(await res.text());
-    } catch {
-      setFileContent("Failed to load file.");
-    }
+    } catch { setFileContent("Failed to load file."); }
   }
 
-  async function upload(file: File) {
+  async function uploadFile(file: File) {
     setUploading(true);
     setError(null);
     try {
@@ -153,18 +148,15 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       await fetchFiles();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setUploading(false);
-    }
+    } catch (e) { setError((e as Error).message); }
+    finally { setUploading(false); }
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) upload(file);
+    if (file) uploadFile(file);
   }
 
   async function copyLink(filename: string, id: number) {
@@ -175,17 +167,13 @@ export default function Home() {
 
   async function handleDelete(id: number) {
     if (deletingId === id) {
-      // Confirm delete
       try {
         const res = await apiFetch(`/file/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Delete failed");
         setFiles((prev) => prev.filter((f) => f.id !== id));
-      } catch (e) {
-        setError((e as Error).message);
-      }
+      } catch (e) { setError((e as Error).message); }
       setDeletingId(null);
     } else {
-      // First click — ask for confirmation
       setDeletingId(id);
       setTimeout(() => setDeletingId(null), 4000);
     }
@@ -193,359 +181,217 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      {/* Header */}
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
             <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
           </div>
-          {user ? (
+          {user && (
             <div className="flex items-center gap-3">
               <span className="text-sm text-zinc-400">👤 {user.username}</span>
-              <button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">
-                Logout
-              </button>
+              <button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">Logout</button>
             </div>
-          ) : (
-            <form onSubmit={handleAuth} className="flex items-center gap-2">
-              <input
-                value={authUser}
-                onChange={(e) => setAuthUser(e.target.value)}
-                placeholder="Username"
-                className="w-24 px-2 py-1 rounded-md text-xs bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
-              />
-              <input
-                type="password"
-                value={authPass}
-                onChange={(e) => setAuthPass(e.target.value)}
-                placeholder="Password"
-                className="w-24 px-2 py-1 rounded-md text-xs bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
-              />
-              <button type="submit" className="px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
-                {authMode === "login" ? "Login" : "Register"}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(null); }}
-                className="text-xs text-zinc-500 hover:text-zinc-300"
-              >
-                {authMode === "login" ? "Sign up" : "Sign in"}
-              </button>
-            </form>
           )}
         </div>
-        {authError && <p className="mt-2 text-xs text-red-400">{authError}</p>}
-        <button
-          onClick={async () => {
-            const res = await fetch(`${API}/sharex/config`);
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = "ShareIT.sxcu"; a.click();
-            URL.revokeObjectURL(url);
-          }}
-          className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-        >
-          ⬇ Download ShareX Config
-        </button>
+        {user && (
+          <button
+            onClick={async () => {
+              const res = await fetch(`${API}/sharex/config`);
+              const blob = await res.blob();
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "ShareIT.sxcu";
+              a.click();
+            }}
+            className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+          >⬇ Download ShareX Config</button>
+        )}
       </header>
 
-      {/* Upload zone */}
-      <div className="w-full max-w-2xl px-4 mb-8">
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`
-            relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed
-            cursor-pointer transition-all select-none
-            ${dragOver
-              ? "border-blue-400 bg-blue-500/10"
-              : "border-zinc-700 hover:border-zinc-500 bg-zinc-900"
-            }
-            ${uploading ? "pointer-events-none opacity-50" : ""}
-          `}
-        >
-          {uploading ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-zinc-400">Uploading...</span>
-            </div>
-          ) : (
-            <>
-              <svg className="w-8 h-8 mb-2 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-              <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
-            </>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) upload(file);
-              e.target.value = "";
-            }}
-          />
+      {!user ? (
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-4 pb-32">
+          <div className="w-full p-6 rounded-xl bg-zinc-900 border border-zinc-800">
+            <h2 className="text-lg font-semibold text-zinc-200 mb-1">
+              {authMode === "login" ? "Welcome back" : "Create account"}
+            </h2>
+            <p className="text-sm text-zinc-500 mb-4">
+              {authMode === "login" ? "Sign in to access your files." : "Register to start uploading."}
+            </p>
+            <form onSubmit={handleAuth} className="space-y-3">
+              <input value={authUser} onChange={(e) => setAuthUser(e.target.value)}
+                placeholder="Username" className="w-full px-3 py-2 rounded-md text-sm bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500" autoFocus />
+              <input type="password" value={authPass} onChange={(e) => setAuthPass(e.target.value)}
+                placeholder="Password" className="w-full px-3 py-2 rounded-md text-sm bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500" />
+              {authError && <p className="text-xs text-red-400">{authError}</p>}
+              <button type="submit" className="w-full py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+                {authMode === "login" ? "Sign in" : "Create account"}
+              </button>
+            </form>
+            <p className="mt-4 text-center text-xs text-zinc-500">
+              {authMode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
+              <button type="button" onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(null); }}
+                className="text-blue-400 hover:underline">
+                {authMode === "login" ? "Sign up" : "Sign in"}
+              </button>
+            </p>
+          </div>
         </div>
-
-        {error && (
-          <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* File list */}
-      {(() => {
-        const images = files.filter((f) => isImage(f.mime_type));
-        const others = files.filter((f) => !isImage(f.mime_type));
-
-        return (
-          <div className="w-full max-w-2xl px-4 pb-16 space-y-8">
-            {/* Image gallery */}
-            {images.length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
-                  Images ({images.length})
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {images.map((f, idx) => (
-                    <div
-                      key={f.id}
-                      onClick={() => setLightboxIndex(idx)}
-                      className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer"
-                    >
-                      <img
-                        src={`${API}/file/${f.filename}`}
-                        alt={f.original_name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
-                        <p className="text-xs text-white truncate">{f.original_name}</p>
-                        <p className="text-xs text-zinc-400">
-                          {formatSize(f.size)} · {formatDate(f.created_at)}
-                        </p>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); copyLink(f.filename, f.id); }}
-                            className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200"
-                          >
-                            {copiedId === f.id ? "Copied!" : "Copy"}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(f.id); }}
-                            className={`px-2 py-0.5 rounded text-xs ${
-                              deletingId === f.id
-                                ? "bg-red-600 text-white"
-                                : "bg-zinc-700 hover:bg-red-800 text-zinc-300"
-                            }`}
-                          >
-                            {deletingId === f.id ? "Confirm?" : "Delete"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Other files */}
-            {others.length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
-                  Files ({others.length})
-                </h2>
-                <ul className="space-y-2">
-                  {others.map((f) => (
-                    <li
-                      key={f.id}
-                      className={`flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors ${isText(f.mime_type) ? "cursor-pointer" : ""}`}
-                      onClick={() => isText(f.mime_type) && openViewer(f)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-200 truncate">
-                          {f.original_name}
-                        </p>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          {formatSize(f.size)} · {formatDate(f.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => copyLink(f.filename, f.id)}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-                        >
-                          {copiedId === f.id ? "Copied!" : "Copy link"}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(f.id)}
-                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                            deletingId === f.id
-                              ? "bg-red-600 hover:bg-red-500 text-white"
-                              : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"
-                          }`}
-                        >
-                          {deletingId === f.id ? "Confirm?" : "Delete"}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Empty state */}
-            {files.length === 0 && (
-              <p className="text-sm text-zinc-600">No files uploaded yet.</p>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Lightbox */}
-      {lightboxIndex !== null && (() => {
-        const img = imageFiles[lightboxIndex];
-        if (!img) return null;
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-            onClick={() => setLightboxIndex(null)}
-          >
-            <button
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-              onClick={() => setLightboxIndex(null)}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            {lightboxIndex > 0 && (
-              <button
-                className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-                onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1)); }}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-            {lightboxIndex < imageFiles.length - 1 && (
-              <button
-                className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-                onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1)); }}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            )}
-            {lightboxIndex > 0 && (
-              <img src={`${API}/file/${imageFiles[lightboxIndex - 1].filename}`} className="hidden" />
-            )}
-            {lightboxIndex < imageFiles.length - 1 && (
-              <img src={`${API}/file/${imageFiles[lightboxIndex + 1].filename}`} className="hidden" />
-            )}
-            <img
-              key={img.filename}
-              src={`${API}/file/${img.filename}`}
-              alt={img.original_name}
-              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg opacity-0 transition-opacity duration-300"
-              onLoad={(e) => (e.currentTarget.style.opacity = "1")}
-              onClick={(e) => e.stopPropagation()}
-            />
+      ) : (
+        <>
+          <div className="w-full max-w-2xl px-4 mb-8">
             <div
-              className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent"
-              onClick={(e) => e.stopPropagation()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${dragOver ? "border-blue-400 bg-blue-500/10" : "border-zinc-700 hover:border-zinc-500 bg-zinc-900"} ${uploading ? "pointer-events-none opacity-50" : ""}`}
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{img.original_name}</p>
-                  <p className="text-xs text-zinc-400">
-                    {formatSize(img.size)} · {formatDate(img.created_at)} · {lightboxIndex + 1}/{imageFiles.length}
-                  </p>
+              {uploading ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-zinc-400">Uploading...</span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => copyLink(img.filename, img.id)}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-                  >
-                    {copiedId === img.id ? "Copied!" : "Copy link"}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(img.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      deletingId === img.id
-                        ? "bg-red-600 text-white"
-                        : "bg-zinc-800 hover:bg-red-800 text-zinc-300"
-                    }`}
-                  >
-                    {deletingId === img.id ? "Confirm?" : "Delete"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Text viewer */}
-      {viewingFile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => { setViewingFile(null); setFileContent(null); }}
-        >
-          <div
-            className="relative w-full max-w-3xl max-h-[85vh] mx-4 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-200 truncate">{viewingFile.original_name}</p>
-                <p className="text-xs text-zinc-500">{formatSize(viewingFile.size)}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => copyLink(viewingFile.filename, viewingFile.id)}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-                >
-                  {copiedId === viewingFile.id ? "Copied!" : "Copy link"}
-                </button>
-                <button
-                  onClick={() => { setViewingFile(null); setFileContent(null); }}
-                  className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            {/* Content */}
-            <div className="overflow-auto max-h-[70vh]">
-              {fileContent === null ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : viewingFile.mime_type === "text/markdown" || viewingFile.original_name.endsWith(".md") ? (
-                <div
-                  className="p-4 text-sm text-zinc-300 markdown-body"
-                  dangerouslySetInnerHTML={{ __html: marked.parse(fileContent) as string }}
-                />
               ) : (
-                <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{fileContent}</pre>
+                <>
+                  <svg className="w-8 h-8 mb-2 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
+                </>
               )}
+              <input ref={fileInputRef} type="file" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }} />
             </div>
+            {error && <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
           </div>
-        </div>
+
+          {(() => {
+            const images = files.filter((f) => isImage(f.mime_type));
+            const others = files.filter((f) => !isImage(f.mime_type));
+            return (
+              <div className="w-full max-w-2xl px-4 pb-16 space-y-8">
+                {images.length > 0 && (
+                  <section>
+                    <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Images ({images.length})</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {images.map((f, idx) => (
+                        <div key={f.id} onClick={() => setLightboxIndex(idx)}
+                          className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer">
+                          <img src={`${API}/file/${f.filename}`} alt={f.original_name} className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
+                            <p className="text-xs text-white truncate">{f.original_name}</p>
+                            <p className="text-xs text-zinc-400">{formatSize(f.size)} · {formatDate(f.created_at)}</p>
+                            <div className="flex gap-1 mt-1">
+                              <button onClick={(e) => { e.stopPropagation(); copyLink(f.filename, f.id); }}
+                                className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200">{copiedId === f.id ? "Copied!" : "Copy"}</button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(f.id); }}
+                                className={`px-2 py-0.5 rounded text-xs ${deletingId === f.id ? "bg-red-600 text-white" : "bg-zinc-700 hover:bg-red-800 text-zinc-300"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {others.length > 0 && (
+                  <section>
+                    <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Files ({others.length})</h2>
+                    <ul className="space-y-2">
+                      {others.map((f) => (
+                        <li key={f.id}
+                          className={`flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors ${isText(f.mime_type) ? "cursor-pointer" : ""}`}
+                          onClick={() => isText(f.mime_type) && openViewer(f)}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-zinc-200 truncate">{f.original_name}</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">{formatSize(f.size)} · {formatDate(f.created_at)}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button onClick={() => copyLink(f.filename, f.id)}
+                              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">{copiedId === f.id ? "Copied!" : "Copy link"}</button>
+                            <button onClick={() => handleDelete(f.id)}
+                              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${deletingId === f.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                {files.length === 0 && <p className="text-sm text-zinc-600">No files uploaded yet.</p>}
+              </div>
+            );
+          })()}
+
+          {lightboxIndex !== null && (() => {
+            const img = imageFiles[lightboxIndex];
+            if (!img) return null;
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={() => setLightboxIndex(null)}>
+                <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" onClick={() => setLightboxIndex(null)}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                {lightboxIndex > 0 && (
+                  <button className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1)); }}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                )}
+                {lightboxIndex < imageFiles.length - 1 && (
+                  <button className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => Math.min(imageFiles.length - 1, (i ?? 0) + 1)); }}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                )}
+                {lightboxIndex > 0 && <img src={`${API}/file/${imageFiles[lightboxIndex - 1].filename}`} className="hidden" />}
+                {lightboxIndex < imageFiles.length - 1 && <img src={`${API}/file/${imageFiles[lightboxIndex + 1].filename}`} className="hidden" />}
+                <img key={img.filename} src={`${API}/file/${img.filename}`} alt={img.original_name}
+                  className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg opacity-0 transition-opacity duration-300"
+                  onLoad={(e) => (e.currentTarget.style.opacity = "1")} onClick={(e) => e.stopPropagation()} />
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{img.original_name}</p>
+                      <p className="text-xs text-zinc-400">{formatSize(img.size)} · {formatDate(img.created_at)} · {lightboxIndex + 1}/{imageFiles.length}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => copyLink(img.filename, img.id)} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">{copiedId === img.id ? "Copied!" : "Copy link"}</button>
+                      <button onClick={() => handleDelete(img.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${deletingId === img.id ? "bg-red-600 text-white" : "bg-zinc-800 hover:bg-red-800 text-zinc-300"}`}>{deletingId === img.id ? "Confirm?" : "Delete"}</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {viewingFile && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={() => { setViewingFile(null); setFileContent(null); }}>
+              <div className="relative w-full max-w-3xl max-h-[85vh] mx-4 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-200 truncate">{viewingFile.original_name}</p>
+                    <p className="text-xs text-zinc-500">{formatSize(viewingFile.size)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => copyLink(viewingFile.filename, viewingFile.id)} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">{copiedId === viewingFile.id ? "Copied!" : "Copy link"}</button>
+                    <button onClick={() => { setViewingFile(null); setFileContent(null); }} className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-auto max-h-[70vh]">
+                  {fileContent === null ? (
+                    <div className="flex items-center justify-center h-32"><div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" /></div>
+                  ) : viewingFile.mime_type === "text/markdown" || viewingFile.original_name.endsWith(".md") ? (
+                    <div className="p-4 text-sm text-zinc-300 markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(fileContent) as string }} />
+                  ) : (
+                    <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{fileContent}</pre>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
