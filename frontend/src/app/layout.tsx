@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FileDrop",
+  title: "ShareIT",
   description: "Upload & share files instantly",
 };
 
