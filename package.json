@@ -27,6 +27,7 @@
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "@types/clamscan": "^2.4.1",
     "@types/node": "^25.9.1",
     "@types/sqlite3": "^5.1.0",
     "tsx": "^4.22.3",

@@ -3,6 +3,8 @@ import path from "path";
 import { pipeline } from "stream/promises";
 import { db } from "../db/database.js";
 import { UPLOAD_DIR } from "../config/index.js";
+import { ALLOWED_MIME_TYPES } from "../config/index.js";
+import { scanFile } from "./scanService.js";
 
 export async function saveFile(
   fileStream: NodeJS.ReadableStream,
@@ -16,14 +18,20 @@ export async function saveFile(
 
   const stats = fs.statSync(filepath);
 
-//    console.log("File uploaded:", {
-//    originalName,
-//    storedName: filename,
-//    path: filepath,
-//    size: stats.size,
-//    mimeType,
-//    createdAt: new Date().toISOString(),
-//  });
+  const scanResult = await scanFile(filepath);
+  if (!scanResult.clean) {
+    fs.unlinkSync(filepath); // delete the infected file
+    throw new Error(`Virus detected: ${scanResult.viruses.join(", ")}`);
+  }
+
+  //    console.log("File uploaded:", {
+  //    originalName,
+  //    storedName: filename,
+  //    path: filepath,
+  //    size: stats.size,
+  //    mimeType,
+  //    createdAt: new Date().toISOString(),
+  //  });
 
   return new Promise((resolve, reject) => {
     db.run(
@@ -35,4 +43,11 @@ export async function saveFile(
       }
     );
   });
+}
+
+export function validateFile(mimeType: string, originalName: string): string | null {
+  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+    return `File type "${mimeType}" is not allowed`;
+  }
+  return null; // null = valid
 }
