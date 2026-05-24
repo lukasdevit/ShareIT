@@ -332,11 +332,6 @@ export default function Home() {
               <img src={`${API}/file/${imageFiles[lightboxIndex + 1].filename}`} className="hidden" />
             )}
 
-            {/* Loading spinner */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-8 h-8 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-
             {/* Image with fade-in */}
             <img
               key={img.filename}
