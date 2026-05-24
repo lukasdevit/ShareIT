@@ -5,7 +5,8 @@
   "description": "Custom file viewer and uploader.",
   "main": "index.js",
   "scripts": {
-    "test": "bash scripts/test.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev": "tsx watch src/server.ts",
     "dev:all": "concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\""
   },
@@ -38,8 +39,11 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "@types/sqlite3": "^5.1.0",
+    "@types/supertest": "^7.2.0",
     "concurrently": "^9.2.1",
+    "supertest": "^7.2.2",
     "tsx": "^4.22.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }

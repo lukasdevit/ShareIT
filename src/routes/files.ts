@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import fs from "fs";
-import path from "path";
 import { db } from "../db/database.js";
 import { requireAuth } from "./auth.js";
 

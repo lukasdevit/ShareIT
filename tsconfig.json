@@ -44,6 +44,10 @@
   "exclude": [
     "frontend",
     "dist",
-    "node_modules"
+    "node_modules",
+    "vitest.config.ts",
+    "*.config.ts",
+    "*.config.js",
+    "*.config.mjs"
   ]
 }
