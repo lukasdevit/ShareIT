@@ -9,10 +9,11 @@ const BCRYPT_ROUNDS = 10;
 interface JwtPayload {
   id: number;
   username: string;
+  isAdmin: boolean;
 }
 
-function signToken(userId: number, username: string): string {
-  return jwt.sign({ id: userId, username }, JWT_SECRET, { expiresIn: "7d" });
+function signToken(userId: number, username: string, isAdmin: boolean): string {
+  return jwt.sign({ id: userId, username, isAdmin }, JWT_SECRET, { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
@@ -35,6 +36,15 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   const payload = verifyToken(token);
   if (!payload) return reply.code(401).send({ error: "Invalid or expired token" });
   (request as any).user = payload;
+}
+
+export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
+  await requireAuth(request, reply);
+  if (reply.sent) return;
+  const user = (request as any).user as JwtPayload;
+  if (!user.isAdmin) {
+    return reply.code(403).send({ error: "Admin only" });
+  }
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -63,8 +73,8 @@ export async function authRoutes(app: FastifyInstance) {
               reply.code(500).send({ error: err.message });
             }
           } else {
-            const token = signToken(this.lastID, username);
-            reply.send({ token, user: { id: this.lastID, username } });
+            const token = signToken(this.lastID, username, false);
+            reply.send({ token, user: { id: this.lastID, username, isAdmin: false } });
           }
           resolve(undefined);
         }
@@ -82,9 +92,9 @@ export async function authRoutes(app: FastifyInstance) {
 
     return new Promise((resolve) => {
       db.get(
-        `SELECT id, username, password_hash FROM users WHERE username = ?`,
+        `SELECT id, username, password_hash, is_admin FROM users WHERE username = ?`,
         [username],
-        async (err, row: { id: number; username: string; password_hash: string } | undefined) => {
+        async (err, row: { id: number; username: string; password_hash: string; is_admin: number } | undefined) => {
           if (err) {
             reply.code(500).send({ error: err.message });
             resolve(undefined);
@@ -103,8 +113,9 @@ export async function authRoutes(app: FastifyInstance) {
             return;
           }
 
-          const token = signToken(row.id, row.username);
-          reply.send({ token, user: { id: row.id, username: row.username } });
+          const isAdmin = row.is_admin === 1;
+          const token = signToken(row.id, row.username, isAdmin);
+          reply.send({ token, user: { id: row.id, username: row.username, isAdmin } });
           resolve(undefined);
         }
       );
@@ -114,6 +125,85 @@ export async function authRoutes(app: FastifyInstance) {
   // Current user
   app.get("/auth/me", { preHandler: [requireAuth] }, async (request, reply) => {
     const user = (request as any).user as JwtPayload;
-    return reply.send({ user });
+    return reply.send({ user: { id: user.id, username: user.username, isAdmin: user.isAdmin } });
+  });
+
+  // Change password
+  app.post("/auth/change-password", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = (request as any).user as JwtPayload;
+    const { currentPassword, newPassword } = request.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      return reply.code(400).send({ error: "Current and new password required" });
+    }
+    if (newPassword.length < 6) {
+      return reply.code(400).send({ error: "New password must be at least 6 chars" });
+    }
+
+    return new Promise((resolve) => {
+      db.get(
+        `SELECT password_hash FROM users WHERE id = ?`,
+        [user.id],
+        async (err, row: { password_hash: string } | undefined) => {
+          if (err || !row) {
+            reply.code(err ? 500 : 404).send({ error: err?.message || "User not found" });
+            resolve(undefined);
+            return;
+          }
+
+          const match = await bcrypt.compare(currentPassword, row.password_hash);
+          if (!match) {
+            reply.code(401).send({ error: "Current password is incorrect" });
+            resolve(undefined);
+            return;
+          }
+
+          const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+          db.run(`UPDATE users SET password_hash = ? WHERE id = ?`, [hash, user.id], (err2) => {
+            if (err2) {
+              reply.code(500).send({ error: err2.message });
+            } else {
+              reply.send({ ok: true });
+            }
+            resolve(undefined);
+          });
+        }
+      );
+    });
+  });
+
+  // Storage info
+  app.get("/auth/storage", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = (request as any).user as JwtPayload;
+
+    return new Promise((resolve) => {
+      db.get(
+        `SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?`,
+        [user.id],
+        (err, row: { used: number } | undefined) => {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+            resolve(undefined);
+            return;
+          }
+          const used = row?.used ?? 0;
+          db.get(
+            `SELECT storage_limit FROM users WHERE id = ?`,
+            [user.id],
+            (err2, userRow: { storage_limit: number } | undefined) => {
+              if (err2 || !userRow) {
+                reply.code(err2 ? 500 : 404).send({ error: err2?.message || "User not found" });
+              } else {
+                reply.send({ used, limit: userRow.storage_limit });
+              }
+              resolve(undefined);
+            }
+          );
+        }
+      );
+    });
   });
 }

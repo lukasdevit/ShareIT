@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isImage, isText } from "../lib/utils";
-import type { FileInfo } from "../lib/types";
+import type { FileInfo, UserInfo } from "../lib/types";
 import { LoginForm } from "../components/LoginForm";
 import { UploadZone } from "../components/UploadZone";
 import { ImageGallery } from "../components/ImageGallery";
 import { FileList } from "../components/FileList";
 import { Lightbox } from "../components/Lightbox";
 import { TextViewer } from "../components/TextViewer";
+import { SettingsPage } from "../components/SettingsPage";
 
 const API = "http://localhost:3000";
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<{ id: number; username: string } | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authUser, setAuthUser] = useState("");
   const [authPass, setAuthPass] = useState("");
@@ -29,6 +30,7 @@ export default function Home() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [viewingFile, setViewingFile] = useState<FileInfo | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imageFiles = files.filter((f) => isImage(f.mime_type));
@@ -120,13 +122,14 @@ export default function Home() {
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
         <div className="flex items-center justify-between gap-4">
           <div><h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1><p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p></div>
-          {user && (<div className="flex items-center gap-3"><span className="text-sm text-zinc-400">👤 {user.username}</span><button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">Logout</button></div>)}
+          {user && (<div className="flex items-center gap-3"><span className="text-sm text-zinc-400">👤 {user.username}</span><button onClick={() => setShowSettings(true)} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">⚙️ Settings</button><button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">Logout</button></div>)}
         </div>
-        {user && (<button onClick={async () => { const r = await apiFetch("/sharex/config"); const b = await r.blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "ShareIT.sxcu"; a.click(); }} className="inline-block mt-3 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">⬇ Download ShareX Config</button>)}
       </header>
 
       {!user ? (
         <LoginForm mode={authMode} username={authUser} password={authPass} error={authError} onModeChange={setAuthMode} onUsernameChange={setAuthUser} onPasswordChange={setAuthPass} onSubmit={handleAuth} />
+      ) : showSettings ? (
+        <SettingsPage token={token!} user={user!} apiFetch={apiFetch} onBack={() => setShowSettings(false)} />
       ) : (
         <>
           <UploadZone uploading={uploading} dragOver={dragOver} error={error} fileInputRef={fileInputRef}
