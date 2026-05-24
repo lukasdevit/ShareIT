@@ -15,6 +15,7 @@ db.run(`
   CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
     path TEXT NOT NULL,
     size INTEGER NOT NULL,
     mime_type TEXT NOT NULL,
