@@ -13,6 +13,12 @@ export async function adminDbRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Destructive DDL not allowed" });
     }
 
+    // Block direct user table modifications — use dedicated admin user routes instead
+    const isUserWrite = /\b(DELETE|UPDATE|INSERT|REPLACE)\b/i.test(trimmed) && /\busers\b/i.test(trimmed);
+    if (isUserWrite) {
+      return reply.code(403).send({ error: "Use the Users tab to manage users, not raw SQL" });
+    }
+
     const isRead = /^(SELECT|PRAGMA|EXPLAIN|WITH|DESCRIBE)\b/i.test(trimmed);
     try {
       if (isRead) {
