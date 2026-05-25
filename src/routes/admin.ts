@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAdmin } from "./auth.js";
+import { requireAdmin } from "../middleware/index.js";
 import { adminUserRoutes } from "./admin/users.js";
 import { adminDbRoutes } from "./admin/db.js";
 import { adminStorageRoutes, adminSslRoutes } from "./admin/storage.js";

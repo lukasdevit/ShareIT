@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { dbAll, dbGet } from "./helpers.js";
+import { dbAll, dbGet } from "../../db/index.js";
 
 interface DailyPoint { day: string; count: number; bytes: number; }
 interface TopUser { username: string; files: number; bytes: number; }

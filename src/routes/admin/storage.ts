@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fs from "fs";
 import path from "path";
-import { dbAll, dbGet, dbRun } from "./helpers.js";
+import { dbAll, dbGet, dbRun } from "../../db/index.js";
 import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
 
 async function getOverrides(): Promise<Record<string, string>> {

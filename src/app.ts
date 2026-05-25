@@ -11,6 +11,7 @@ import { sharexRoutes } from "./routes/sharex.js";
 import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { initScanner } from "./services/scanService.js";
+import { runMigrations } from "./db/index.js";
 
 const startTime = Date.now();
 
@@ -69,6 +70,9 @@ export async function buildApp(opts: AppOptions = {}) {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // Run DB schema migrations
+  runMigrations();
 
   // Note: scanner init is skipped in tests automatically (ClamAV not available)
   await initScanner();

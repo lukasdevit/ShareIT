@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
-import { dbAll, dbGet, dbRun, parsePagination, deleteFromStorage } from "./helpers.js";
+import { dbAll, dbGet, dbRun } from "../../db/index.js";
+import { parsePagination, deleteFromStorage } from "../../utils/index.js";
 
 const BCRYPT_ROUNDS = 10;
 

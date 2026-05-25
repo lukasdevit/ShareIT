@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { dbAll, dbGet, dbRun } from "./helpers.js";
+import { dbAll, dbGet, dbRun } from "../../db/index.js";
 
 export async function adminDbRoutes(app: FastifyInstance) {
   app.post("/admin/db", async (request, reply) => {

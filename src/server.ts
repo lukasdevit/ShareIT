@@ -1,6 +1,6 @@
 import { buildApp } from "./app.js";
 import { PORT } from "./config/index.js";
-import { seedAdmin, cleanupExpiredFiles } from "./db/database.js";
+import { seedAdmin, cleanupExpiredFiles } from "./db/index.js";
 
 const app = await buildApp({ logger: true });
 

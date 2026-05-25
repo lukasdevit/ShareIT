@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs";
 import path from "path";
-import { db, dbGet, dbRun } from "../db/database.js";
-import { requireAuth, getTokenFromHeader, verifyToken } from "./auth.js";
-import { getStorage } from "../services/storage.js";
+import { db, dbGet, dbRun } from "../db/index.js";
+import { requireAuth, getTokenFromHeader, verifyToken } from "../middleware/index.js";
+import { getStorage } from "../services/storage/index.js";
+import { deleteFromStorage } from "../utils/index.js";
 import { UPLOAD_DIR } from "../config/index.js";
 
 export async function filesRoutes(app: FastifyInstance) {
@@ -123,7 +124,7 @@ export async function filesRoutes(app: FastifyInstance) {
       if (file.user_id !== userId) return reply.code(403).send({ error: "Not your file" });
 
       try {
-        await deleteFromStorage(file.path, file.storage_backend);
+        await deleteFromStorage(file.path);
       } catch (err) {
         console.error("Storage delete failed:", (err as Error).message);
         // Still delete the DB row — B2 may have retention delay
@@ -138,7 +139,6 @@ export async function filesRoutes(app: FastifyInstance) {
 }
 
 async function resolveReadStream(storageKey: string, backend: string): Promise<NodeJS.ReadableStream> {
-  // Always use local filesystem for local backend
   if (backend === "local") {
     const localPath = path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)
       ? storageKey
@@ -146,19 +146,7 @@ async function resolveReadStream(storageKey: string, backend: string): Promise<N
     if (!fs.existsSync(localPath)) throw new Error("Missing");
     return fs.createReadStream(localPath);
   }
-  // B2 backend
   const storage = getStorage();
   if (!(await storage.exists(storageKey))) throw new Error("Missing");
   return storage.createReadStream(storageKey);
-}
-
-async function deleteFromStorage(storageKey: string, backend: string): Promise<void> {
-  if (backend === "local") {
-    const localPath = path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)
-      ? storageKey
-      : path.join(UPLOAD_DIR, storageKey);
-    try { fs.unlinkSync(localPath); } catch { /* */ }
-    return;
-  }
-  await getStorage().delete(storageKey);
 }

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth, getTokenFromHeader } from "./auth.js";
+import { requireAuth, getTokenFromHeader } from "../middleware/index.js";
 import { handleUpload } from "../services/fileService.js";
 import { BASE_URL } from "../config/index.js";
 
