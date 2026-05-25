@@ -30,9 +30,11 @@ export function ImageGallery({ images, copiedId, deletingId, onCopyLink, onDelet
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
               <p className="text-xs text-white truncate">{f.original_name}</p>
               <p className="text-xs text-zinc-400">{formatSize(f.size)} · {formatDate(f.created_at)}</p>
-              <div className="flex gap-1 mt-1">
+              <div className="flex gap-1 mt-1 flex-wrap">
+                <button onClick={(e) => { e.stopPropagation(); onCopyLink(f.filename, f.id); }}
+                  className="px-2 py-0.5 rounded text-xs bg-blue-600 hover:bg-blue-500 text-white transition-colors">{copiedId === f.id ? "✓ Copied" : "Copy"}</button>
                 <button onClick={(e) => { e.stopPropagation(); onTogglePublic(f.id, !f.is_public); }}
-                  className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200">{f.is_public ? "🌐" : "🔓"}</button>
+                  className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors" title={f.is_public ? "Make private" : "Make public"}>{f.is_public ? "🌐" : "🔒"}</button>
                 <button onClick={(e) => { e.stopPropagation(); onDelete(f.id); }}
                   className={`px-2 py-0.5 rounded text-xs ${deletingId === f.id ? "bg-red-600 text-white" : "bg-zinc-700 hover:bg-red-800 text-zinc-300"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
               </div>

@@ -28,12 +28,12 @@ export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, on
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={(e) => { e.stopPropagation(); onTogglePublic(f.id, !f.is_public); }}
-                className="px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-                title={f.is_public ? "Click to make private" : "Click to make public"}>
+                className="px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-zinc-700"
+                title={f.is_public ? "Make private" : "Make public"}>
                 {f.is_public ? "🌐" : "🔒"}
               </button>
               <button onClick={() => onCopyLink(f.filename, f.id)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">{copiedId === f.id ? "Copied!" : "Copy link"}</button>
+                className="px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">{copiedId === f.id ? "✓ Copied" : "Copy"}</button>
               <button onClick={() => onDelete(f.id)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${deletingId === f.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
             </div>
