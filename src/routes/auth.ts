@@ -132,10 +132,13 @@ export async function authRoutes(app: FastifyInstance) {
             const lockedUntil = newCount >= MAX_FAILED_LOGINS
               ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
               : null;
-            db.run(
-              `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
-              [newCount, lockedUntil, row.id]
-            );
+            await new Promise<void>((res) => {
+              db.run(
+                `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
+                [newCount, lockedUntil, row.id],
+                () => res()
+              );
+            });
             const attemptsLeft = MAX_FAILED_LOGINS - newCount;
             const msg = attemptsLeft > 0
               ? `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining.`
