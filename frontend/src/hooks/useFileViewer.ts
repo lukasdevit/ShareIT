@@ -18,8 +18,7 @@ export function useFileViewer() {
     setViewingFile(file);
     setFileContent(null);
     try {
-      const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-      const r = await fetch(`${base}/file/${file.filename}`);
+      const r = await fetch(`/file/${file.filename}`);
       if (r.ok) setFileContent(await r.text());
       else setFileContent("[Failed to load file content]");
     } catch {

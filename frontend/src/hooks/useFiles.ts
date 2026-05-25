@@ -108,7 +108,7 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   }, [api, fetchFiles, page, search]);
 
   const copyLink = useCallback((filename: string, id: number) => {
-    const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+    const base = typeof window !== "undefined" ? window.location.origin : "";
     navigator.clipboard.writeText(`${base}/file/${filename}`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
