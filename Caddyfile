@@ -2,6 +2,26 @@
   handle /file/* {
     reverse_proxy api:3000
   }
+
+  # GET /files with query params → API (file listing)
+  @filesApi {
+    method GET
+    path /files
+    query page=*
+  }
+  handle @filesApi {
+    reverse_proxy api:3000
+  }
+
+  # POST /files → API (file listing with body, if any)
+  @filesApiPost {
+    method POST
+    path /files
+  }
+  handle @filesApiPost {
+    reverse_proxy api:3000
+  }
+
   handle /upload* {
     reverse_proxy api:3000
   }
@@ -12,6 +32,9 @@
     reverse_proxy api:3000
   }
   handle /admin/* {
+    reverse_proxy api:3000
+  }
+  handle /health* {
     reverse_proxy api:3000
   }
   reverse_proxy web:3000
