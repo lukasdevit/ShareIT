@@ -64,34 +64,75 @@ export async function adminSslRoutes(app: FastifyInstance) {
   app.get("/admin/ssl", async (request, reply) => {
     const domain = process.env.DOMAIN || "localhost";
     const isLocal = domain === "localhost";
-    const proto = (request.headers["x-forwarded-proto"] as string) || "http";
+    const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol || "http";
 
+    // Caddy sets x-forwarded-proto to "https" when it terminates SSL.
+    // In Docker, the API container can't read Caddy's cert store, so we
+    // rely on the header rather than filesystem checks.
+    const sslActive = proto === "https";
+
+    // Try to read cert expiry from Caddy's data directory (best-effort).
+    // This works in non-Docker setups; in Docker it silently fails.
     let certExpiry: string | null = null;
-    let certValid = false;
-    try {
-      const certDir = "/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory";
-      if (fs.existsSync(certDir)) {
-        for (const e of fs.readdirSync(certDir, { withFileTypes: true })) {
-          if (e.isDirectory() && e.name.includes(domain)) {
-            const certPath = path.join(certDir, e.name, `${e.name}.crt`);
-            if (fs.existsSync(certPath)) {
-              certValid = true;
-              try {
-                const { execSync } = await import("child_process");
-                certExpiry = execSync(`openssl x509 -enddate -noout -in "${certPath}" 2>/dev/null`, { encoding: "utf8" }).trim().replace("notAfter=", "");
-              } catch { certExpiry = "Unknown"; }
-            }
-          }
-        }
-      }
-    } catch { /* cert check unavailable */ }
+    if (sslActive) {
+      certExpiry = await tryReadCertExpiry(domain);
+    }
+
+    const managedBy = isLocal
+      ? "None (localhost)"
+      : sslActive
+        ? "Caddy + Let's Encrypt (auto-renewing)"
+        : "Caddy (no certificate detected)";
+
+    const note = isLocal
+      ? "SSL is not available on localhost. Deploy with a real domain to get automatic HTTPS."
+      : sslActive
+        ? "Caddy automatically obtains and renews SSL certificates. No manual configuration needed."
+        : "Caddy is configured but no SSL certificate was detected. Check that port 443 is reachable and DNS points to this server.";
 
     return reply.send({
-      domain, is_local: isLocal, protocol: proto, cert_valid: certValid, cert_expiry: certExpiry,
-      managed_by: isLocal ? "None (localhost)" : "Caddy + Let's Encrypt (auto-renewing)",
-      note: isLocal
-        ? "SSL is not available on localhost. Deploy with a real domain to get automatic HTTPS."
-        : "Caddy automatically obtains and renews SSL certificates. No manual configuration needed.",
+      domain,
+      is_local: isLocal,
+      protocol: proto,
+      cert_valid: sslActive,
+      cert_expiry: certExpiry,
+      managed_by: managedBy,
+      note,
     });
   });
+}
+
+/** Best-effort: try to read the cert expiry from Caddy's cert store. */
+async function tryReadCertExpiry(domain: string): Promise<string | null> {
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const possibleDirs = [
+      "/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory",
+      "/data/caddy/certificates/acme-staging-v02.api.letsencrypt.org-directory",
+      "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory",
+    ];
+
+    for (const certDir of possibleDirs) {
+      if (!fs.existsSync(certDir)) continue;
+      for (const entry of fs.readdirSync(certDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !entry.name.includes(domain)) continue;
+        const certPath = path.join(certDir, entry.name, `${entry.name}.crt`);
+        if (!fs.existsSync(certPath)) continue;
+
+        try {
+          const { execSync } = await import("child_process");
+          return execSync(
+            `openssl x509 -enddate -noout -in "${certPath}" 2>/dev/null`,
+            { encoding: "utf8", timeout: 3000 },
+          ).trim().replace("notAfter=", "");
+        } catch {
+          return "Unknown";
+        }
+      }
+    }
+  } catch {
+    // Cert directory not accessible (expected in Docker)
+  }
+  return null;
 }
