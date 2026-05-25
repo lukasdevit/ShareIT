@@ -153,3 +153,150 @@ describe("GET /auth/me", () => {
     expect(res.body.error).toContain("Invalid");
   });
 });
+
+describe("POST /auth/change-password", () => {
+  let token: string;
+
+  beforeAll(async () => {
+    const res = await request
+      .post("/auth/register")
+      .send({ username: "pwchanger", password: "oldpass123" });
+    token = res.body.token;
+  });
+
+  it("changes password with correct current password", async () => {
+    const res = await request
+      .post("/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ currentPassword: "oldpass123", newPassword: "newpass456" })
+      .expect(200);
+    expect(res.body.ok).toBe(true);
+
+    // Old password should no longer work for login
+    const loginOld = await request
+      .post("/auth/login")
+      .send({ username: "pwchanger", password: "oldpass123" });
+    expect(loginOld.status).toBe(401);
+
+    // New password should work
+    const loginNew = await request
+      .post("/auth/login")
+      .send({ username: "pwchanger", password: "newpass456" });
+    expect(loginNew.status).toBe(200);
+  });
+
+  it("rejects wrong current password", async () => {
+    // Re-register fresh user (token from beforeAll got invalidated by password change)
+    const r = await request
+      .post("/auth/register")
+      .send({ username: "pwchanger2", password: "correct123" });
+    const tok = r.body.token;
+
+    const res = await request
+      .post("/auth/change-password")
+      .set("Authorization", `Bearer ${tok}`)
+      .send({ currentPassword: "wrongpass", newPassword: "newpass456" })
+      .expect(401);
+    expect(res.body.error).toContain("incorrect");
+  });
+
+  it("rejects short new password", async () => {
+    const res = await request
+      .post("/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ currentPassword: "newpass456", newPassword: "12345" })
+      .expect(400);
+    expect(res.body.error).toContain("6 chars");
+  });
+});
+
+describe("GET /auth/storage", () => {
+  let token: string;
+
+  beforeAll(async () => {
+    const res = await request
+      .post("/auth/register")
+      .send({ username: "storageguy", password: "testpass123" });
+    token = res.body.token;
+  });
+
+  it("returns storage info for authenticated user", async () => {
+    const res = await request
+      .get("/auth/storage")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty("used");
+    expect(res.body).toHaveProperty("limit");
+    expect(typeof res.body.used).toBe("number");
+    expect(typeof res.body.limit).toBe("number");
+    // Default limit is 10GB
+    expect(res.body.limit).toBe(10737418240);
+    // New user has 0 used
+    expect(res.body.used).toBe(0);
+  });
+
+  it("rejects unauthenticated", async () => {
+    await request.get("/auth/storage").expect(401);
+  });
+});
+
+describe("Admin access control", () => {
+  let userToken: string;
+  let adminToken: string;
+
+  beforeAll(async () => {
+    const u = await request
+      .post("/auth/register")
+      .send({ username: "regularjoe", password: "testpass123" });
+    userToken = u.body.token;
+
+    const a = await request
+      .post("/auth/register")
+      .send({ username: "adminjane", password: "testpass123" });
+    adminToken = a.body.token;
+
+    // Make adminjane an admin via DB directly
+    const { db } = await import("../db/database.js");
+    await new Promise<void>((resolve) => {
+      db.run(`UPDATE users SET is_admin = 1 WHERE username = ?`, ["adminjane"], () => resolve());
+    });
+    // Re-login to get admin token
+    const relogin = await request
+      .post("/auth/login")
+      .send({ username: "adminjane", password: "testpass123" });
+    adminToken = relogin.body.token;
+  });
+
+  it("regular user cannot access admin routes", async () => {
+    await request
+      .get("/admin/users")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(403);
+  });
+
+  it("admin user can access admin routes", async () => {
+    await request
+      .get("/admin/users")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+  });
+
+  it("/auth/me returns isAdmin for admin user", async () => {
+    const res = await request
+      .get("/auth/me")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.user.isAdmin).toBe(true);
+  });
+
+  it("/auth/me returns isAdmin false for regular user", async () => {
+    const res = await request
+      .get("/auth/me")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(res.body.user.isAdmin).toBe(false);
+  });
+});

@@ -95,13 +95,28 @@ describe("GET /files", () => {
       .expect(401);
   });
 
-  it("returns empty list for new user", async () => {
+  it("returns paginated response structure", async () => {
     const res = await request
       .get("/files")
       .set("Authorization", `Bearer ${userToken}`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveProperty("files");
+    expect(res.body).toHaveProperty("total");
+    expect(res.body).toHaveProperty("page");
+    expect(res.body).toHaveProperty("totalPages");
+    expect(Array.isArray(res.body.files)).toBe(true);
+    expect(res.body.page).toBe(1);
+  });
+
+  it("respects page and limit query params", async () => {
+    const res = await request
+      .get("/files?page=2&limit=10")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(res.body.page).toBe(2);
+    expect(res.body.files.length).toBeLessThanOrEqual(10);
   });
 });
 
@@ -140,5 +155,71 @@ describe("DELETE /file/:id", () => {
       .expect(404);
 
     expect(res.body.error).toContain("not found");
+  });
+
+  it("prevents deleting another user's file", async () => {
+    // Upload a file as fileowner
+    const testFile = path.join(process.cwd(), "src", "tests", "fixtures", "hello.txt");
+    if (!fs.existsSync(testFile)) return;
+
+    const upload = await request
+      .post("/upload")
+      .set("Authorization", `Bearer ${userToken}`)
+      .attach("file", testFile)
+      .expect(200);
+
+    // Extract the file ID from the listing
+    const list = await request
+      .get("/files")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+
+    const fileId = list.body.files[0]?.id;
+    expect(fileId).toBeDefined();
+
+    // Other user tries to delete it
+    const res = await request
+      .delete(`/file/${fileId}`)
+      .set("Authorization", `Bearer ${otherToken}`)
+      .expect(403);
+
+    expect(res.body.error).toContain("Not your file");
+  });
+});
+
+describe("Full upload → list → delete flow", () => {
+  it("upload a file, verify in listing, delete it, verify gone", async () => {
+    const testFile = path.join(process.cwd(), "src", "tests", "fixtures", "hello.txt");
+    if (!fs.existsSync(testFile)) return;
+
+    // Upload
+    const up = await request
+      .post("/upload")
+      .set("Authorization", `Bearer ${userToken}`)
+      .attach("file", testFile)
+      .expect(200);
+    expect(up.body.url).toContain("/file/");
+
+    // Verify in listing
+    const list1 = await request
+      .get("/files")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+    const file = list1.body.files.find((f: any) => f.original_name === "hello.txt");
+    expect(file).toBeDefined();
+
+    // Delete
+    await request
+      .delete(`/file/${file.id}`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+
+    // Verify gone
+    const list2 = await request
+      .get("/files")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+    const stillThere = list2.body.files.find((f: any) => f.id === file.id);
+    expect(stillThere).toBeUndefined();
   });
 });
