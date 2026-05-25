@@ -50,7 +50,7 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: process.env.CORS_ORIGIN || true,
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
   });
 
