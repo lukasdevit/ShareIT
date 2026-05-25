@@ -418,6 +418,61 @@ export async function adminRoutes(app: FastifyInstance) {
         : "Caddy automatically obtains and renews SSL certificates. No manual configuration needed.",
     });
   });
+
+  // Analytics dashboard
+  app.get("/admin/analytics", async (_request, reply) => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    return new Promise((resolve) => {
+      db.get(`SELECT COUNT(*) AS users FROM users`, (errU, usersRow: { users: number } | undefined) => {
+        db.get(`SELECT COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes FROM files`, (errF, filesRow: { files: number; bytes: number } | undefined) => {
+          db.get(`SELECT COUNT(*) AS today FROM files WHERE created_at >= ?`, [today], (errT, todayRow: { today: number } | undefined) => {
+            db.all(
+              `SELECT DATE(created_at) AS day, COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes
+               FROM files WHERE created_at >= ? GROUP BY day ORDER BY day`,
+              [monthAgo],
+              (errD, dailyRows: { day: string; count: number; bytes: number }[] | undefined) => {
+                db.all(
+                  `SELECT u.username, COUNT(f.id) AS files, COALESCE(SUM(f.size), 0) AS bytes
+                   FROM users u LEFT JOIN files f ON f.user_id = u.id
+                   GROUP BY u.id ORDER BY bytes DESC LIMIT 10`,
+                  (errT2, topRows: { username: string; files: number; bytes: number }[] | undefined) => {
+                    db.all(
+                      `SELECT CASE
+                        WHEN mime_type LIKE 'image/%' THEN 'Images'
+                        WHEN mime_type LIKE 'video/%' THEN 'Videos'
+                        WHEN mime_type LIKE 'text/%' OR mime_type IN ('application/json','application/xml','application/javascript') THEN 'Text / Code'
+                        ELSE 'Other'
+                      END AS category, COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes
+                      FROM files GROUP BY category ORDER BY bytes DESC`,
+                      (errC, catRows: { category: string; count: number; bytes: number }[] | undefined) => {
+                        if (errU || errF || errT || errD || errT2 || errC) {
+                          reply.code(500).send({ error: "Query failed" });
+                        } else {
+                          reply.send({
+                            users: usersRow?.users ?? 0,
+                            total_files: filesRow?.files ?? 0,
+                            total_bytes: filesRow?.bytes ?? 0,
+                            uploads_today: todayRow?.today ?? 0,
+                            daily: dailyRows || [],
+                            top_users: topRows || [],
+                            categories: catRows || [],
+                          });
+                        }
+                        resolve(undefined);
+                      }
+                    );
+                  }
+                );
+              }
+            );
+          });
+        });
+      });
+    });
+  });
 }
 
 async function deleteFromStorage(storageKey: string): Promise<void> {
