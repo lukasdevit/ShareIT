@@ -10,10 +10,6 @@ const nextConfig: NextConfig = {
         source: "/file/:filename",
         destination: `${API_URL}/file/:filename`,
       },
-      {
-        source: "/gallery",
-        destination: `${API_URL}/gallery`,
-      },
     ];
   },
 };

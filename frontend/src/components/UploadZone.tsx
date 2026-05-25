@@ -7,14 +7,16 @@ interface Props {
   uploadProgress: number;
   dragOver: boolean;
   error: string | null;
+  expireDays: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onExpireChange: (value: string) => void;
 }
 
-export function UploadZone({ uploading, uploadProgress, dragOver, error, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange }: Props) {
+export function UploadZone({ uploading, uploadProgress, dragOver, error, expireDays, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange, onExpireChange }: Props) {
   return (
     <div className="w-full max-w-2xl px-4 mb-8">
       <div
@@ -48,6 +50,19 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, fileInp
         )}
         <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
       </div>
+      {!uploading && (
+        <select
+          value={expireDays}
+          onChange={(e) => onExpireChange(e.target.value)}
+          className="mt-2 px-3 py-1 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+        >
+          <option value="">No expiration</option>
+          <option value="1">Expires in 1 day</option>
+          <option value="7">Expires in 7 days</option>
+          <option value="30">Expires in 30 days</option>
+          <option value="90">Expires in 90 days</option>
+        </select>
+      )}
       {error && <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
     </div>
   );

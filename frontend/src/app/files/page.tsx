@@ -145,41 +145,24 @@ export default function FilesPage() {
         </div>
       </header>
 
-      <UploadZone uploading={uploading} uploadProgress={uploadProgress} dragOver={dragOver} error={error} fileInputRef={fileInputRef}
+      <UploadZone uploading={uploading} uploadProgress={uploadProgress} dragOver={dragOver} error={error} expireDays={expireDays} onExpireChange={setExpireDays} fileInputRef={fileInputRef}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onFileChange={handleFileChange} />
 
       <div className="w-full max-w-2xl px-4 pb-16 space-y-4">
-        {/* Search & expire row */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); }}
-              onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, search); }}
-              placeholder="Search files..."
-              className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-            {search && (
-              <button onClick={() => { setSearch(""); fetchFiles(1, ""); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
-            )}
-          </div>
-          <select
-            value={expireDays}
-            onChange={(e) => setExpireDays(e.target.value)}
-            className="px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-          >
-            <option value="">No expiration</option>
-            <option value="1">Expires in 1 day</option>
-            <option value="7">Expires in 7 days</option>
-            <option value="30">Expires in 30 days</option>
-            <option value="90">Expires in 90 days</option>
-          </select>
-          <a href="/gallery"
-            className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors flex items-center gap-1 whitespace-nowrap">
-            🖼️ Gallery
-          </a>
+        {/* Search */}
+        <div className="relative">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, search); }}
+            placeholder="Search files..."
+            className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          {search && (
+            <button onClick={() => { setSearch(""); fetchFiles(1, ""); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
+          )}
         </div>
         {imageFiles.length > 0 && <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onTogglePublic={handleTogglePublic} onOpenLightbox={setLightboxIndex} />}
         {(() => {
