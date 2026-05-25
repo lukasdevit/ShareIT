@@ -1,4 +1,4 @@
-name: Tests
+name: Tests & Deploy
 
 on:
   push:
@@ -22,3 +22,22 @@ jobs:
 
       - run: npm ci
       - run: npm test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/projectS
+            git pull origin main
+            sg docker -c "DOMAIN=goletz.dev docker compose up -d --build --remove-orphans"
+            sg docker -c "docker image prune -f"
+            echo "✅ Deploy complete — https://goletz.dev"
