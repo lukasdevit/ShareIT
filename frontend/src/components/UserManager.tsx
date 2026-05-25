@@ -26,17 +26,29 @@ export function UserManager({ apiFetch }: Props) {
   const [editPassword, setEditPassword] = useState("");
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
 
-  async function fetchUsers() {
+  async function fetchUsers(p = 1, s = "") {
     setLoading(true);
     try {
-      const r = await apiFetch("/admin/users");
-      if (r.ok) setUsers(await r.json());
+      const params = new URLSearchParams({ page: String(p), limit: "25" });
+      if (s) params.set("search", s);
+      const r = await apiFetch(`/admin/users?${params.toString()}`);
+      if (r.ok) {
+        const d = await r.json();
+        setUsers(d.users);
+        setPage(d.page);
+        setTotalPages(d.totalPages);
+        setTotal(d.total);
+      }
     } catch { /* */ }
     setLoading(false);
   }
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(1, search); }, []);
 
   function openEdit(u: User) {
     setEditId(u.id);
@@ -70,7 +82,7 @@ export function UserManager({ apiFetch }: Props) {
       if (!r.ok) throw new Error(d.error);
       setMessage({ type: "ok", text: "User updated!" });
       setEditPassword("");
-      await fetchUsers();
+      await fetchUsers(page, search);
     } catch (err) {
       setMessage({ type: "err", text: (err as Error).message });
     }
@@ -83,7 +95,7 @@ export function UserManager({ apiFetch }: Props) {
       if (!r.ok) throw new Error(d.error);
       setDeleteConfirm(null);
       setEditId(null);
-      await fetchUsers();
+      await fetchUsers(page, search);
     } catch (err) {
       setMessage({ type: "err", text: (err as Error).message });
     }
@@ -92,17 +104,36 @@ export function UserManager({ apiFetch }: Props) {
   const totalUsed = users.reduce((sum, u) => sum + u.used, 0);
   const totalFiles = users.reduce((sum, u) => sum + u.file_count, 0);
 
+  function doSearch() {
+    setPage(1);
+    fetchUsers(1, search);
+  }
+
   return (
     <section className="card">
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ Admin Panel</h2>
-        <button onClick={fetchUsers} className="btn-zinc">🔄 Refresh</button>
+        <button onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
       </div>
 
-      <div className="flex gap-4 text-sm text-zinc-400">
-        <span>{users.length} user{users.length !== 1 ? "s" : ""}</span>
-        <span>{totalFiles} file{totalFiles !== 1 ? "s" : ""}</span>
-        <span>{formatSize(totalUsed)} total</span>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") doSearch(); }}
+            placeholder="Search users..."
+            className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          {search && (
+            <button onClick={() => { setSearch(""); fetchUsers(1, ""); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
+          )}
+        </div>
+        <span className="text-xs text-zinc-500 self-center whitespace-nowrap">{total} user{total !== 1 ? "s" : ""} total</span>
+        <span className="text-xs text-zinc-500 self-center whitespace-nowrap">{totalFiles} files</span>
+        <span className="text-xs text-zinc-500 self-center whitespace-nowrap">{formatSize(totalUsed)}</span>
       </div>
 
       {loading ? (
@@ -183,6 +214,16 @@ export function UserManager({ apiFetch }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button onClick={() => fetchUsers(page - 1, search)} disabled={page <= 1}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
+          <span className="text-xs text-zinc-500">Page {page} of {totalPages}</span>
+          <button onClick={() => fetchUsers(page + 1, search)} disabled={page >= totalPages}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
         </div>
       )}
     </section>

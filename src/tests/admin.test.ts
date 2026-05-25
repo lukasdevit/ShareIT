@@ -49,10 +49,13 @@ describe("GET /admin/users", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(res.body.users)).toBe(true);
+    expect(res.body.users.length).toBeGreaterThanOrEqual(2);
+    expect(res.body).toHaveProperty("total");
+    expect(res.body).toHaveProperty("page");
+    expect(res.body).toHaveProperty("totalPages");
 
-    const victim = res.body.find((u: any) => u.username === "testvictim");
+    const victim = res.body.users.find((u: any) => u.username === "testvictim");
     expect(victim).toBeDefined();
     expect(victim).toHaveProperty("file_count");
     expect(victim).toHaveProperty("used");
@@ -81,7 +84,7 @@ describe("PATCH /admin/users/:id", () => {
     const list = await request
       .get("/admin/users")
       .set("Authorization", `Bearer ${adminToken}`);
-    const u = list.body.find((u: any) => u.id === userId);
+    const u = list.body.users.find((u: any) => u.id === userId);
     expect(u.storage_limit).toBe(5368709120);
   });
 
@@ -95,7 +98,7 @@ describe("PATCH /admin/users/:id", () => {
     const list = await request
       .get("/admin/users")
       .set("Authorization", `Bearer ${adminToken}`);
-    const u = list.body.find((u: any) => u.id === userId);
+    const u = list.body.users.find((u: any) => u.id === userId);
     expect(u.is_admin).toBe(1);
   });
 
@@ -155,7 +158,7 @@ describe("DELETE /admin/users/:id", () => {
     const list = await request
       .get("/admin/users")
       .set("Authorization", `Bearer ${adminToken}`);
-    const stillThere = list.body.find((u: any) => u.id === dispId);
+    const stillThere = list.body.users.find((u: any) => u.id === dispId);
     expect(stillThere).toBeUndefined();
   });
 });

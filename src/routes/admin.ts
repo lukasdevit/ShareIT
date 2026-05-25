@@ -22,25 +22,47 @@ export async function adminRoutes(app: FastifyInstance) {
   // All admin routes require admin authentication
   app.addHook("preHandler", requireAdmin);
 
-  // List all users with file count and storage used
+  // List all users with file count and storage used (paginated, searchable)
   app.get("/admin/users", async (request, reply) => {
+    const query = request.query as { page?: string; limit?: string; search?: string };
+    const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit || "25", 10) || 25));
+    const offset = (page - 1) * limit;
+    const search = query.search?.trim() || "";
+
+    const searchFilter = search ? `WHERE u.username LIKE ?` : "";
+    const searchParam = search ? `%${search}%` : null;
+
     return new Promise((resolve) => {
-      db.all(
-        `SELECT 
-          u.id, u.username, u.created_at, u.storage_limit, u.is_admin,
-          COALESCE(SUM(f.size), 0) AS used,
-          COUNT(f.id) AS file_count
-         FROM users u
-         LEFT JOIN files f ON f.user_id = u.id
-         GROUP BY u.id
-         ORDER BY u.id`,
-        (err, rows) => {
-          if (err) {
-            reply.code(500).send({ error: err.message });
-          } else {
-            reply.send(rows);
-          }
-          resolve(undefined);
+      const countParams = searchParam ? [searchParam] : [];
+      db.get(
+        `SELECT COUNT(*) AS total FROM users u ${searchFilter}`,
+        countParams,
+        (err, row: { total: number } | undefined) => {
+          if (err) { reply.code(500).send({ error: err.message }); resolve(undefined); return; }
+          const total = row?.total ?? 0;
+          const listParams = searchParam ? [searchParam, limit, offset] : [limit, offset];
+          db.all(
+            `SELECT 
+              u.id, u.username, u.created_at, u.storage_limit, u.is_admin,
+              COALESCE(SUM(f.size), 0) AS used,
+              COUNT(f.id) AS file_count
+             FROM users u
+             LEFT JOIN files f ON f.user_id = u.id
+             ${searchFilter}
+             GROUP BY u.id
+             ORDER BY u.id
+             LIMIT ? OFFSET ?`,
+            listParams,
+            (err2, rows) => {
+              if (err2) {
+                reply.code(500).send({ error: err2.message });
+              } else {
+                reply.send({ users: rows, total, page, totalPages: Math.ceil(total / limit) });
+              }
+              resolve(undefined);
+            }
+          );
         }
       );
     });
