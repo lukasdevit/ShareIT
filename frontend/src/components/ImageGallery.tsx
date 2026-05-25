@@ -3,8 +3,6 @@
 import { formatSize, formatDate } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-
 interface Props {
   images: FileInfo[];
   copiedId: number | null;
@@ -22,7 +20,7 @@ export function ImageGallery({ images, copiedId, deletingId, onCopyLink, onDelet
         {images.map((f, idx) => (
           <div key={f.id} onClick={() => onOpenLightbox(idx)}
             className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer">
-            <img src={`${API}/file/${f.filename}`} alt={f.original_name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={`${location.origin}/file/${f.filename}`} alt={f.original_name} className="w-full h-full object-cover" loading="lazy" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
               <p className="text-xs text-white truncate">{f.original_name}</p>
               <p className="text-xs text-zinc-400">{formatSize(f.size)} · {formatDate(f.created_at)}</p>

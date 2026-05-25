@@ -81,8 +81,7 @@ export default function FilesPage() {
 
   // Actions
   async function copyLink(filename: string, id: number) {
-    const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-    await navigator.clipboard.writeText(`${API}/file/${filename}`);
+    await navigator.clipboard.writeText(`${location.origin}/file/${filename}`);
     setCopiedId(id); setTimeout(() => setCopiedId(null), 2000);
   }
   async function handleDelete(id: number) {
@@ -93,8 +92,7 @@ export default function FilesPage() {
   }
   async function openViewer(file: FileInfo) {
     setViewingFile(file); setFileContent(null);
-    const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-    try { const r = await fetch(`${API}/file/${file.filename}`); setFileContent(await r.text()); } catch { setFileContent("Failed to load file."); }
+    try { const r = await fetch(`${location.origin}/file/${file.filename}`); setFileContent(await r.text()); } catch { setFileContent("Failed to load file."); }
   }
 
   if (!user) return null;

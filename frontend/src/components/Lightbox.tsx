@@ -3,8 +3,6 @@
 import { formatSize, formatDate } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-
 interface Props {
   image: FileInfo;
   index: number;
@@ -38,9 +36,9 @@ export function Lightbox({ image, index, total, hasPrev, hasNext, copiedId, dele
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
         </button>
       )}
-      {hasPrev && <img src={`${API}/file/${image.filename}`} className="hidden" />}
-      {hasNext && <img src={`${API}/file/${image.filename}`} className="hidden" />}
-      <img key={image.filename} src={`${API}/file/${image.filename}`} alt={image.original_name}
+      {hasPrev && <img src={`${location.origin}/file/${image.filename}`} className="hidden" />}
+      {hasNext && <img src={`${location.origin}/file/${image.filename}`} className="hidden" />}
+      <img key={image.filename} src={`${location.origin}/file/${image.filename}`} alt={image.original_name}
         className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg opacity-0 transition-opacity duration-300"
         onLoad={(e) => (e.currentTarget.style.opacity = "1")} onClick={(e) => e.stopPropagation()} />
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent" onClick={(e) => e.stopPropagation()}>
