@@ -300,3 +300,69 @@ describe("Admin access control", () => {
     expect(res.body.user.isAdmin).toBe(false);
   });
 });
+
+describe("Login lockout", () => {
+  let token: string;
+
+  beforeAll(async () => {
+    const r = await request
+      .post("/auth/register")
+      .send({ username: "lockouttest", password: "correct123" });
+    token = r.body.token;
+  });
+
+  it("locks account after too many failed attempts", async () => {
+    for (let i = 0; i < 5; i++) {
+      const res = await request
+        .post("/auth/login")
+        .send({ username: "lockouttest", password: "wrongpass" });
+      if (i < 4) {
+        expect(res.status).toBe(401);
+        expect(res.body.error).toContain("attempt");
+      } else {
+        expect(res.body.error).toContain("locked");
+      }
+    }
+  });
+
+  it("rejects correct password while locked", async () => {
+    const res = await request
+      .post("/auth/login")
+      .send({ username: "lockouttest", password: "correct123" });
+    // 401 from lockout or 429 from rate limit
+    expect(res.status).toBeGreaterThanOrEqual(401);
+  });
+
+  it("unlocks after resetting via admin DB", async () => {
+    // Get admin token
+    const adminLogin = await request
+      .post("/auth/login")
+      .send({ username: "adminjane", password: "testpass123" });
+    const adminTok = adminLogin.body.token;
+
+    // Reset the lock
+    await request
+      .post("/admin/db")
+      .set("Authorization", `Bearer ${adminTok}`)
+      .send({ sql: "UPDATE users SET failed_logins=0, locked_until=NULL WHERE username='lockouttest'" })
+      .expect(200);
+
+    // Now should be able to login
+    const res = await request
+      .post("/auth/login")
+      .send({ username: "lockouttest", password: "correct123" });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("GET /health", () => {
+  it("returns ok with uptime", async () => {
+    const res = await request
+      .get("/health")
+      .expect(200);
+
+    expect(res.body.status).toBe("ok");
+    expect(res.body).toHaveProperty("uptime");
+    expect(res.body).toHaveProperty("timestamp");
+  });
+});

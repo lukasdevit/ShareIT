@@ -118,6 +118,24 @@ describe("GET /files", () => {
     expect(res.body.page).toBe(2);
     expect(res.body.files.length).toBeLessThanOrEqual(10);
   });
+
+  it("rejects invalid page (negative)", async () => {
+    const res = await request
+      .get("/files?page=-1")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+    // Clamped to page 1
+    expect(res.body.page).toBe(1);
+  });
+
+  it("caps limit at 100", async () => {
+    const res = await request
+      .get("/files?limit=999")
+      .set("Authorization", `Bearer ${userToken}`)
+      .expect(200);
+    // Should cap at 100 max
+    expect(res.body.files.length).toBeLessThanOrEqual(100);
+  });
 });
 
 describe("GET /file/:filename", () => {
