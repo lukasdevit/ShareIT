@@ -163,53 +163,57 @@ describe("DELETE /admin/users/:id", () => {
   });
 });
 
-describe("POST /admin/db", () => {
-  it("executes a SELECT query", async () => {
+describe("GET /admin/db/tables/:name/rows", () => {
+  it("browses rows for a valid table", async () => {
     const res = await request
-      .post("/admin/db")
+      .get("/admin/db/tables/users/rows")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ sql: "SELECT COUNT(*) AS cnt FROM users" })
       .expect(200);
 
-    expect(res.body.type).toBe("read");
-    expect(res.body.columns).toContain("cnt");
-    expect(res.body.rows[0].cnt).toBeGreaterThanOrEqual(2);
+    expect(res.body.columns).toContain("username");
+    expect(Array.isArray(res.body.rows)).toBe(true);
+    expect(res.body.rowCount).toBeGreaterThanOrEqual(2);
   });
 
-  it("executes a write query", async () => {
-    const res = await request
-      .post("/admin/db")
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ sql: `UPDATE users SET storage_limit = 10737418240 WHERE username = 'admintest'` })
-      .expect(200);
-
-    expect(res.body.type).toBe("write");
-    expect(res.body.changes).toBeGreaterThanOrEqual(0);
-  });
-
-  it("blocks DROP TABLE", async () => {
-    const res = await request
-      .post("/admin/db")
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ sql: "DROP TABLE users" })
-      .expect(403);
-    expect(res.body.error).toContain("not allowed");
-  });
-
-  it("returns error for invalid SQL", async () => {
-    const res = await request
-      .post("/admin/db")
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ sql: "SELEC * FROM nope" })
-      .expect(400);
-    expect(res.body).toHaveProperty("error");
-  });
-
-  it("rejects empty SQL", async () => {
+  it("rejects invalid table name", async () => {
     await request
-      .post("/admin/db")
+      .get("/admin/db/tables/sqlite_master/rows")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ sql: "" })
+      .expect(400);
+  });
+});
+
+describe("DELETE /admin/db/tables/:name/rows", () => {
+  it("deletes a row by primary key", async () => {
+    // Create a disposable user to delete
+    const createRes = await request
+      .post("/auth/register")
+      .send({ username: "todelete", password: "delete123" });
+    const dispId = createRes.body.user?.id;
+
+    const res = await request
+      .delete("/admin/db/tables/users/rows")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ pkColumn: "id", pkValue: dispId })
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+    expect(res.body.changes).toBeGreaterThanOrEqual(1);
+  });
+
+  it("rejects missing pkColumn/pkValue", async () => {
+    await request
+      .delete("/admin/db/tables/users/rows")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it("rejects invalid table name", async () => {
+    await request
+      .delete("/admin/db/tables/sqlite_master/rows")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ pkColumn: "id", pkValue: 1 })
       .expect(400);
   });
 });

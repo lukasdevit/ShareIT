@@ -1,41 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 
+/** Allowed table names — prevents injection via table name parameter */
+const ALLOWED_TABLES = new Set(["users", "files", "settings", "file_tags"]);
+
+function validateTable(name: string): boolean {
+  return ALLOWED_TABLES.has(name);
+}
+
 export async function adminDbRoutes(app: FastifyInstance) {
-  app.post("/admin/db", async (request, reply) => {
-    const { sql } = request.body as { sql?: string };
-    if (!sql?.trim()) return reply.code(400).send({ error: "SQL query required" });
-
-    const trimmed = sql.trim();
-    const upper = trimmed.toUpperCase();
-    if ((upper.includes("DROP") && upper.includes("TABLE")) || upper.startsWith("VACUUM") ||
-        upper.startsWith("REINDEX") || upper.startsWith("ATTACH") || upper.startsWith("DETACH")) {
-      return reply.code(403).send({ error: "Destructive DDL not allowed" });
-    }
-
-    const isRead = /^(SELECT|PRAGMA|EXPLAIN|WITH|DESCRIBE)\b/i.test(trimmed);
-    try {
-      if (isRead) {
-        const rows = await dbAll<Record<string, unknown>>(trimmed);
-        const firstRow = rows[0];
-        const columns = firstRow ? Object.keys(firstRow) : [];
-        return reply.send({ type: "read", columns, rows, rowCount: rows.length });
-      }
-
-      const result = await dbRun(trimmed);
-      const adminCheck = await dbGet<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`);
-      const res: { type: string; changes: number; lastID: number; warning?: string } = {
-        type: "write", changes: result.changes, lastID: result.lastID,
-      };
-      if (adminCheck && adminCheck.cnt === 0) {
-        res.warning = "⚠️ No admin users remain! Grant admin to at least one user.";
-      }
-      return reply.send(res);
-    } catch (err) {
-      return reply.code(400).send({ error: (err as Error).message });
-    }
-  });
-
+  // List tables with schema info (read-only)
   app.get("/admin/db/tables", async (_request, reply) => {
     const tables = await dbAll<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
@@ -55,5 +29,53 @@ export async function adminDbRoutes(app: FastifyInstance) {
     }));
     results.sort((a, b) => a.name.localeCompare(b.name));
     return reply.send(results);
+  });
+
+  // Browse rows for a specific table (read-only, limited)
+  app.get("/admin/db/tables/:name/rows", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    if (!validateTable(name)) {
+      return reply.code(400).send({ error: "Invalid table name" });
+    }
+
+    const rows = await dbAll<Record<string, unknown>>(
+      `SELECT * FROM "${name}" LIMIT 100`
+    );
+    const firstRow = rows[0];
+    const columns = firstRow ? Object.keys(firstRow) : [];
+    return reply.send({ columns, rows, rowCount: rows.length });
+  });
+
+  // Delete a single row by primary key value
+  app.delete("/admin/db/tables/:name/rows", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    if (!validateTable(name)) {
+      return reply.code(400).send({ error: "Invalid table name" });
+    }
+
+    const { pkColumn, pkValue } = request.body as { pkColumn?: string; pkValue?: unknown };
+    if (!pkColumn || pkValue === undefined) {
+      return reply.code(400).send({ error: "pkColumn and pkValue required" });
+    }
+
+    // Prevent deleting the last admin
+    if (name === "users") {
+      const user = await dbGet<{ is_admin: number }>(
+        `SELECT is_admin FROM users WHERE "${pkColumn}" = ?`, [pkValue]
+      );
+      if (user?.is_admin) {
+        const adminCount = await dbGet<{ cnt: number }>(
+          `SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`
+        );
+        if (adminCount && adminCount.cnt <= 1) {
+          return reply.code(403).send({ error: "Cannot delete the last admin user" });
+        }
+      }
+    }
+
+    const result = await dbRun(
+      `DELETE FROM "${name}" WHERE "${pkColumn}" = ?`, [pkValue]
+    );
+    return reply.send({ ok: true, changes: result.changes });
   });
 }

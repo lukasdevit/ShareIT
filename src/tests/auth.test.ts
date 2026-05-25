@@ -333,18 +333,25 @@ describe("Login lockout", () => {
     expect(res.status).toBeGreaterThanOrEqual(401);
   });
 
-  it("unlocks after resetting via admin DB", async () => {
-    // Get admin token
+  it("unlocks after resetting via admin unlock endpoint", async () => {
+    // Get admin token and look up the lockouttest user's ID
     const adminLogin = await request
       .post("/auth/login")
       .send({ username: "adminjane", password: "testpass123" });
     const adminTok = adminLogin.body.token;
 
-    // Reset the lock
-    await request
-      .post("/admin/db")
+    // Find the user ID by listing admin users
+    const usersRes = await request
+      .get("/admin/users?search=lockouttest")
       .set("Authorization", `Bearer ${adminTok}`)
-      .send({ sql: "UPDATE users SET failed_logins=0, locked_until=NULL WHERE username='lockouttest'" })
+      .expect(200);
+    const lockoutUser = usersRes.body.users.find((u: any) => u.username === "lockouttest");
+    const userId = lockoutUser?.id;
+
+    // Reset the lock via the unlock endpoint
+    await request
+      .post(`/admin/users/${userId}/unlock`)
+      .set("Authorization", `Bearer ${adminTok}`)
       .expect(200);
 
     // Now should be able to login

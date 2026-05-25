@@ -6,7 +6,9 @@ import { adminStorageRoutes, adminSslRoutes } from "./admin/storage.js";
 import { adminAnalyticsRoutes } from "./admin/analytics.js";
 
 export async function adminRoutes(app: FastifyInstance) {
-  // All admin routes require admin authentication
+  // All admin routes require admin authentication.
+  // Rate limiting is handled by the global rate-limit plugin (app.ts)
+  // and per-route config in individual route files.
   app.addHook("preHandler", requireAdmin);
 
   await adminUserRoutes(app);

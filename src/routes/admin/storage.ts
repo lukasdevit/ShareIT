@@ -4,6 +4,9 @@ import path from "path";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
 
+const STORAGE_RATE_LIMIT = 60;       // requests per window
+const STORAGE_RATE_WINDOW_MS = 60_000;
+
 async function getOverrides(): Promise<Record<string, string>> {
   const overrides: Record<string, string> = {};
   const rows = await dbAll<{ key: string; value: string }>(`SELECT key, value FROM settings`);
@@ -12,7 +15,7 @@ async function getOverrides(): Promise<Record<string, string>> {
 }
 
 export async function adminStorageRoutes(app: FastifyInstance) {
-  app.get("/admin/storage", async (_request, reply) => {
+  app.get("/admin/storage", { config: { rateLimit: { max: STORAGE_RATE_LIMIT, timeWindow: STORAGE_RATE_WINDOW_MS } } }, async (_request, reply) => {
     const overrides = await getOverrides();
     const row = await dbGet<{ users: number; total_bytes: number; total_files: number }>(
       `SELECT COUNT(*) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
@@ -44,7 +47,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch("/admin/storage", async (request, reply) => {
+  app.patch("/admin/storage", { config: { rateLimit: { max: STORAGE_RATE_LIMIT, timeWindow: STORAGE_RATE_WINDOW_MS } } }, async (request, reply) => {
     const body = request.body as Record<string, string>;
     const allowed = ["b2_endpoint", "b2_region", "b2_bucket", "b2_prefix", "backend", "registrations_open"];
     const updates: [string, string][] = [];

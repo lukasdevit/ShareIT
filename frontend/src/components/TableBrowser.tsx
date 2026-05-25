@@ -14,11 +14,10 @@ interface TableData {
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
-  onSetSql: (sql: string) => void;
   refreshKey: number;
 }
 
-export function TableBrowser({ apiFetch, onSetSql, refreshKey }: Props) {
+export function TableBrowser({ apiFetch, refreshKey }: Props) {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [tableData, setTableData] = useState<TableData | null>(null);
@@ -38,13 +37,9 @@ export function TableBrowser({ apiFetch, onSetSql, refreshKey }: Props) {
     setTableLoading(true);
     setTableData(null);
     try {
-      const r = await apiFetch("/admin/db", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql: `SELECT * FROM "${tableName}" LIMIT 100;` }),
-      });
+      const r = await apiFetch(`/admin/db/tables/${encodeURIComponent(tableName)}/rows`);
       const d = await r.json();
-      if (r.ok && d.type === "read") setTableData({ columns: d.columns || [], rows: d.rows || [] });
+      if (r.ok) setTableData({ columns: d.columns || [], rows: d.rows || [] });
     } catch { /* */ }
     setTableLoading(false);
   }
@@ -60,12 +55,11 @@ export function TableBrowser({ apiFetch, onSetSql, refreshKey }: Props) {
   }
 
   async function deleteTableRow(tableName: string, pkCol: string, pkVal: unknown) {
-    const escaped = typeof pkVal === "string" ? `'${pkVal.replace(/'/g, "''")}'` : String(pkVal ?? "NULL");
     try {
-      const r = await apiFetch("/admin/db", {
-        method: "POST",
+      const r = await apiFetch(`/admin/db/tables/${encodeURIComponent(tableName)}/rows`, {
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql: `DELETE FROM "${tableName}" WHERE "${pkCol}" = ${escaped};` }),
+        body: JSON.stringify({ pkColumn: pkCol, pkValue: pkVal }),
       });
       if (r.ok) {
         setDeleteRowConfirm(null);
@@ -105,10 +99,6 @@ export function TableBrowser({ apiFetch, onSetSql, refreshKey }: Props) {
               <span className="text-xs text-zinc-600">{tableData.rows.length} row{tableData.rows.length !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => onSetSql(`SELECT * FROM ${expandedTable} LIMIT 100;`)}
-                className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors">
-                Edit in SQL
-              </button>
               <button onClick={() => loadTableData(expandedTable)}
                 className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors">
                 🔄 Refresh
