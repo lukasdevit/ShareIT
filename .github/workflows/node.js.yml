@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -30,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
@@ -43,3 +47,16 @@ jobs:
             sg docker -c "DOMAIN=goletz.dev docker compose up -d --build --remove-orphans"
             sg docker -c "docker image prune -f"
             echo "✅ Deploy complete — https://goletz.dev"
+
+      - name: Auto-tag version
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          TAG="v$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "🏷️ Tagged $TAG"
+          fi
