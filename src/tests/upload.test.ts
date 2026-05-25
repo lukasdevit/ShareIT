@@ -29,21 +29,28 @@ describe("POST /upload", () => {
 });
 
 describe("POST /sharex/upload", () => {
-  it("rejects request without a file (NOT an auth error)", async () => {
-    // ShareX endpoint is public — no auth required by design.
-    // Sending no file triggers a non-200 status, but importantly NOT 401.
+  it("rejects request without auth", async () => {
     const res = await request
       .post("/sharex/upload");
 
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).not.toBe(401); // Auth is NOT the blocker
+    expect(res.status).toBe(401);
   });
 });
 
 describe("GET /sharex/config", () => {
-  it("returns a ShareX config file", async () => {
+  let token: string;
+
+  beforeAll(async () => {
+    const r = await request
+      .post("/auth/register")
+      .send({ username: "sharexuser", password: "testpass123" });
+    token = r.body.token;
+  });
+
+  it("returns a ShareX config file for authenticated user", async () => {
     const res = await request
       .get("/sharex/config")
+      .set("Authorization", `Bearer ${token}`)
       .expect(200);
 
     expect(res.body).toHaveProperty("Name");
