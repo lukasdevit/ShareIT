@@ -205,7 +205,8 @@ export async function adminRoutes(app: FastifyInstance) {
           } else {
             // Extract column names from first row keys
             const rows_ = rows as Record<string, unknown>[] | undefined;
-            const columns = rows_ && rows_.length > 0 ? Object.keys(rows_[0]) : [];
+            const firstRow = rows_?.[0];
+            const columns = firstRow ? Object.keys(firstRow) : [];
             reply.send({ type: "read", columns, rows, rowCount: rows?.length ?? 0 });
           }
           resolve(undefined);

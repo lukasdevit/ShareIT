@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+
+interface SslData {
+  domain: string;
+  is_local: boolean;
+  protocol: string;
+  cert_valid: boolean;
+  cert_expiry: string | null;
+  managed_by: string;
+  note: string;
+}
 
 export function SslConfig() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<SslData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,11 +26,13 @@ export function SslConfig() {
       .catch(() => setLoading(false));
   }, []);
 
+  const daysLeft = useMemo(() => {
+    if (!data?.cert_expiry) return null;
+    return Math.ceil((new Date(data.cert_expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  }, [data?.cert_expiry]);
+
   if (loading) return <section className="card"><p className="text-sm text-zinc-500">Loading…</p></section>;
   if (!data) return <section className="card"><p className="text-sm text-red-400">Failed to load SSL info.</p></section>;
-
-  const expiryDate = data.cert_expiry ? new Date(data.cert_expiry) : null;
-  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
   return (
     <section className="card space-y-5">

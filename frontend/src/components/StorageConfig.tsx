@@ -1,29 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { formatSize } from "../lib/utils";
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
 }
 
+interface StorageData {
+  backend: string;
+  default_storage_limit: number;
+  b2_endpoint?: string;
+  b2_region?: string;
+  b2_bucket?: string;
+  b2_prefix?: string;
+  disk_total?: number;
+  disk_used?: number;
+  disk_free?: number;
+  users: number;
+  total_files: number;
+  total_bytes: number;
+}
+
 export function StorageConfig({ apiFetch }: Props) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<StorageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     apiFetch("/admin/storage")
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }
+  }, [apiFetch]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   function startEdit() {
     setForm({
@@ -103,7 +118,7 @@ export function StorageConfig({ apiFetch }: Props) {
             <StatCard label="Default user limit" value={formatSize(data.default_storage_limit)} />
           </div>
           {data.backend === "b2" && <B2Details data={data} />}
-          {data.backend === "local" && data.disk_total > 0 && <DiskBar data={data} />}
+          {data.backend === "local" && (data.disk_total || 0) > 0 && <DiskBar data={data} />}
           <Totals users={data.users} files={data.total_files} bytes={data.total_bytes} />
         </>
       )}
@@ -120,7 +135,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function B2Details({ data }: { data: any }) {
+function B2Details({ data }: { data: StorageData }) {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-zinc-300">B2 Configuration</h3>
@@ -136,8 +151,11 @@ function B2Details({ data }: { data: any }) {
   );
 }
 
-function DiskBar({ data }: { data: any }) {
-  const pct = data.disk_total > 0 ? Math.min(100, (data.disk_used / data.disk_total) * 100) : 0;
+function DiskBar({ data }: { data: StorageData }) {
+  const total = data.disk_total || 0;
+  const used = data.disk_used || 0;
+  const free = data.disk_free || 0;
+  const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-zinc-300">Disk Usage</h3>
@@ -145,9 +163,9 @@ function DiskBar({ data }: { data: any }) {
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct > 90 ? "#ef4444" : pct > 70 ? "#f59e0b" : "#3b82f6" }} />
       </div>
       <div className="flex justify-between text-xs text-zinc-500">
-        <span>{formatSize(data.disk_used)} used</span>
-        <span>{formatSize(data.disk_free)} free</span>
-        <span>{formatSize(data.disk_total)} total</span>
+        <span>{formatSize(used)} used</span>
+        <span>{formatSize(free)} free</span>
+        <span>{formatSize(total)} total</span>
       </div>
     </div>
   );

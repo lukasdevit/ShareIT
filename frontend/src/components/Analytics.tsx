@@ -3,12 +3,24 @@
 import { useState, useEffect } from "react";
 import { formatSize } from "../lib/utils";
 
+interface DailyPoint { day: string; count: number; bytes: number; }
+interface TopUser { username: string; files: number; bytes: number; }
+interface Category { category: string; count: number; bytes: number; }
+interface AnalyticsData {
+  users: number;
+  total_files: number;
+  total_bytes: number;
+  uploads_today: number;
+  daily: DailyPoint[];
+  top_users: TopUser[];
+  categories: Category[];
+}
+
 export function Analytics() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function load() {
-    setLoading(true);
+  useEffect(() => {
     const token = localStorage.getItem("shareit_token");
     fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/analytics`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -16,16 +28,14 @@ export function Analytics() {
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }
-
-  useEffect(() => { load(); }, []);
+  }, []);
 
   if (loading) return <section className="card"><p className="text-sm text-zinc-500">Loading…</p></section>;
   if (!data) return <section className="card"><p className="text-sm text-red-400">Failed to load analytics.</p></section>;
 
-  const maxDayCount = Math.max(1, ...data.daily.map((d: any) => d.count));
-  const maxTopBytes = Math.max(1, ...data.top_users.map((u: any) => u.bytes));
-  const maxCatBytes = Math.max(1, ...data.categories.map((c: any) => c.bytes));
+  const maxDayCount = Math.max(1, ...data.daily.map((d) => d.count));
+  const maxTopBytes = Math.max(1, ...data.top_users.map((u) => u.bytes));
+  const maxCatBytes = Math.max(1, ...data.categories.map((c) => c.bytes));
 
   return (
     <div className="space-y-6">
@@ -39,7 +49,7 @@ export function Analytics() {
   );
 }
 
-function OverviewCards({ data }: { data: any }) {
+function OverviewCards({ data }: { data: AnalyticsData }) {
   const cards = [
     { label: "Users", value: data.users, icon: "👥" },
     { label: "Total Files", value: data.total_files, icon: "📄" },
@@ -58,7 +68,7 @@ function OverviewCards({ data }: { data: any }) {
   );
 }
 
-function UploadsChart({ daily, maxCount }: { daily: any[]; maxCount: number }) {
+function UploadsChart({ daily, maxCount }: { daily: DailyPoint[]; maxCount: number }) {
   return (
     <section className="card">
       <h3 className="text-sm font-medium text-zinc-300 mb-3">📈 Uploads — Last 30 Days</h3>
@@ -66,7 +76,7 @@ function UploadsChart({ daily, maxCount }: { daily: any[]; maxCount: number }) {
         <p className="text-xs text-zinc-500">No data yet.</p>
       ) : (
         <div className="flex items-end gap-0.5 h-32">
-          {daily.map((d: any) => (
+          {daily.map((d) => (
             <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group relative" title={`${d.day}: ${d.count} files, ${formatSize(d.bytes)}`}>
               <span className="text-[10px] text-zinc-600 group-hover:text-zinc-300 transition-colors">{d.count}</span>
               <div className="w-full bg-blue-500/60 hover:bg-blue-400 rounded-t transition-colors min-h-[2px]"
@@ -80,8 +90,8 @@ function UploadsChart({ daily, maxCount }: { daily: any[]; maxCount: number }) {
   );
 }
 
-function TopUsers({ users, maxBytes }: { users: any[]; maxBytes: number }) {
-  const active = users.filter((u: any) => u.bytes > 0);
+function TopUsers({ users, maxBytes }: { users: TopUser[]; maxBytes: number }) {
+  const active = users.filter((u) => u.bytes > 0);
   return (
     <section className="card">
       <h3 className="text-sm font-medium text-zinc-300 mb-3">🏆 Top Users</h3>
@@ -89,7 +99,7 @@ function TopUsers({ users, maxBytes }: { users: any[]; maxBytes: number }) {
         <p className="text-xs text-zinc-500">No files uploaded yet.</p>
       ) : (
         <div className="space-y-2">
-          {active.map((u: any, i: number) => (
+          {active.map((u, i) => (
             <div key={u.username} className="flex items-center gap-3">
               <span className="text-xs text-zinc-600 w-4">{i + 1}.</span>
               <div className="flex-1 min-w-0">
@@ -109,7 +119,7 @@ function TopUsers({ users, maxBytes }: { users: any[]; maxBytes: number }) {
   );
 }
 
-function FileTypes({ categories, maxBytes }: { categories: any[]; maxBytes: number }) {
+function FileTypes({ categories, maxBytes }: { categories: Category[]; maxBytes: number }) {
   return (
     <section className="card">
       <h3 className="text-sm font-medium text-zinc-300 mb-3">📁 File Types</h3>
@@ -117,7 +127,7 @@ function FileTypes({ categories, maxBytes }: { categories: any[]; maxBytes: numb
         <p className="text-xs text-zinc-500">No data.</p>
       ) : (
         <div className="space-y-2">
-          {categories.map((c: any) => (
+          {categories.map((c) => (
             <div key={c.category}>
               <div className="flex justify-between text-xs mb-0.5">
                 <span className="text-zinc-300">{c.category}</span>
