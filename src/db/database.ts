@@ -91,6 +91,14 @@ db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, (err) => {
   if (err && !err.message.includes("duplicate column")) { /* */ }
 });
 
+// Settings key-value store for runtime overrides
+db.run(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )
+`);
+
 export function closeDb(): void {
   db.close();
   // Clean up test database files

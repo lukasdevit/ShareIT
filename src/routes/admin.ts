@@ -297,6 +297,15 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // Storage config & stats
   app.get("/admin/storage", async (_request, reply) => {
+    // Read DB overrides
+    const overrides: Record<string, string> = {};
+    await new Promise<void>((resolve) => {
+      db.all(`SELECT key, value FROM settings`, (err, rows: { key: string; value: string }[] | undefined) => {
+        if (!err && rows) rows.forEach((r) => { overrides[r.key] = r.value; });
+        resolve();
+      });
+    });
+
     return new Promise((resolve) => {
       db.get(
         `SELECT COUNT(*) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
@@ -305,22 +314,21 @@ export async function adminRoutes(app: FastifyInstance) {
           if (err) { reply.code(500).send({ error: err.message }); resolve(undefined); return; }
 
           const config: Record<string, unknown> = {
-            backend: B2_ENABLED ? "b2" : "local",
+            backend: overrides.backend || (B2_ENABLED ? "b2" : "local"),
             default_storage_limit: DEFAULT_STORAGE_LIMIT,
           };
 
-          if (B2_ENABLED) {
-            config.b2_endpoint = B2_ENDPOINT;
-            config.b2_region = B2_REGION;
-            config.b2_bucket = B2_BUCKET;
-            config.b2_prefix = B2_PREFIX;
+          if (config.backend === "b2") {
+            config.b2_endpoint = overrides.b2_endpoint || B2_ENDPOINT;
+            config.b2_region = overrides.b2_region || B2_REGION;
+            config.b2_bucket = overrides.b2_bucket || B2_BUCKET;
+            config.b2_prefix = overrides.b2_prefix || B2_PREFIX;
           } else {
-            // Local disk info
             try {
               const stats = fs.statfsSync(UPLOAD_DIR);
               config.disk_total = stats.blocks * stats.bsize;
               config.disk_free = stats.bfree * stats.bsize;
-              config.disk_used = config.disk_total - config.disk_free;
+              config.disk_used = (config.disk_total as number) - (config.disk_free as number);
             } catch {
               config.disk_total = 0;
               config.disk_used = 0;
@@ -338,6 +346,35 @@ export async function adminRoutes(app: FastifyInstance) {
         }
       );
     });
+  });
+
+  // Update storage settings
+  app.patch("/admin/storage", async (request, reply) => {
+    const body = request.body as Record<string, string>;
+    const allowed = ["b2_endpoint", "b2_region", "b2_bucket", "b2_prefix", "backend"];
+    const updates: [string, string][] = [];
+
+    for (const [k, v] of Object.entries(body)) {
+      if (allowed.includes(k) && typeof v === "string" && v.trim()) {
+        updates.push([k, v.trim()]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return reply.code(400).send({ error: "No valid fields to update" });
+    }
+
+    for (const [k, v] of updates) {
+      await new Promise<void>((res) => {
+        db.run(
+          `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          [k, v],
+          () => res()
+        );
+      });
+    }
+
+    return reply.send({ ok: true, updated: updates.map(([k]) => k) });
   });
 }
 
