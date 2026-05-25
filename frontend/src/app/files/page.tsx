@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { isImage, isText } from "../../lib/utils";
+import { isImage } from "../../lib/utils";
 import type { FileInfo, FilePage } from "../../lib/types";
 import { useAuth } from "../../lib/api";
 import { UploadZone } from "../../components/UploadZone";
@@ -35,7 +35,7 @@ export default function FilesPage() {
   const imageFiles = files.filter((f) => isImage(f.mime_type));
 
   // Redirect if not logged in
-  useEffect(() => { if (!user) router.replace("/"); }, [user]);
+  useEffect(() => { if (!user) router.replace("/"); }, [user, router]);
 
   // Fetch files
   const fetchFiles = useCallback(async (page = 1, searchTerm = "") => {
@@ -54,7 +54,7 @@ export default function FilesPage() {
     } catch { /* */ }
   }, [user, api]);
 
-  useEffect(() => { fetchFiles(1, search); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(1, search); }, [fetchFiles, search]);
 
   // Keyboard shortcuts for lightbox
   useEffect(() => {

@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { formatSize } from "../lib/utils";
-import type { StorageInfo, UserInfo } from "../lib/types";
+import type { StorageInfo } from "../lib/types";
 
 interface Props {
-  token: string;
-  user: UserInfo;
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
   onBack: () => void;
 }
 
-export function SettingsPage({ token: _token, user, apiFetch, onBack }: Props) {
+export function SettingsPage({ apiFetch, onBack }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [pwMessage, setPwMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
