@@ -1,59 +1,18 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { db } from "../db/database.js";
+import { db } from "../db/index.js";
 import {
-  JWT_SECRET, JWT_EXPIRES_IN, AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
+  AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
   AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES,
 } from "../config/index.js";
-
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: JwtPayload;
-  }
-}
+import {
+  requireAuth, signToken,
+} from "../middleware/index.js";
 
 const BCRYPT_ROUNDS = 10;
 
-interface JwtPayload {
-  id: number;
-  username: string;
-  isAdmin: boolean;
-}
-
-function signToken(userId: number, username: string, isAdmin: boolean): string {
-  return jwt.sign({ id: userId, username, isAdmin }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
-
-export function verifyToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
-export function getTokenFromHeader(request: FastifyRequest): string | null {
-  const auth = request.headers.authorization;
-  if (!auth || !auth.startsWith("Bearer ")) return null;
-  return auth.slice(7);
-}
-
-export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  const token = getTokenFromHeader(request);
-  if (!token) return reply.code(401).send({ error: "Missing token" });
-  const payload = verifyToken(token);
-  if (!payload) return reply.code(401).send({ error: "Invalid or expired token" });
-  request.user = payload;
-}
-
-export async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-  await requireAuth(request, reply);
-  if (reply.sent) return;
-  if (!request.user?.isAdmin) {
-    return reply.code(403).send({ error: "Admin only" });
-  }
-}
+// Re-export for backward compatibility (used by other routes)
+export { requireAuth, verifyToken, getTokenFromHeader } from "../middleware/index.js";
 
 export async function authRoutes(app: FastifyInstance) {
   // Skip per-route rate limits during tests

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import supertest from "supertest";
 import { buildApp } from "../app.js";
-import { closeDb } from "../db/database.js";
+import { closeDb } from "../db/index.js";
 import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
@@ -257,7 +257,7 @@ describe("Admin access control", () => {
     adminToken = a.body.token;
 
     // Make adminjane an admin via DB directly
-    const { db } = await import("../db/database.js");
+    const { db } = await import("../db/index.js");
     await new Promise<void>((resolve) => {
       db.run(`UPDATE users SET is_admin = 1 WHERE username = ?`, ["adminjane"], () => resolve());
     });

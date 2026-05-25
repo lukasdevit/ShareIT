@@ -3,7 +3,7 @@ import supertest from "supertest";
 import path from "path";
 import fs from "fs";
 import { buildApp } from "../app.js";
-import { closeDb } from "../db/database.js";
+import { closeDb } from "../db/index.js";
 import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;

@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // If already logged in, redirect to files
   useEffect(() => {
     if (user) router.replace("/files");
   }, [user, router]);
@@ -31,10 +32,16 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100">
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
-        <div><h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1><p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p></div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
+          <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
+        </div>
       </header>
-      <LoginForm mode={mode} username={username} password={password} error={error}
-        onModeChange={setMode} onUsernameChange={setUsername} onPasswordChange={setPassword} onSubmit={handleSubmit} />
+      <LoginForm
+        mode={mode} username={username} password={password} error={error}
+        onModeChange={setMode} onUsernameChange={setUsername}
+        onPasswordChange={setPassword} onSubmit={handleSubmit}
+      />
     </div>
   );
 }

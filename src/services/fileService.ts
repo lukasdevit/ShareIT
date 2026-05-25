@@ -3,10 +3,11 @@ import os from "os";
 import path from "path";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
-import { db } from "../db/database.js";
+import { db } from "../db/index.js";
 import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from "../config/index.js";
 import { scanFile } from "./scanService.js";
-import { getStorage, buildStorageKey } from "./storage.js";
+import { getStorage, buildStorageKey } from "./storage/index.js";
+import { formatBytes } from "../utils/index.js";
 
 export function sanitizeFilename(name: string): string {
   let safe = path.basename(name);
@@ -134,9 +135,3 @@ function getUserQuota(userId: number): Promise<{ used: number; limit: number }> 
   });
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}

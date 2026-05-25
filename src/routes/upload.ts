@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth } from "./auth.js";
+import { requireAuth } from "../middleware/index.js";
 import { handleUpload } from "../services/fileService.js";
 
 export async function uploadRoutes(app: FastifyInstance) {
