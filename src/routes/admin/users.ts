@@ -48,6 +48,13 @@ export async function adminUserRoutes(app: FastifyInstance) {
       sets.push("storage_limit = ?"); values.push(storage_limit);
     }
     if (is_admin !== undefined) {
+      // Prevent demoting the last admin
+      if (!is_admin) {
+        const adminCount = await dbGet<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`);
+        if (adminCount && adminCount.cnt <= 1) {
+          return reply.code(403).send({ error: "Cannot remove admin from the last admin user" });
+        }
+      }
       sets.push("is_admin = ?"); values.push(is_admin ? 1 : 0);
     }
     if (new_password !== undefined) {
@@ -65,6 +72,19 @@ export async function adminUserRoutes(app: FastifyInstance) {
   app.delete("/admin/users/:id", async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
     if (userId === request.user!.id) return reply.code(400).send({ error: "Cannot delete yourself" });
+
+    // Prevent deleting the last remaining admin
+    const targetUser = await dbGet<{ is_admin: number; username: string }>(
+      `SELECT is_admin, username FROM users WHERE id = ?`, [userId]
+    );
+    if (!targetUser) return reply.code(404).send({ error: "User not found" });
+
+    if (targetUser.is_admin) {
+      const adminCount = await dbGet<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`);
+      if (adminCount && adminCount.cnt <= 1) {
+        return reply.code(403).send({ error: "Cannot delete the last admin user" });
+      }
+    }
 
     const files = await dbAll<{ path: string }>(`SELECT path FROM files WHERE user_id = ?`, [userId]);
     for (const f of files) {
