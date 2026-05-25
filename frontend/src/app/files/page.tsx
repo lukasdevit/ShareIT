@@ -94,6 +94,16 @@ export default function FilesPage() {
     setViewingFile(file); setFileContent(null);
     try { const r = await fetch(`${location.origin}/file/${file.filename}`); setFileContent(await r.text()); } catch { setFileContent("Failed to load file."); }
   }
+  async function handleTogglePublic(id: number, isPublic: boolean) {
+    try {
+      await api(`/file/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_public: isPublic }),
+      });
+      setFiles((prev) => prev.map((f) => f.id === id ? { ...f, is_public: isPublic ? 1 : 0 } : f));
+    } catch { /* */ }
+  }
 
   if (!user) return null;
 
@@ -110,10 +120,10 @@ export default function FilesPage() {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onFileChange={handleFileChange} />
 
       <div className="w-full max-w-2xl px-4 pb-16 space-y-8">
-        {imageFiles.length > 0 && <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onOpenLightbox={setLightboxIndex} />}
+        {imageFiles.length > 0 && <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onTogglePublic={handleTogglePublic} onOpenLightbox={setLightboxIndex} />}
         {(() => {
           const others = files.filter((f) => !isImage(f.mime_type));
-          return others.length > 0 ? <FileList files={others} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onOpenViewer={openViewer} /> : null;
+          return others.length > 0 ? <FileList files={others} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onTogglePublic={handleTogglePublic} onOpenViewer={openViewer} /> : null;
         })()}
         {files.length === 0 && <p className="text-sm text-zinc-600">No files uploaded yet.</p>}
 

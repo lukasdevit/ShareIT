@@ -1,8 +1,8 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs";
 import path from "path";
 import { db, dbGet, dbRun } from "../db/database.js";
-import { requireAuth } from "./auth.js";
+import { requireAuth, getTokenFromHeader, verifyToken } from "./auth.js";
 import { getStorage } from "../services/storage.js";
 import { UPLOAD_DIR } from "../config/index.js";
 
@@ -16,13 +16,22 @@ export async function filesRoutes(app: FastifyInstance) {
     }
 
     try {
-      const file = await dbGet<{ path: string; size: number; mime_type: string }>(
-        `SELECT path, size, mime_type FROM files WHERE filename = ?`,
+      const file = await dbGet<{ path: string; size: number; mime_type: string; is_public: number; user_id: number }>(
+        `SELECT path, size, mime_type, is_public, user_id FROM files WHERE filename = ?`,
         [filename]
       );
 
       if (!file) {
         return reply.code(404).send({ error: "File not found" });
+      }
+
+      // If not public, require auth + ownership
+      if (!file.is_public) {
+        const token = getTokenFromHeader(request as FastifyRequest);
+        const payload = token ? verifyToken(token) : null;
+        if (!payload || payload.id !== file.user_id) {
+          return reply.code(403).send({ error: "This file is private" });
+        }
       }
 
       const stream = await resolveReadStream(file.path);
@@ -71,6 +80,23 @@ export async function filesRoutes(app: FastifyInstance) {
         }
       );
     });
+  });
+
+  app.patch("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.user?.id;
+    const { is_public } = request.body as { is_public?: boolean };
+
+    if (is_public === undefined) return reply.code(400).send({ error: "is_public required" });
+
+    const file = await dbGet<{ user_id: number | null }>(
+      `SELECT user_id FROM files WHERE id = ?`, [id]
+    );
+    if (!file) return reply.code(404).send({ error: "File not found" });
+    if (file.user_id !== userId) return reply.code(403).send({ error: "Not your file" });
+
+    await dbRun(`UPDATE files SET is_public = ? WHERE id = ?`, [is_public ? 1 : 0, id]);
+    return reply.send({ ok: true, is_public });
   });
 
   app.delete("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {

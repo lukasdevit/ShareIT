@@ -32,9 +32,15 @@ db.run(`
     size INTEGER NOT NULL,
     mime_type TEXT NOT NULL,
     user_id INTEGER,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_public INTEGER NOT NULL DEFAULT 1
   )
 `);
+
+// Add is_public column for existing databases that may not have it
+db.run(`ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
 
 db.run(`
   CREATE TABLE IF NOT EXISTS users (

@@ -9,10 +9,11 @@ interface Props {
   deletingId: number | null;
   onCopyLink: (filename: string, id: number) => void;
   onDelete: (id: number) => void;
+  onTogglePublic: (id: number, isPublic: boolean) => void;
   onOpenViewer: (file: FileInfo) => void;
 }
 
-export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, onOpenViewer }: Props) {
+export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, onTogglePublic, onOpenViewer }: Props) {
   return (
     <section>
       <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Files ({files.length})</h2>
@@ -26,6 +27,11 @@ export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, on
               <p className="text-xs text-zinc-500 mt-0.5">{formatSize(f.size)} · {formatDate(f.created_at)}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <button onClick={(e) => { e.stopPropagation(); onTogglePublic(f.id, !f.is_public); }}
+                className="px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
+                title={f.is_public ? "Click to make private" : "Click to make public"}>
+                {f.is_public ? "🌐" : "🔒"}
+              </button>
               <button onClick={() => onCopyLink(f.filename, f.id)}
                 className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">{copiedId === f.id ? "Copied!" : "Copy link"}</button>
               <button onClick={() => onDelete(f.id)}
