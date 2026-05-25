@@ -24,7 +24,7 @@ export const ADMIN_USERNAME = envOrCrash("ADMIN_USERNAME");
 export const ADMIN_PASSWORD = envOrCrash("ADMIN_PASSWORD");
 
 // ── Rate limits ──
-export const RATE_LIMIT_MAX = 1000;
+export const RATE_LIMIT_MAX = 300;
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 export const AUTH_LOGIN_LIMIT = 5;
 export const AUTH_REGISTER_LIMIT = 3;
