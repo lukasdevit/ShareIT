@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import fs from "fs";
+import path from "path";
 import bcrypt from "bcrypt";
 import { db } from "../db/database.js";
 import { requireAdmin } from "./auth.js";
+import { getStorage } from "../services/storage.js";
+import { UPLOAD_DIR } from "../config/index.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -124,14 +127,15 @@ export async function adminRoutes(app: FastifyInstance) {
             return;
           }
 
-          // Delete files from disk
-          for (const row of rows) {
-            try { fs.unlinkSync(row.path); } catch { /* already gone */ }
-          }
-
-          // Delete from database (files + user)
-          db.run(`DELETE FROM files WHERE user_id = ?`, [userId]);
-          db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err2) {
+          // Delete files from storage — chain async work then resolve
+          (async () => {
+            for (const row of rows) {
+              try { await deleteFromStorage(row.path); } catch (err) {
+                console.error("Storage delete failed:", (err as Error).message);
+              }
+            }
+            db.run(`DELETE FROM files WHERE user_id = ?`, [userId]);
+            db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err2) {
             if (err2) {
               reply.code(500).send({ error: err2.message });
             } else if (this.changes === 0) {
@@ -141,6 +145,7 @@ export async function adminRoutes(app: FastifyInstance) {
             }
             resolve(undefined);
           });
+          })();
         }
       );
     });
@@ -266,4 +271,12 @@ export async function adminRoutes(app: FastifyInstance) {
       );
     });
   });
+}
+
+async function deleteFromStorage(storageKey: string): Promise<void> {
+  if (path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)) {
+    try { fs.unlinkSync(storageKey); } catch { /* */ }
+    return;
+  }
+  await getStorage().delete(storageKey);
 }

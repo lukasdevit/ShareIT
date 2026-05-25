@@ -27,3 +27,11 @@ export const RATE_LIMIT = {
   max: Number(process.env.RATE_LIMIT_MAX || 1000),
   timeWindow: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000), // 1 minute
 };
+
+// ── Backblaze B2 (S3-compatible) ──
+export const B2_ENABLED = process.env.B2_ENABLED === "true";
+export const B2_ENDPOINT = process.env.B2_ENDPOINT || "";
+export const B2_REGION = process.env.B2_REGION || "us-west-004";
+export const B2_KEY_ID = process.env.B2_KEY_ID || "";
+export const B2_APP_KEY = process.env.B2_APP_KEY || "";
+export const B2_BUCKET = process.env.B2_BUCKET || "";
