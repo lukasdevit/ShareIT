@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   test:
@@ -24,16 +26,31 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  deploy:
+  release:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
@@ -47,16 +64,3 @@ jobs:
             sg docker -c "DOMAIN=goletz.dev docker compose up -d --build --remove-orphans"
             sg docker -c "docker image prune -f"
             echo "✅ Deploy complete — https://goletz.dev"
-
-      - name: Auto-tag version
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          TAG="v$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping"
-          else
-            git tag "$TAG"
-            git push origin "$TAG"
-            echo "🏷️ Tagged $TAG"
-          fi
