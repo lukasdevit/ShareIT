@@ -1,7 +1,9 @@
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_KEY_ID, B2_APP_KEY, B2_BUCKET, B2_PREFIX_SHAREX } from "../config/index.js";
 
 /* ── Interface ── */
@@ -73,21 +75,18 @@ class B2Storage implements StorageProvider {
   }
 
   async save(key: string, stream: NodeJS.ReadableStream): Promise<number> {
-    // S3 needs a known Content-Length or use chunked upload.
-    // Stream to buffer first to get size, then upload.
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-    const body = Buffer.concat(chunks);
-
-    await this.s3.send(new PutObjectCommand({
-      Bucket: B2_BUCKET,
-      Key: key,
-      Body: body,
-    }));
-
-    return body.length;
+    // Use multipart upload — streams directly, no memory buffering
+    const upload = new Upload({
+      client: this.s3,
+      params: { Bucket: B2_BUCKET, Key: key, Body: stream as Readable },
+    });
+    // Track bytes as they upload for quota enforcement
+    let uploadedBytes = 0;
+    upload.on("httpUploadProgress", (progress) => {
+      if (progress.loaded) uploadedBytes = progress.loaded;
+    });
+    await upload.done();
+    return uploadedBytes;
   }
 
   async createReadStream(key: string): Promise<NodeJS.ReadableStream> {
