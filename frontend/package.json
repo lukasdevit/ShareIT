@@ -11,7 +11,7 @@
   "dependencies": {
     "autoprefixer": "^10.5.0",
     "marked": "^18.0.4",
-    "next": "^15.5.18",
+    "next": "^16.2.6",
     "postcss": "^8.5.15",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
