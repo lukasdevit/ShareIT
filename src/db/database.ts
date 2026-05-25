@@ -42,22 +42,28 @@ db.run(`
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL,
     storage_limit INTEGER NOT NULL DEFAULT 10737418240,
-    is_admin INTEGER NOT NULL DEFAULT 0
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    failed_logins INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT
   )
 `);
 
 // Add storage_limit column for existing databases that may not have it
 db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT 10737418240`, (err) => {
-  if (err && !err.message.includes("duplicate column")) {
-    // Column already exists or other expected error — ignore
-  }
+  if (err && !err.message.includes("duplicate column")) { /* */ }
 });
 
 // Add is_admin column for existing databases that may not have it
 db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`, (err) => {
-  if (err && !err.message.includes("duplicate column")) {
-    // Column already exists or other expected error — ignore
-  }
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
+
+// Add failed_logins and locked_until columns for existing databases
+db.run(`ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
+db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
 });
 
 export function closeDb(): void {

@@ -103,9 +103,9 @@ export async function authRoutes(app: FastifyInstance) {
 
     return new Promise((resolve) => {
       db.get(
-        `SELECT id, username, password_hash, is_admin FROM users WHERE username = ?`,
+        `SELECT id, username, password_hash, is_admin, failed_logins, locked_until FROM users WHERE username = ?`,
         [username],
-        async (err, row: { id: number; username: string; password_hash: string; is_admin: number } | undefined) => {
+        async (err, row: { id: number; username: string; password_hash: string; is_admin: number; failed_logins: number; locked_until: string | null } | undefined) => {
           if (err) {
             reply.code(500).send({ error: err.message });
             resolve(undefined);
@@ -117,12 +117,36 @@ export async function authRoutes(app: FastifyInstance) {
             return;
           }
 
-          const match = await bcrypt.compare(password, row.password_hash);
-          if (!match) {
-            reply.code(401).send({ error: "Invalid credentials" });
+          // Check if account is locked
+          if (row.locked_until && new Date(row.locked_until) > new Date()) {
+            const remaining = Math.ceil((new Date(row.locked_until).getTime() - Date.now()) / 60000);
+            reply.code(429).send({ error: `Account locked. Try again in ${remaining} minute${remaining !== 1 ? "s" : ""}.` });
             resolve(undefined);
             return;
           }
+
+          const match = await bcrypt.compare(password, row.password_hash);
+          if (!match) {
+            // Increment failed logins, lock after 5 attempts
+            const newCount = row.failed_logins + 1;
+            const lockedUntil = newCount >= 5
+              ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+              : null;
+            db.run(
+              `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
+              [newCount, lockedUntil, row.id]
+            );
+            const attemptsLeft = 5 - newCount;
+            const msg = attemptsLeft > 0
+              ? `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining.`
+              : "Account locked for 15 minutes.";
+            reply.code(401).send({ error: msg });
+            resolve(undefined);
+            return;
+          }
+
+          // Successful login — reset counter
+          db.run(`UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?`, [row.id]);
 
           const isAdmin = row.is_admin === 1;
           const token = signToken(row.id, row.username, isAdmin);

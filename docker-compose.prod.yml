@@ -1,0 +1,7 @@
+# Production overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  caddy:
+    ports:
+      - "80:80"
+      - "443:443"
