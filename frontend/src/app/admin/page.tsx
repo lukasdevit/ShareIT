@@ -12,7 +12,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "files", label: "🗄️ Files DB" },
   { key: "storage", label: "💾 Storage" },
   { key: "ssl", label: "🔒 SSL" },
-  { key: "analytics", label: "📊 Analytics" }
+  { key: "analytics", label: "📊 Analytics" },
 ];
 
 export default function AdminRoute() {
@@ -35,36 +35,42 @@ export default function AdminRoute() {
   if (!ready || !user || !user.isAdmin) return null;
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      <header className="w-full max-w-2xl pt-12 pb-6 px-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">🛡️ Admin Panel</h1>
-            <p className="text-zinc-500 text-sm mt-1">User management, database editor & table browser</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push("/files")}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors whitespace-nowrap"
-            >
-              ← Back
-            </button>
-            <select
-              value={tab}
-              onChange={(e) => setTab(e.target.value as Tab)}
-              className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none cursor-pointer w-40"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2371717a' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", paddingRight: "1.75rem" }}
-            >
-              {TABS.map((t) => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
-            </select>
-          </div>
+    <div className="flex justify-center bg-zinc-950 text-zinc-100 font-sans py-8">
+      <div className="flex w-full max-w-4xl">
+        {/* Sidebar */}
+        <aside className="w-52 shrink-0 border-r border-zinc-800 bg-zinc-900/50 flex flex-col">
+        <div className="px-4 py-4">
+          <h1 className="text-lg font-semibold tracking-tight">🛡️ Admin</h1>
         </div>
-      </header>
+        <nav className="flex-1 px-2 space-y-0.5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                tab === t.key
+                  ? "bg-blue-600 text-white font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-zinc-800">
+          <button
+            onClick={() => router.push("/files")}
+            className="w-full px-3 py-2 rounded-md text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors text-left"
+          >
+            ← Back to files
+          </button>
+        </div>
+      </aside>
 
-      <div className="w-full max-w-2xl px-4 pb-16">
+      {/* Main content */}
+      <main className="flex-1 min-w-0 px-6 py-4">
         <AdminPanel apiFetch={api} tab={tab} />
+      </main>
       </div>
     </div>
   );
