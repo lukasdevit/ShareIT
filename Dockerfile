@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
@@ -7,7 +7,7 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npx tsx --no-warnings -e "console.log('build check passed')" 2>/dev/null || true
 
-FROM node:22-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 COPY package*.json ./

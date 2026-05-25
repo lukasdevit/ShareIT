@@ -244,7 +244,7 @@ Caddy automatically obtains and renews Let's Encrypt SSL certificates. Make sure
 MIT — use it, fork it, self-host it. PRs welcome.
 
 
-57 tests | GitHub Actions CI | Node 22
+57 tests | GitHub Actions CI | Node 24
 
 ## License
 
