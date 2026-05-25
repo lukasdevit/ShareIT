@@ -4,6 +4,7 @@ import { RefObject } from "react";
 
 interface Props {
   uploading: boolean;
+  uploadProgress: number;
   dragOver: boolean;
   error: string | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -13,7 +14,7 @@ interface Props {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export function UploadZone({ uploading, dragOver, error, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange }: Props) {
+export function UploadZone({ uploading, uploadProgress, dragOver, error, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange }: Props) {
   return (
     <div className="w-full max-w-2xl px-4 mb-8">
       <div
@@ -26,9 +27,16 @@ export function UploadZone({ uploading, dragOver, error, fileInputRef, onDragOve
         } ${uploading ? "pointer-events-none opacity-50" : ""}`}
       >
         {uploading ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-zinc-400">Uploading...</span>
+          <div className="flex flex-col items-center gap-2 w-48">
+            <div className="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-blue-400 rounded-full transition-all duration-200"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <span className="text-xs text-zinc-400">
+              {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : "Processing..."}
+            </span>
           </div>
         ) : (
           <>

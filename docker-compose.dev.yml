@@ -26,9 +26,11 @@ services:
     command: npm run dev
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - API_INTERNAL_URL=http://api:3000
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+      - ./frontend/next.config.ts:/app/next.config.ts
     ports:
       - "3001:3001"
     restart: unless-stopped

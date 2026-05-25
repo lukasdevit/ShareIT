@@ -6,6 +6,7 @@ export interface FileInfo {
   mime_type: string;
   created_at: string;
   is_public: number;
+  expires_at?: string | null;
 }
 
 export interface FilePage {

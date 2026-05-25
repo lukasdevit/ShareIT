@@ -21,6 +21,7 @@ export default function FilesPage() {
   const [fileTotalPages, setFileTotalPages] = useState(0);
   const [fileTotal, setFileTotal] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -28,6 +29,8 @@ export default function FilesPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [viewingFile, setViewingFile] = useState<FileInfo | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [expireDays, setExpireDays] = useState<string>("");
 
   const imageFiles = files.filter((f) => isImage(f.mime_type));
 
@@ -35,10 +38,12 @@ export default function FilesPage() {
   useEffect(() => { if (!user) router.replace("/"); }, [user]);
 
   // Fetch files
-  const fetchFiles = useCallback(async (page = 1) => {
+  const fetchFiles = useCallback(async (page = 1, searchTerm = "") => {
     if (!user) return;
     try {
-      const r = await api(`/files?page=${page}&limit=50`);
+      const params = new URLSearchParams({ page: String(page), limit: "50" });
+      if (searchTerm) params.set("search", searchTerm);
+      const r = await api(`/files?${params.toString()}`);
       if (r.ok) {
         const d: FilePage = await r.json();
         setFiles(d.files);
@@ -49,7 +54,7 @@ export default function FilesPage() {
     } catch { /* */ }
   }, [user, api]);
 
-  useEffect(() => { fetchFiles(1); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(1, search); }, [fetchFiles]);
 
   // Keyboard shortcuts for lightbox
   useEffect(() => {
@@ -65,14 +70,38 @@ export default function FilesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIndex, viewingFile, imageFiles.length]);
 
-  // Upload
+  // Upload with progress
   async function uploadFile(file: File) {
-    setUploading(true); setError(null);
+    setUploading(true); setError(null); setUploadProgress(0);
     try {
+      const token = localStorage.getItem("shareit_token");
       const f = new FormData(); f.append("file", file);
-      const r = await api("/upload", { method: "POST", body: f });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Upload failed");
-      await fetchFiles(1);
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"}/upload${expireDays ? `?expires=${expireDays}` : ""}`);
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        if (expireDays) xhr.setRequestHeader("X-File-Expires", expireDays);
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else {
+            try {
+              const d = JSON.parse(xhr.responseText);
+              reject(new Error(d.error || "Upload failed"));
+            } catch { reject(new Error("Upload failed")); }
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(f);
+      });
+
+      await fetchFiles(1, search);
     } catch (e) { setError((e as Error).message); } finally { setUploading(false); }
   }
 
@@ -116,10 +145,42 @@ export default function FilesPage() {
         </div>
       </header>
 
-      <UploadZone uploading={uploading} dragOver={dragOver} error={error} fileInputRef={fileInputRef}
+      <UploadZone uploading={uploading} uploadProgress={uploadProgress} dragOver={dragOver} error={error} fileInputRef={fileInputRef}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onFileChange={handleFileChange} />
 
-      <div className="w-full max-w-2xl px-4 pb-16 space-y-8">
+      <div className="w-full max-w-2xl px-4 pb-16 space-y-4">
+        {/* Search & expire row */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, search); }}
+              placeholder="Search files..."
+              className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+            {search && (
+              <button onClick={() => { setSearch(""); fetchFiles(1, ""); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
+            )}
+          </div>
+          <select
+            value={expireDays}
+            onChange={(e) => setExpireDays(e.target.value)}
+            className="px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+          >
+            <option value="">No expiration</option>
+            <option value="1">Expires in 1 day</option>
+            <option value="7">Expires in 7 days</option>
+            <option value="30">Expires in 30 days</option>
+            <option value="90">Expires in 90 days</option>
+          </select>
+          <a href="/gallery"
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors flex items-center gap-1 whitespace-nowrap">
+            🖼️ Gallery
+          </a>
+        </div>
         {imageFiles.length > 0 && <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId} onCopyLink={copyLink} onDelete={handleDelete} onTogglePublic={handleTogglePublic} onOpenLightbox={setLightboxIndex} />}
         {(() => {
           const others = files.filter((f) => !isImage(f.mime_type));
@@ -129,9 +190,9 @@ export default function FilesPage() {
 
         {fileTotalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pt-2">
-            <button onClick={() => fetchFiles(filePage - 1)} disabled={filePage <= 1} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
+            <button onClick={() => fetchFiles(filePage - 1, search)} disabled={filePage <= 1} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
             <span className="text-xs text-zinc-500">Page {filePage} of {fileTotalPages}<span className="text-zinc-600 ml-1">({fileTotal} files)</span></span>
-            <button onClick={() => fetchFiles(filePage + 1)} disabled={filePage >= fileTotalPages} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
+            <button onClick={() => fetchFiles(filePage + 1, search)} disabled={filePage >= fileTotalPages} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
           </div>
         )}
       </div>

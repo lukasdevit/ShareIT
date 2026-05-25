@@ -20,22 +20,25 @@ export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, on
       <ul className="space-y-2">
         {files.map((f) => (
           <li key={f.id}
-            className={`flex items-center justify-between gap-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors ${isText(f.mime_type) ? "cursor-pointer" : ""}`}
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors ${isText(f.mime_type) ? "cursor-pointer" : ""}`}
             onClick={() => isText(f.mime_type) && onOpenViewer(f)}>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-zinc-200 truncate">{f.original_name}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{formatSize(f.size)} · {formatDate(f.created_at)}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {formatSize(f.size)} · {formatDate(f.created_at)}
+                {f.expires_at && <span className="text-amber-500 ml-1">· Expires {formatDate(f.expires_at)}</span>}
+              </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
               <button onClick={(e) => { e.stopPropagation(); onTogglePublic(f.id, !f.is_public); }}
                 className="px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-zinc-700"
                 title={f.is_public ? "Make private" : "Make public"}>
                 {f.is_public ? "🌐" : "🔒"}
               </button>
               <button onClick={() => onCopyLink(f.filename, f.id)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">{copiedId === f.id ? "✓ Copied" : "Copy"}</button>
+                className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors whitespace-nowrap">{copiedId === f.id ? "✓ Copied" : "Copy"}</button>
               <button onClick={() => onDelete(f.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${deletingId === f.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${deletingId === f.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
             </div>
           </li>
         ))}

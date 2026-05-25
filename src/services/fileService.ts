@@ -4,7 +4,7 @@ import path from "path";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { db } from "../db/database.js";
-import { ALLOWED_MIME_TYPES, BASE_URL } from "../config/index.js";
+import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from "../config/index.js";
 import { scanFile } from "./scanService.js";
 import { getStorage, buildStorageKey } from "./storage.js";
 
@@ -24,7 +24,8 @@ export async function saveFile(
   filename: string,
   originalName: string,
   mimeType: string,
-  userId?: number
+  userId?: number,
+  expiresInDays?: number
 ): Promise<string> {
   const storage = getStorage();
   const storageKey = userId
@@ -41,8 +42,9 @@ export async function saveFile(
     const quota = await getUserQuota(userId);
     if (quota.used + stats.size > quota.limit) {
       fs.unlinkSync(tmpPath);
-      throw new Error(
-        `Storage quota exceeded (${formatBytes(quota.used)} used + ${formatBytes(stats.size)} > ${formatBytes(quota.limit)} limit)`
+      throw Object.assign(
+        new Error(`Storage quota exceeded. You've used ${formatBytes(quota.used)} of ${formatBytes(quota.limit)}.`),
+        { statusCode: 413 }
       );
     }
   }
@@ -51,7 +53,10 @@ export async function saveFile(
   const scanResult = await scanFile(tmpPath);
   if (!scanResult.clean) {
     fs.unlinkSync(tmpPath);
-    throw new Error(`Virus detected: ${scanResult.viruses.join(", ")}`);
+    throw Object.assign(
+      new Error("This file could not be uploaded because it may contain malware."),
+      { statusCode: 422 }
+    );
   }
 
   // Upload to storage
@@ -62,10 +67,16 @@ export async function saveFile(
     try { fs.unlinkSync(tmpPath); } catch { /* */ }
   }
 
+  const expiresAt = expiresInDays
+    ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  const backend = B2_ENABLED ? 'b2' : 'local';
+
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [filename, originalName, storageKey, stats.size, mimeType, userId ?? null, new Date().toISOString()],
+      `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at, expires_at, storage_backend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [filename, originalName, storageKey, stats.size, mimeType, userId ?? null, new Date().toISOString(), expiresAt, backend],
       (err) => {
         if (err) {
           storage.delete(storageKey).catch(() => {});
@@ -89,7 +100,8 @@ export function validateFile(mimeType: string, _originalName: string): string | 
 
 export async function handleUpload(
   file: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
-  userId: number
+  userId: number,
+  expiresInDays?: number
 ): Promise<{ url: string }> {
   const originalName = sanitizeFilename(file.filename);
 
@@ -102,7 +114,7 @@ export async function handleUpload(
   const ext = path.extname(file.filename);
   const filename = `${id}${ext}`;
 
-  await saveFile(file.file, filename, originalName, file.mimetype, userId);
+  await saveFile(file.file, filename, originalName, file.mimetype, userId, expiresInDays);
 
   return { url: `${BASE_URL}/file/${filename}` };
 }

@@ -6,8 +6,21 @@ export async function uploadRoutes(app: FastifyInstance) {
   app.post("/upload", { preHandler: [requireAuth] }, async (request, reply) => {
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: "No file was uploaded" });
+
+    // Support expiration via header or query param (in days)
+    let expiresInDays: number | undefined;
+    const expiryHeader = request.headers["x-file-expires"] as string | undefined;
+    const expiryQuery = (request.query as any)?.expires;
+    const raw = expiryHeader || expiryQuery;
+    if (raw) {
+      const days = parseInt(raw, 10);
+      if (!isNaN(days) && days >= 1 && days <= 365) {
+        expiresInDays = days;
+      }
+    }
+
     try {
-      return reply.send(await handleUpload(file, request.user!.id));
+      return reply.send(await handleUpload(file, request.user!.id, expiresInDays));
     } catch (err: any) {
       return reply.code(err.statusCode || 500).send({ error: err.message });
     }

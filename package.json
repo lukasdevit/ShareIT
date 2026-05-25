@@ -7,8 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "tsx watch src/server.ts",
-    "dev:all": "concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\""
+    "dev": "B2_ENABLED=false tsx watch src/server.ts",
+    "dev:all": "B2_ENABLED=false concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\""
   },
   "repository": {
     "type": "git",

@@ -154,6 +154,6 @@ export function buildStorageKey(userId: number, filename: string): string {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
-  const base = `${userId}/${yyyy}/${mm}/${dd}/${filename}`;
-  return B2_PREFIX ? `${B2_PREFIX.replace(/\/$/, "")}/${base}` : base;
+  const base = `share/${userId}/${yyyy}/${mm}/${dd}/${filename}`;
+  return B2_ENABLED && B2_PREFIX ? `${B2_PREFIX.replace(/\/$/, "")}/${base}` : base;
 }

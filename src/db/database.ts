@@ -33,7 +33,9 @@ db.run(`
     mime_type TEXT NOT NULL,
     user_id INTEGER,
     created_at TEXT NOT NULL,
-    is_public INTEGER NOT NULL DEFAULT 1
+    is_public INTEGER NOT NULL DEFAULT 1,
+    expires_at TEXT,
+    storage_backend TEXT NOT NULL DEFAULT 'local'
   )
 `);
 
@@ -42,11 +44,22 @@ db.run(`ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`, (err
   if (err && !err.message.includes("duplicate column")) { /* */ }
 });
 
+// Add expires_at column for existing databases
+db.run(`ALTER TABLE files ADD COLUMN expires_at TEXT`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
+
+// Add storage_backend column for existing databases
+db.run(`ALTER TABLE files ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'local'`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
+
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    email TEXT,
     created_at TEXT NOT NULL,
     storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT},
     is_admin INTEGER NOT NULL DEFAULT 0,
@@ -54,6 +67,11 @@ db.run(`
     locked_until TEXT
   )
 `);
+
+// Add email column for existing databases
+db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {
+  if (err && !err.message.includes("duplicate column")) { /* */ }
+});
 
 // Add storage_limit column for existing databases that may not have it
 db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT}`, (err) => {
@@ -81,6 +99,43 @@ export function closeDb(): void {
     try { fs.unlinkSync(dbPath + "-wal"); } catch { /* ignore */ }
     try { fs.unlinkSync(dbPath + "-shm"); } catch { /* ignore */ }
   }
+}
+
+/**
+ * Delete files past their expiration date. Returns count of deleted files.
+ * Call periodically (e.g., via cron or setInterval).
+ */
+export async function cleanupExpiredFiles(): Promise<number> {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT id, path, storage_backend FROM files WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`,
+      async (err, rows: { id: number; path: string; storage_backend: string }[]) => {
+        if (err) { resolve(0); return; }
+        let deleted = 0;
+        for (const row of rows) {
+          try {
+            if (row.storage_backend === "local") {
+              const fs = await import("fs");
+              const pathMod = await import("path");
+              const localPath = pathMod.isAbsolute(row.path) && row.path.startsWith("/")
+                ? row.path
+                : pathMod.join(process.cwd(), "uploads", row.path);
+              try { fs.unlinkSync(localPath); } catch { /* */ }
+            } else {
+              try { await (await import("../services/storage.js")).getStorage().delete(row.path); } catch { /* */ }
+            }
+          } catch { /* storage delete failed, still remove DB row */ }
+
+          await new Promise<void>((res) => {
+            db.run(`DELETE FROM files WHERE id = ?`, [row.id], () => res());
+          });
+          deleted++;
+        }
+        if (deleted > 0) console.log(`Cleaned up ${deleted} expired file(s)`);
+        resolve(deleted);
+      }
+    );
+  });
 }
 
 export async function seedAdmin(): Promise<void> {

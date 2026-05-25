@@ -16,8 +16,8 @@ export async function filesRoutes(app: FastifyInstance) {
     }
 
     try {
-      const file = await dbGet<{ path: string; size: number; mime_type: string; is_public: number; user_id: number }>(
-        `SELECT path, size, mime_type, is_public, user_id FROM files WHERE filename = ?`,
+      const file = await dbGet<{ path: string; size: number; mime_type: string; is_public: number; user_id: number; storage_backend: string }>(
+        `SELECT path, size, mime_type, is_public, user_id, storage_backend FROM files WHERE filename = ?`,
         [filename]
       );
 
@@ -34,7 +34,7 @@ export async function filesRoutes(app: FastifyInstance) {
         }
       }
 
-      const stream = await resolveReadStream(file.path);
+      const stream = await resolveReadStream(file.path, file.storage_backend);
       reply.header("Content-Type", file.mime_type);
       reply.header("Content-Length", file.size);
       reply.header("Cache-Control", "public, max-age=31536000");
@@ -49,15 +49,22 @@ export async function filesRoutes(app: FastifyInstance) {
 
   app.get("/files", { preHandler: [requireAuth] }, async (request, reply) => {
     const userId = request.user?.id;
-    const query = request.query as { page?: string; limit?: string };
+    const query = request.query as { page?: string; limit?: string; search?: string };
     const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || "50", 10) || 50));
     const offset = (page - 1) * limit;
+    const search = query.search?.trim() || "";
+
+    const whereClause = search
+      ? `WHERE user_id = ? AND (original_name LIKE ? OR filename LIKE ?)`
+      : `WHERE user_id = ?`;
+    const searchParam = search ? `%${search}%` : null;
 
     return new Promise((resolve) => {
+      const countParams = searchParam ? [userId, searchParam, searchParam] : [userId];
       db.get(
-        `SELECT COUNT(*) AS total FROM files WHERE user_id = ?`,
-        [userId],
+        `SELECT COUNT(*) AS total FROM files ${whereClause}`,
+        countParams,
         (err, row: { total: number } | undefined) => {
           if (err) {
             reply.code(500).send({ error: err.message });
@@ -65,9 +72,12 @@ export async function filesRoutes(app: FastifyInstance) {
             return;
           }
           const total = row?.total ?? 0;
+          const listParams = searchParam
+            ? [userId, searchParam, searchParam, limit, offset]
+            : [userId, limit, offset];
           db.all(
-            `SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-            [userId, limit, offset],
+            `SELECT * FROM files ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            listParams,
             (err2, files) => {
               if (err2) {
                 reply.code(500).send({ error: err2.message });
@@ -104,8 +114,8 @@ export async function filesRoutes(app: FastifyInstance) {
     const userId = request.user?.id;
 
     try {
-      const file = await dbGet<{ path: string; user_id: number | null }>(
-        `SELECT path, user_id FROM files WHERE id = ?`,
+      const file = await dbGet<{ path: string; user_id: number | null; storage_backend: string }>(
+        `SELECT path, user_id, storage_backend FROM files WHERE id = ?`,
         [id]
       );
 
@@ -113,7 +123,7 @@ export async function filesRoutes(app: FastifyInstance) {
       if (file.user_id !== userId) return reply.code(403).send({ error: "Not your file" });
 
       try {
-        await deleteFromStorage(file.path);
+        await deleteFromStorage(file.path, file.storage_backend);
       } catch (err) {
         console.error("Storage delete failed:", (err as Error).message);
         // Still delete the DB row — B2 may have retention delay
@@ -125,21 +135,74 @@ export async function filesRoutes(app: FastifyInstance) {
       return reply.code(500).send({ error: (err as Error).message });
     }
   });
+
+  // Public gallery — browse all public files
+  app.get("/gallery", async (request, reply) => {
+    const query = request.query as { page?: string; limit?: string; search?: string };
+    const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit || "50", 10) || 50));
+    const offset = (page - 1) * limit;
+    const search = query.search?.trim() || "";
+
+    const whereClause = search
+      ? `WHERE is_public = 1 AND (expires_at IS NULL OR expires_at > datetime('now')) AND (original_name LIKE ? OR filename LIKE ?)`
+      : `WHERE is_public = 1 AND (expires_at IS NULL OR expires_at > datetime('now'))`;
+    const searchParam = search ? `%${search}%` : null;
+
+    return new Promise((resolve) => {
+      const countParams = searchParam ? [searchParam, searchParam] : [];
+      db.get(
+        `SELECT COUNT(*) AS total FROM files ${whereClause}`,
+        countParams,
+        (err, row: { total: number } | undefined) => {
+          if (err) {
+            reply.code(500).send({ error: err.message });
+            resolve(undefined);
+            return;
+          }
+          const total = row?.total ?? 0;
+          const listParams = searchParam
+            ? [searchParam, searchParam, limit, offset]
+            : [limit, offset];
+          db.all(
+            `SELECT id, filename, original_name, size, mime_type, created_at, expires_at FROM files ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            listParams,
+            (err2, files) => {
+              if (err2) {
+                reply.code(500).send({ error: err2.message });
+              } else {
+                reply.send({ files, total, page, totalPages: Math.ceil(total / limit) });
+              }
+              resolve(undefined);
+            }
+          );
+        }
+      );
+    });
+  });
 }
 
-async function resolveReadStream(storageKey: string): Promise<NodeJS.ReadableStream> {
-  if (path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)) {
-    if (!fs.existsSync(storageKey)) throw new Error("Missing");
-    return fs.createReadStream(storageKey);
+async function resolveReadStream(storageKey: string, backend: string): Promise<NodeJS.ReadableStream> {
+  // Always use local filesystem for local backend
+  if (backend === "local") {
+    const localPath = path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)
+      ? storageKey
+      : path.join(UPLOAD_DIR, storageKey);
+    if (!fs.existsSync(localPath)) throw new Error("Missing");
+    return fs.createReadStream(localPath);
   }
+  // B2 backend
   const storage = getStorage();
   if (!(await storage.exists(storageKey))) throw new Error("Missing");
   return storage.createReadStream(storageKey);
 }
 
-async function deleteFromStorage(storageKey: string): Promise<void> {
-  if (path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)) {
-    try { fs.unlinkSync(storageKey); } catch { /* */ }
+async function deleteFromStorage(storageKey: string, backend: string): Promise<void> {
+  if (backend === "local") {
+    const localPath = path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)
+      ? storageKey
+      : path.join(UPLOAD_DIR, storageKey);
+    try { fs.unlinkSync(localPath); } catch { /* */ }
     return;
   }
   await getStorage().delete(storageKey);
