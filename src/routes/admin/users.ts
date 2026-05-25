@@ -15,7 +15,7 @@ interface UserRow {
 }
 
 export async function adminUserRoutes(app: FastifyInstance) {
-  app.get("/admin/users", { config: { rateLimit: { max: 30, timeWindow: 60000 } } }, async (request, reply) => {
+  app.get("/admin/users", async (request, reply) => {
     const { page, limit, offset, search } = parsePagination(request.query as Record<string, string>);
     const filter = search ? `WHERE u.username LIKE ?` : "";
     const searchParam = search ? `%${search}%` : null;
@@ -34,7 +34,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     return reply.send({ users: rows, total, page, totalPages: Math.ceil(total / limit) });
   });
 
-  app.patch("/admin/users/:id", { config: { rateLimit: { max: 15, timeWindow: 60000 } } }, async (request, reply) => {
+  app.patch("/admin/users/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const { storage_limit, is_admin, new_password } = request.body as {
       storage_limit?: number; is_admin?: boolean; new_password?: string;
@@ -62,7 +62,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  app.delete("/admin/users/:id", { config: { rateLimit: { max: 10, timeWindow: 60000 } } }, async (request, reply) => {
+  app.delete("/admin/users/:id", async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
     if (userId === request.user!.id) return reply.code(400).send({ error: "Cannot delete yourself" });
 

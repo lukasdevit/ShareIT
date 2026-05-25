@@ -20,6 +20,7 @@ interface StorageData {
   users: number;
   total_files: number;
   total_bytes: number;
+  registrations_open: boolean;
 }
 
 export function StorageConfig({ apiFetch }: Props) {
@@ -47,6 +48,7 @@ export function StorageConfig({ apiFetch }: Props) {
       b2_region: data?.b2_region || "",
       b2_bucket: data?.b2_bucket || "",
       b2_prefix: data?.b2_prefix || "",
+      registrations_open: String(data?.registrations_open !== false),
     });
     setEditing(true);
     setMsg(null);
@@ -110,12 +112,29 @@ export function StorageConfig({ apiFetch }: Props) {
               ))}
             </div>
           )}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+            <div>
+              <span className="text-sm font-medium text-zinc-200">User Registrations</span>
+              <p className="text-xs text-zinc-500 mt-0.5">Allow new users to sign up</p>
+            </div>
+            <button
+              onClick={() => setForm({ ...form, registrations_open: form.registrations_open === "true" ? "false" : "true" })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.registrations_open === "true" ? "bg-green-600" : "bg-zinc-600"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.registrations_open === "true" ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <StatCard label="Backend" value={data.backend === "b2" ? "☁️ Backblaze B2" : "💻 Local filesystem"} />
             <StatCard label="Default user limit" value={formatSize(data.default_storage_limit)} />
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
+            <span className="text-xs text-zinc-500">User Registrations</span>
+            <span className={`badge text-xs ${data.registrations_open !== false ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+              {data.registrations_open !== false ? "✅ Open" : "⛔ Closed"}
+            </span>
           </div>
           {data.backend === "b2" && <B2Details data={data} />}
           {data.backend === "local" && (data.disk_total || 0) > 0 && <DiskBar data={data} />}
