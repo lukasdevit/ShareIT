@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserManager } from "./UserManager";
 import { TableBrowser } from "./TableBrowser";
 import { StorageConfig } from "./StorageConfig";
@@ -13,11 +14,20 @@ interface Props {
 }
 
 export function AdminPanel({ apiFetch, tab }: Props) {
+  const router = useRouter();
   const [tablesKey, setTablesKey] = useState(0);
   const refreshTables = useCallback(() => setTablesKey((k) => k + 1), []);
 
   return (
     <div className="space-y-6">
+      {/* Back button */}
+      <button
+        onClick={() => router.push("/files")}
+        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+      >
+        ← Back to files
+      </button>
+
       {tab === "users" && <UserManager apiFetch={apiFetch} />}
       {tab === "files" && (
         <section className="card">
