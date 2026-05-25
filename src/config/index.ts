@@ -4,7 +4,7 @@ import path from "path";
 dotenv.config();
 
 export const PORT = Number(process.env.PORT || 3000);
-export const BASE_URL = process.env.BASE_URL || `https://localhost:${PORT}`;
+export const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 export const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 export const ALLOWED_MIME_TYPES = (process.env.ALLOWED_MIME_TYPES || [
   // Images

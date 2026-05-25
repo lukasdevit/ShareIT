@@ -9,7 +9,10 @@ declare module "fastify" {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required. Set it in .env and never commit it.");
+}
 const BCRYPT_ROUNDS = 10;
 
 interface JwtPayload {
