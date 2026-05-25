@@ -9,7 +9,7 @@ import { UPLOAD_DIR } from "../config/index.js";
 
 export async function filesRoutes(app: FastifyInstance) {
   // Serve file by filename (public)
-  app.get("/file/:filename", async (request, reply) => {
+  app.get("/file/:filename", { config: { rateLimit: { max: 500, timeWindow: 60000 } } }, async (request, reply) => {
     const { filename } = request.params as { filename: string };
 
     if (filename.includes("..") || filename.includes("/")) {
@@ -48,7 +48,7 @@ export async function filesRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get("/files", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.get("/files", { preHandler: [requireAuth], config: { rateLimit: { max: 60, timeWindow: 60000 } } }, async (request, reply) => {
     const userId = request.user?.id;
     const query = request.query as { page?: string; limit?: string; search?: string };
     const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
@@ -93,7 +93,7 @@ export async function filesRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/file/:id", { preHandler: [requireAuth], config: { rateLimit: { max: 30, timeWindow: 60000 } } }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = request.user?.id;
     const { is_public } = request.body as { is_public?: boolean };
@@ -110,7 +110,7 @@ export async function filesRoutes(app: FastifyInstance) {
     return reply.send({ ok: true, is_public });
   });
 
-  app.delete("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.delete("/file/:id", { preHandler: [requireAuth], config: { rateLimit: { max: 30, timeWindow: 60000 } } }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = request.user?.id;
 

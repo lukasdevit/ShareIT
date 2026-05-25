@@ -12,7 +12,7 @@ async function getOverrides(): Promise<Record<string, string>> {
 }
 
 export async function adminStorageRoutes(app: FastifyInstance) {
-  app.get("/admin/storage", async (_request, reply) => {
+  app.get("/admin/storage", { config: { rateLimit: { max: 30, timeWindow: 60000 } } }, async (_request, reply) => {
     const overrides = await getOverrides();
     const row = await dbGet<{ users: number; total_bytes: number; total_files: number }>(
       `SELECT COUNT(*) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
@@ -43,7 +43,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch("/admin/storage", async (request, reply) => {
+  app.patch("/admin/storage", { config: { rateLimit: { max: 10, timeWindow: 60000 } } }, async (request, reply) => {
     const body = request.body as Record<string, string>;
     const allowed = ["b2_endpoint", "b2_region", "b2_bucket", "b2_prefix", "backend"];
     const updates: [string, string][] = [];
@@ -61,7 +61,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 }
 
 export async function adminSslRoutes(app: FastifyInstance) {
-  app.get("/admin/ssl", async (request, reply) => {
+  app.get("/admin/ssl", { config: { rateLimit: { max: 20, timeWindow: 60000 } } }, async (request, reply) => {
     const domain = process.env.DOMAIN || "localhost";
     const isLocal = domain === "localhost";
     const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol || "http";
