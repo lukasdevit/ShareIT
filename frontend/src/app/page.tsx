@@ -11,7 +11,7 @@ import { Lightbox } from "../components/Lightbox";
 import { TextViewer } from "../components/TextViewer";
 import { SettingsPage } from "../components/SettingsPage";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
