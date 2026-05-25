@@ -6,6 +6,11 @@ export default defineConfig({
     env: {
       DB_PATH: "/tmp/projectS-test.db",
       JWT_SECRET: "test-secret-do-not-use-in-prod",
+      B2_ENABLED: "false",
+      B2_ENDPOINT: "",
+      B2_KEY_ID: "",
+      B2_APP_KEY: "",
+      B2_BUCKET: "",
     },
     // Timeout for integration tests (bcrypt hashing takes a moment)
     testTimeout: 15_000,
