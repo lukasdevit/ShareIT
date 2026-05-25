@@ -1,0 +1,32 @@
+# Replace yourdomain.com with your actual domain
+yourdomain.com {
+  # API — all backend routes go to api:3000
+  handle /file/* {
+    reverse_proxy api:3000
+  }
+  handle /upload* {
+    reverse_proxy api:3000
+  }
+  handle /auth/* {
+    reverse_proxy api:3000
+  }
+  handle /sharex/* {
+    reverse_proxy api:3000
+  }
+  handle /admin/* {
+    reverse_proxy api:3000
+  }
+
+  # Frontend — everything else goes to Next.js
+  reverse_proxy web:3001
+}
+
+# Uncomment for local dev (no domain):
+# :80 {
+#   handle /file/* { reverse_proxy api:3000 }
+#   handle /upload* { reverse_proxy api:3000 }
+#   handle /auth/* { reverse_proxy api:3000 }
+#   handle /sharex/* { reverse_proxy api:3000 }
+#   handle /admin/* { reverse_proxy api:3000 }
+#   reverse_proxy web:3001
+# }
