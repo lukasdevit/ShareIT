@@ -35,3 +35,4 @@ export const B2_REGION = process.env.B2_REGION || "us-west-004";
 export const B2_KEY_ID = process.env.B2_KEY_ID || "";
 export const B2_APP_KEY = process.env.B2_APP_KEY || "";
 export const B2_BUCKET = process.env.B2_BUCKET || "";
+export const B2_PREFIX = process.env.B2_PREFIX || "ShareIt/uploads/";
