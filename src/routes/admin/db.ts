@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 
 export async function adminDbRoutes(app: FastifyInstance) {
-  app.post("/admin/db", { config: { rateLimit: { max: 20, timeWindow: 60000 } } }, async (request, reply) => {
+  app.post("/admin/db", async (request, reply) => {
     const { sql } = request.body as { sql?: string };
     if (!sql?.trim()) return reply.code(400).send({ error: "SQL query required" });
 
@@ -36,7 +36,7 @@ export async function adminDbRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get("/admin/db/tables", { config: { rateLimit: { max: 20, timeWindow: 60000 } } }, async (_request, reply) => {
+  app.get("/admin/db/tables", async (_request, reply) => {
     const tables = await dbAll<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
     );

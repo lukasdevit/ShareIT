@@ -29,6 +29,18 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Username min 3 chars, password min 6 chars" });
     }
 
+    // Check if registrations are disabled by admin
+    if (!isTest) {
+      const regSetting = await new Promise<{ value: string } | undefined>((resolve) => {
+        db.get(`SELECT value FROM settings WHERE key = 'registrations_open'`, (err, row: { value: string } | undefined) => {
+          resolve(err ? undefined : row);
+        });
+      });
+      if (regSetting && regSetting.value === "false") {
+        return reply.code(403).send({ error: "Registrations are currently disabled" });
+      }
+    }
+
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     return new Promise((resolve) => {

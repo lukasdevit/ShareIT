@@ -6,7 +6,7 @@ interface TopUser { username: string; files: number; bytes: number; }
 interface Category { category: string; count: number; bytes: number; }
 
 export async function adminAnalyticsRoutes(app: FastifyInstance) {
-  app.get("/admin/analytics", { config: { rateLimit: { max: 20, timeWindow: 60000 } } }, async (_request, reply) => {
+  app.get("/admin/analytics", async (_request, reply) => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
