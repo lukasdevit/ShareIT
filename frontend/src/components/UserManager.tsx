@@ -112,7 +112,7 @@ export function UserManager({ apiFetch }: Props) {
   return (
     <section className="card">
       <div className="flex items-center justify-between">
-        <h2 className="card-title">🛡️ Admin Panel</h2>
+        <h2 className="card-title">🛡️ User Manager</h2>
         <button onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
       </div>
 
