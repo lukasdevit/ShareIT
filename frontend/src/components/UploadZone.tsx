@@ -24,7 +24,7 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+        className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none overflow-hidden ${
           dragOver ? "border-blue-400 bg-blue-500/10" : "border-zinc-700 hover:border-zinc-500 bg-zinc-900"
         } ${uploading ? "pointer-events-none opacity-50" : ""}`}
       >
@@ -48,21 +48,23 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
             <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
           </>
         )}
+        {/* Expiration selector inside the drop zone */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-zinc-800/50 border-t border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[11px] text-zinc-500 whitespace-nowrap">⏱️ Auto-delete:</span>
+          <select
+            value={expireDays}
+            onChange={(e) => onExpireChange(e.target.value)}
+            className="bg-transparent text-zinc-400 text-[11px] focus:outline-none cursor-pointer"
+          >
+            <option value="">Never</option>
+            <option value="1">After 1 day</option>
+            <option value="7">After 7 days</option>
+            <option value="30">After 30 days</option>
+            <option value="90">After 90 days</option>
+          </select>
+        </div>
         <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
       </div>
-      {!uploading && (
-        <select
-          value={expireDays}
-          onChange={(e) => onExpireChange(e.target.value)}
-          className="mt-2 px-3 py-1 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
-        >
-          <option value="">No expiration</option>
-          <option value="1">Expires in 1 day</option>
-          <option value="7">Expires in 7 days</option>
-          <option value="30">Expires in 30 days</option>
-          <option value="90">Expires in 90 days</option>
-        </select>
-      )}
       {error && <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
     </div>
   );
