@@ -376,6 +376,48 @@ export async function adminRoutes(app: FastifyInstance) {
 
     return reply.send({ ok: true, updated: updates.map(([k]) => k) });
   });
+
+  // SSL / domain info
+  app.get("/admin/ssl", async (request, reply) => {
+    const domain = process.env.DOMAIN || "localhost";
+    const isLocal = domain === "localhost";
+    const proto = (request.headers["x-forwarded-proto"] as string) || "http";
+
+    // Check Caddy cert volume for certificate
+    let certExpiry: string | null = null;
+    let certValid = false;
+    try {
+      const certDir = "/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory";
+      if (fs.existsSync(certDir)) {
+        const entries = fs.readdirSync(certDir, { withFileTypes: true });
+        for (const e of entries) {
+          if (e.isDirectory() && e.name.includes(domain)) {
+            const certPath = path.join(certDir, e.name, `${e.name}.crt`);
+            if (fs.existsSync(certPath)) {
+              certValid = true;
+              try {
+                const { execSync } = await import("child_process");
+                const expiry = execSync(`openssl x509 -enddate -noout -in "${certPath}" 2>/dev/null`, { encoding: "utf8" }).trim();
+                certExpiry = expiry.replace("notAfter=", "");
+              } catch { certExpiry = "Unknown"; }
+            }
+          }
+        }
+      }
+    } catch { /* cert check unavailable */ }
+
+    return reply.send({
+      domain,
+      is_local: isLocal,
+      protocol: proto,
+      cert_valid: certValid,
+      cert_expiry: certExpiry,
+      managed_by: isLocal ? "None (localhost)" : "Caddy + Let's Encrypt (auto-renewing)",
+      note: isLocal
+        ? "SSL is not available on localhost. Deploy with a real domain to get automatic HTTPS."
+        : "Caddy automatically obtains and renews SSL certificates. No manual configuration needed.",
+    });
+  });
 }
 
 async function deleteFromStorage(storageKey: string): Promise<void> {
