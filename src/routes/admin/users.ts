@@ -2,19 +2,41 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 import { parsePagination, deleteFromStorage } from "../../utils/index.js";
+import { DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
 
 const BCRYPT_ROUNDS = 10;
 
-interface UserRow {
-  id: number;
-  username: string;
-  password_hash: string;
-  created_at: string;
-  storage_limit: number;
-  is_admin: number;
-}
-
 export async function adminUserRoutes(app: FastifyInstance) {
+  // Create a new user
+  app.post("/admin/users", async (request, reply) => {
+    const { username, password, is_admin, storage_limit } = request.body as {
+      username?: string; password?: string; is_admin?: boolean; storage_limit?: number;
+    };
+
+    if (!username || !password) {
+      return reply.code(400).send({ error: "Username and password required" });
+    }
+    if (username.length < 3 || password.length < 6) {
+      return reply.code(400).send({ error: "Username min 3 chars, password min 6 chars" });
+    }
+
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const limit = storage_limit && storage_limit > 0 ? storage_limit : DEFAULT_STORAGE_LIMIT;
+
+    try {
+      const result = await dbRun(
+        `INSERT INTO users (username, password_hash, created_at, is_admin, storage_limit) VALUES (?, ?, ?, ?, ?)`,
+        [username, hash, new Date().toISOString(), is_admin ? 1 : 0, limit]
+      );
+      return reply.send({ id: result.lastID, username, is_admin: !!is_admin, storage_limit: limit });
+    } catch (err) {
+      if ((err as Error).message.includes("UNIQUE")) {
+        return reply.code(409).send({ error: "Username already taken" });
+      }
+      throw err;
+    }
+  });
+
   app.get("/admin/users", async (request, reply) => {
     const { page, limit, offset, search } = parsePagination(request.query as Record<string, string>);
     const filter = search ? `WHERE u.username LIKE ?` : "";

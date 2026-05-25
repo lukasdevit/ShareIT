@@ -31,6 +31,13 @@ export function UserManager({ apiFetch }: Props) {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
 
+  // Create user form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newStorageLimit, setNewStorageLimit] = useState("");
+
   async function fetchUsers(p = 1, s = "") {
     setLoading(true);
     try {
@@ -101,6 +108,38 @@ export function UserManager({ apiFetch }: Props) {
     }
   }
 
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage(null);
+    if (!newUsername.trim() || !newPassword.trim()) {
+      setMessage({ type: "err", text: "Username and password required" });
+      return;
+    }
+    try {
+      const body: Record<string, unknown> = { username: newUsername.trim(), password: newPassword };
+      if (newIsAdmin) body.is_admin = true;
+      const limitNum = Number(newStorageLimit);
+      if (!isNaN(limitNum) && limitNum > 0) body.storage_limit = limitNum;
+
+      const r = await apiFetch("/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setMessage({ type: "ok", text: `User "${d.username}" created!` });
+      setShowCreate(false);
+      setNewUsername("");
+      setNewPassword("");
+      setNewIsAdmin(false);
+      setNewStorageLimit("");
+      await fetchUsers(page, search);
+    } catch (err) {
+      setMessage({ type: "err", text: (err as Error).message });
+    }
+  }
+
   const totalUsed = users.reduce((sum, u) => sum + u.used, 0);
   const totalFiles = users.reduce((sum, u) => sum + u.file_count, 0);
 
@@ -113,8 +152,51 @@ export function UserManager({ apiFetch }: Props) {
     <section className="card">
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ User Manager</h2>
-        <button onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowCreate(!showCreate)} className="btn-blue">
+            {showCreate ? "Cancel" : "➕ Create User"}
+          </button>
+          <button onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
+        </div>
       </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="rounded-lg border border-blue-600/40 bg-zinc-800/30 p-4 space-y-3">
+          <h3 className="text-sm font-medium text-zinc-300">Create New User</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Username *</label>
+              <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+                className="input-sm" placeholder="newuser" minLength={3} />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Password *</label>
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                className="input-sm" placeholder="min 6 chars" minLength={6} />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Storage Limit (bytes, optional)</label>
+              <input type="number" value={newStorageLimit} onChange={(e) => setNewStorageLimit(e.target.value)}
+                className="input-sm" placeholder="Default: 10 GB" min="0" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Role</label>
+              <label className="flex items-center gap-2 mt-1 cursor-pointer">
+                <input type="checkbox" checked={newIsAdmin} onChange={(e) => setNewIsAdmin(e.target.checked)}
+                  className="rounded bg-zinc-900 border-zinc-700 text-blue-500 focus:ring-blue-500" />
+                <span className="text-xs text-zinc-300">Admin user</span>
+              </label>
+            </div>
+          </div>
+          <button type="submit" className="btn-green">Create User</button>
+        </form>
+      )}
+
+      {message && !editId && (
+        <div className={`text-xs px-3 py-2 rounded ${message.type === "ok" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+          {message.text}
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 relative">
