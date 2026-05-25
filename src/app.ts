@@ -12,6 +12,8 @@ import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { initScanner } from "./services/scanService.js";
 
+const startTime = Date.now();
+
 export interface AppOptions {
   logger?: boolean;
 }
@@ -58,6 +60,15 @@ export async function buildApp(opts: AppOptions = {}) {
   await app.register(sharexRoutes);
   await app.register(authRoutes);
   await app.register(adminRoutes);
+
+  // Health check
+  app.get("/health", async (_request, reply) => {
+    return reply.send({
+      status: "ok",
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   // Note: scanner init is skipped in tests automatically (ClamAV not available)
   await initScanner();

@@ -122,6 +122,21 @@ npm run dev:all   # Both API + frontend (no Docker)
 | `DELETE` | `/admin/users/:id` | Admin | Delete user + files |
 | `POST` | `/admin/db` | Admin | Raw SQL editor |
 | `GET` | `/admin/db/tables` | Admin | Table schema browser |
+| `GET` | `/health` | No | Uptime + status check |
+
+## Backup
+
+SQLite is a single file — back it up.
+
+```bash
+# Manual
+bash scripts/backup-db.sh ./backups
+
+# Automatic (cron, daily at 3 AM)
+0 3 * * * /path/to/scripts/backup-db.sh /path/to/backups
+```
+
+Keeps last 7 backups, deletes older ones.
 
 ## License
 
