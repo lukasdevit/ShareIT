@@ -2,7 +2,7 @@
 # deploy.sh — Pull latest code and redeploy Docker stack
 set -e
 
-cd /home/kukasz/projectS
+cd /home/kukasz/ShareIT
 
 echo "📥 Pulling latest changes..."
 git pull origin main

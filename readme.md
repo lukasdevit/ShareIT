@@ -19,8 +19,8 @@ Self-hosted file upload & sharing with ShareX support, B2 cloud storage, and adm
 ## Quick Start
 
 ```bash
-git clone https://github.com/lukasdevit/projectS.git
-cd projectS
+git clone https://github.com/lukasdevit/ShareIT.git
+cd ShareIT
 cp .env.example .env
 # Generate JWT secret: openssl rand -hex 32
 # Paste into .env as JWT_SECRET=<value>

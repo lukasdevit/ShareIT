@@ -36,7 +36,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/projectS
+            cd ~/ShareIT
             git pull origin main
             sg docker -c "DOMAIN=goletz.dev docker compose up -d --build --remove-orphans"
             sg docker -c "docker image prune -f"
