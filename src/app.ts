@@ -4,7 +4,7 @@ import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
 import fs from "fs";
-import { UPLOAD_DIR, RATE_LIMIT } from "./config/index.js";
+import { UPLOAD_DIR, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, LOG_PRETTY } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
 import { sharexRoutes } from "./routes/sharex.js";
@@ -17,17 +17,16 @@ export interface AppOptions {
 }
 
 export async function buildApp(opts: AppOptions = {}) {
-  const loggerEnv = process.env.LOG_PRETTY === "true";
   const app = Fastify({
     logger: opts.logger
-      ? loggerEnv
+      ? LOG_PRETTY
         ? {
             transport: {
               target: "pino-pretty",
               options: { colorize: true, translateTime: "HH:MM:ss" },
             },
           }
-        : true // plain JSON logger — no pino-pretty needed
+        : true
       : false,
   });
 
@@ -37,7 +36,7 @@ export async function buildApp(opts: AppOptions = {}) {
 
   await app.register(multipart, { limits: { fileSize: 1 * 1024 * 1024 * 1024 } });
 
-  await app.register(rateLimit, { max: RATE_LIMIT.max, timeWindow: RATE_LIMIT.timeWindow });
+  await app.register(rateLimit, { max: RATE_LIMIT_MAX, timeWindow: RATE_LIMIT_WINDOW_MS });
 
   await app.register(helmet, {
     crossOriginResourcePolicy: { policy: "cross-origin" },

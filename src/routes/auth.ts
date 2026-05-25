@@ -2,6 +2,10 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { db } from "../db/database.js";
+import {
+  JWT_SECRET, JWT_EXPIRES_IN, AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
+  AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES,
+} from "../config/index.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -9,10 +13,6 @@ declare module "fastify" {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET environment variable is required. Set it in .env and never commit it.");
-}
 const BCRYPT_ROUNDS = 10;
 
 interface JwtPayload {
@@ -22,7 +22,7 @@ interface JwtPayload {
 }
 
 function signToken(userId: number, username: string, isAdmin: boolean): string {
-  return jwt.sign({ id: userId, username, isAdmin }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id: userId, username, isAdmin }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
@@ -60,7 +60,7 @@ export async function authRoutes(app: FastifyInstance) {
   const isTest = (process.env.DB_PATH || "").includes("test");
 
   // Register — strict rate limit: 3 per minute
-  app.post("/auth/register", isTest ? {} : { config: { rateLimit: { max: 3, timeWindow: 60_000 } } }, async (request, reply) => {
+  app.post("/auth/register", isTest ? {} : { config: { rateLimit: { max: AUTH_REGISTER_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }, async (request, reply) => {
     const { username, password } = request.body as { username?: string; password?: string };
 
     if (!username || !password) {
@@ -94,7 +94,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Login — strict rate limit: 5 per minute
-  app.post("/auth/login", isTest ? {} : { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (request, reply) => {
+  app.post("/auth/login", isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }, async (request, reply) => {
     const { username, password } = request.body as { username?: string; password?: string };
 
     if (!username || !password) {
@@ -127,19 +127,19 @@ export async function authRoutes(app: FastifyInstance) {
 
           const match = await bcrypt.compare(password, row.password_hash);
           if (!match) {
-            // Increment failed logins, lock after 5 attempts
+            // Increment failed logins, lock after threshold
             const newCount = row.failed_logins + 1;
-            const lockedUntil = newCount >= 5
-              ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+            const lockedUntil = newCount >= MAX_FAILED_LOGINS
+              ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
               : null;
             db.run(
               `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
               [newCount, lockedUntil, row.id]
             );
-            const attemptsLeft = 5 - newCount;
+            const attemptsLeft = MAX_FAILED_LOGINS - newCount;
             const msg = attemptsLeft > 0
               ? `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining.`
-              : "Account locked for 15 minutes.";
+              : `Account locked for ${LOCKOUT_MINUTES} minutes.`;
             reply.code(401).send({ error: msg });
             resolve(undefined);
             return;
@@ -164,7 +164,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Change password
-  app.post("/auth/change-password", { preHandler: [requireAuth], ...(isTest ? {} : { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }) }, async (request, reply) => {
+  app.post("/auth/change-password", { preHandler: [requireAuth], ...(isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }) }, async (request, reply) => {
     const user = request.user!;
     const { currentPassword, newPassword } = request.body as {
       currentPassword?: string;

@@ -2,8 +2,9 @@ import sqlite3 from "sqlite3";
 import path from "path";
 import fs from "fs";
 import bcrypt from "bcrypt";
+import { DB_PATH, DEFAULT_STORAGE_LIMIT, ADMIN_USERNAME, ADMIN_PASSWORD } from "../config/index.js";
 
-const dbPath = process.env.DB_PATH || path.join(process.cwd(), "database.db");
+const dbPath = DB_PATH;
 
 // Ensure the directory for the db file exists (important for custom paths like /tmp)
 const dbDir = path.dirname(dbPath);
@@ -41,7 +42,7 @@ db.run(`
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    storage_limit INTEGER NOT NULL DEFAULT 10737418240,
+    storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT},
     is_admin INTEGER NOT NULL DEFAULT 0,
     failed_logins INTEGER NOT NULL DEFAULT 0,
     locked_until TEXT
@@ -49,7 +50,7 @@ db.run(`
 `);
 
 // Add storage_limit column for existing databases that may not have it
-db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT 10737418240`, (err) => {
+db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT}`, (err) => {
   if (err && !err.message.includes("duplicate column")) { /* */ }
 });
 
@@ -77,8 +78,8 @@ export function closeDb(): void {
 }
 
 export async function seedAdmin(): Promise<void> {
-  const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD || "admin123";
+  const username = ADMIN_USERNAME;
+  const password = ADMIN_PASSWORD;
 
   return new Promise((resolve) => {
     db.get(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`, (err, row: { cnt: number }) => {
