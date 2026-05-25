@@ -1,143 +1,86 @@
 # ShareIT
 
-Self-hosted file upload and sharing service with ShareX support, user management, and Backblaze B2 cloud storage.
+Self-hosted file upload & sharing with ShareX support, B2 cloud storage, and admin panel.
+
+**Live demo**: [goletz.dev](https://goletz.dev)
 
 ## Features
 
-- Drag & drop uploads with image previews
-- ShareX integration (one-click screenshot → upload)
-- User accounts with JWT auth
-- Admin panel with SQL editor, user management, and table browser
+- Drag & drop uploads with image gallery and lightbox
+- ShareX integration — one-click screenshot → uploaded → link copied
+- Public/private file toggle with lock icons
+- User accounts with JWT auth + rate limiting + login lockout
+- Admin panel: user management, SQL editor, table browser
 - Backblaze B2 cloud storage with streaming multipart uploads
-- Paginated file lists, copy-to-clipboard, lightbox viewer
-- Virus scanning via ClamAV
-- Rate limiting, login lockout, CORS config, HTTPS via Caddy
+- Pagination, copy-to-clipboard, text file viewer
+- HTTPS via Caddy (auto Let's Encrypt)
+- Docker health checks + DB backup script
 
 ## Quick Start
 
 ```bash
-# 1. Clone and install
 git clone https://github.com/lukasdevit/projectS.git
 cd projectS
 cp .env.example .env
+# Generate JWT secret: openssl rand -hex 32
+# Paste into .env as JWT_SECRET=<value>
 
-# 2. Generate a JWT secret
-openssl rand -hex 32
-# → paste into .env as JWT_SECRET=
-
-# 3. Start (Docker)
-docker compose -f docker-compose.dev.yml up -d --build
-
-# 4. Open
-open http://localhost:3001
-```
-
-Default admin: `admin` / `admin123` (change via `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env`).
-
-## Development vs Production
-
-```bash
-# Dev — hot reload, no HTTPS, direct ports
+# Dev (hot reload)
 docker compose -f docker-compose.dev.yml up -d
 
-# Production — builds, HTTPS via Caddy
-DOMAIN=files.example.com docker compose up -d --build
+# Production (Caddy HTTPS)
+DOMAIN=yourdomain.com docker compose up -d --build
 ```
 
-| Mode | API | Frontend | HTTPS |
-|------|-----|----------|-------|
-| Dev | `:3000` | `:3001` | No |
-| Prod | via Caddy | via Caddy | Auto Let's Encrypt |
+Default admin: `admin` / `admin123`. Open `http://localhost:3001` (dev) or `https://yourdomain.com` (prod).
 
 ## Configuration
 
-Everything lives in `src/config/index.ts`. Only secrets go in `.env`:
+All settings in `src/config/index.ts`. Secrets in `.env`:
 
-| `.env` variable | Required | Default |
-|-----------------|----------|---------|
-| `JWT_SECRET` | **Yes** | — |
-| `ADMIN_USERNAME` | No | `admin` |
-| `ADMIN_PASSWORD` | No | `admin123` |
-| `B2_ENABLED` | No | `false` (local storage) |
-| `B2_ENDPOINT` | For B2 | — |
-| `B2_KEY_ID` | For B2 | — |
-| `B2_APP_KEY` | For B2 | — |
-| `B2_BUCKET` | For B2 | — |
-| `B2_PREFIX` | No | `ShareIt/uploads/` |
-| `DOMAIN` | For HTTPS | `localhost` |
-| `DB_PATH` | No | `./database.db` |
-| `BASE_URL` | No | `http://localhost:3000` |
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `JWT_SECRET` | Yes | `openssl rand -hex 32` |
+| `ADMIN_USERNAME` | No | Default `admin` |
+| `ADMIN_PASSWORD` | No | Default `admin123` |
+| `B2_ENABLED` | No | `true` for cloud storage |
+| `B2_ENDPOINT` | For B2 | e.g. `https://s3.eu-central-003.backblazeb2.com` |
+| `B2_KEY_ID` | For B2 | Backblaze app key ID |
+| `B2_APP_KEY` | For B2 | Backblaze app key |
+| `B2_BUCKET` | For B2 | Bucket name |
+| `B2_PREFIX` | No | Default `ShareIt/uploads/` |
+| `DOMAIN` | For HTTPS | Your domain |
 
-To change rate limits, storage quotas, file types — edit `src/config/index.ts` directly.
-
-## Enabling Cloud Storage (B2)
-
-```dotenv
-B2_ENABLED=true
-B2_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
-B2_REGION=eu-central-003
-B2_KEY_ID=your-key-id
-B2_APP_KEY=your-app-key
-B2_BUCKET=your-bucket
-```
-
-Files are stored as `{B2_PREFIX}{userId}/YYYY/MM/DD/filename`. Leave `B2_ENABLED=false` for local filesystem storage.
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| API | Fastify (Node.js + TypeScript) |
-| Frontend | Next.js 15 + Tailwind CSS |
-| Database | SQLite |
-| Auth | JWT + bcrypt |
-| Storage | Local FS or Backblaze B2 (S3-compatible) |
-| Reverse Proxy | Caddy (auto HTTPS) |
-| CI | GitHub Actions (51 tests) |
-
-## Testing
-
-```bash
-npm test          # 51 integration tests
-npm run dev:all   # Both API + frontend (no Docker)
-```
-
-## API Endpoints
+## API
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/auth/register` | No | Create account |
-| `POST` | `/auth/login` | No | Get JWT token |
-| `GET` | `/auth/me` | Token | Get current user |
-| `GET` | `/auth/storage` | Token | Storage used / limit |
+| `POST` | `/auth/login` | No | Get JWT |
+| `GET` | `/auth/me` | Token | Current user |
+| `GET` | `/auth/storage` | Token | Storage used/limit |
 | `POST` | `/auth/change-password` | Token | Change password |
 | `POST` | `/upload` | Token | Upload file |
 | `POST` | `/sharex/upload` | Token | ShareX upload |
-| `GET` | `/sharex/config` | Token | Download ShareX config |
-| `GET` | `/files?page=1&limit=50` | Token | List user files |
-| `GET` | `/file/:filename` | No | Serve file (public) |
+| `GET` | `/sharex/config` | Token | ShareX config file |
+| `GET` | `/files?page=1&limit=50` | Token | File list (paginated) |
+| `PATCH` | `/file/:id` | Token | Toggle public/private |
+| `GET` | `/file/:filename` | No* | Serve file |
 | `DELETE` | `/file/:id` | Token | Delete file |
-| `GET` | `/admin/users` | Admin | List all users |
+| `GET` | `/admin/users` | Admin | User list |
 | `PATCH` | `/admin/users/:id` | Admin | Edit user |
-| `DELETE` | `/admin/users/:id` | Admin | Delete user + files |
-| `POST` | `/admin/db` | Admin | Raw SQL editor |
-| `GET` | `/admin/db/tables` | Admin | Table schema browser |
-| `GET` | `/health` | No | Uptime + status check |
+| `DELETE` | `/admin/users/:id` | Admin | Delete user |
+| `POST` | `/admin/db` | Admin | SQL editor |
+| `GET` | `/health` | No | Uptime check |
 
-## Backup
+*Public files accessible by anyone. Private files require owner auth.
 
-SQLite is a single file — back it up.
+## Tech Stack
 
-```bash
-# Manual
-bash scripts/backup-db.sh ./backups
+Fastify + Next.js 15 + SQLite + Tailwind + Docker + Caddy
 
-# Automatic (cron, daily at 3 AM)
-0 3 * * * /path/to/scripts/backup-db.sh /path/to/backups
-```
-
-Keeps last 7 backups, deletes older ones.
+57 tests | GitHub Actions CI | Node 22
 
 ## License
 
-UNLICENSED
+MIT
