@@ -5,6 +5,7 @@ services:
       - .env
     environment:
       - DB_PATH=/app/data/database.db
+      - B2_ENABLED=false
     command: npx tsx watch src/server.ts
     volumes:
       - ./src:/app/src

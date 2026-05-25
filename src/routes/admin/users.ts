@@ -62,6 +62,16 @@ export async function adminUserRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  app.post("/admin/users/:id/unlock", async (request, reply) => {
+    const userId = Number((request.params as { id: string }).id);
+    const result = await dbRun(
+      `UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?`,
+      [userId]
+    );
+    if (result.changes === 0) return reply.code(404).send({ error: "User not found" });
+    return reply.send({ ok: true });
+  });
+
   app.delete("/admin/users/:id", async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
     if (userId === request.user!.id) return reply.code(400).send({ error: "Cannot delete yourself" });

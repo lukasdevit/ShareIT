@@ -4,7 +4,7 @@ import path from "path";
 import { db } from "./connection.js";
 import { dbGet, dbAll, dbRun } from "./helpers.js";
 import { getStorage } from "../services/storage/index.js";
-import { ADMIN_USERNAME, ADMIN_PASSWORD } from "../config/index.js";
+import { ADMIN_USERNAME, ADMIN_PASSWORD, DEFAULT_STORAGE_LIMIT } from "../config/index.js";
 
 /**
  * Creates default admin user if none exists.
@@ -18,8 +18,8 @@ export async function seedAdmin(): Promise<void> {
 
   const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   await dbRun(
-    `INSERT INTO users (username, password_hash, created_at, is_admin) VALUES (?, ?, ?, 1)`,
-    [ADMIN_USERNAME, hash, new Date().toISOString()]
+    `INSERT INTO users (username, password_hash, created_at, is_admin, storage_limit) VALUES (?, ?, ?, 1, ?)`,
+    [ADMIN_USERNAME, hash, new Date().toISOString(), DEFAULT_STORAGE_LIMIT]
   );
   console.log(`Seeded admin user: ${ADMIN_USERNAME}`);
 }

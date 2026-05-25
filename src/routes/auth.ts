@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { db } from "../db/index.js";
 import {
   AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
-  AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES,
+  AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES, DEFAULT_STORAGE_LIMIT,
 } from "../config/index.js";
 import {
   requireAuth, signToken,
@@ -45,8 +45,8 @@ export async function authRoutes(app: FastifyInstance) {
 
     return new Promise((resolve) => {
       db.run(
-        `INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)`,
-        [username, hash, new Date().toISOString()],
+        `INSERT INTO users (username, password_hash, created_at, storage_limit) VALUES (?, ?, ?, ?)`,
+        [username, hash, new Date().toISOString(), DEFAULT_STORAGE_LIMIT],
         function (err) {
           if (err) {
             if (err.message.includes("UNIQUE")) {

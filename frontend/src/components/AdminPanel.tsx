@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { UserManager } from "./UserManager";
-import { DbEditor } from "./DbEditor";
 import { TableBrowser } from "./TableBrowser";
 import { StorageConfig } from "./StorageConfig";
 import { SslConfig } from "./SslConfig";
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export function AdminPanel({ apiFetch, tab }: Props) {
-  const [sqlToSet, setSqlToSet] = useState("");
   const [tablesKey, setTablesKey] = useState(0);
   const refreshTables = useCallback(() => setTablesKey((k) => k + 1), []);
 
@@ -23,8 +21,7 @@ export function AdminPanel({ apiFetch, tab }: Props) {
       {tab === "users" && <UserManager apiFetch={apiFetch} />}
       {tab === "files" && (
         <section className="card">
-          <DbEditor apiFetch={apiFetch} onTablesChanged={refreshTables} injectedSql={sqlToSet} onConsumed={() => setSqlToSet("")} />
-          <TableBrowser apiFetch={apiFetch} onSetSql={setSqlToSet} refreshKey={tablesKey} />
+          <TableBrowser apiFetch={apiFetch} refreshKey={tablesKey} />
         </section>
       )}
       {tab === "storage" && <StorageConfig apiFetch={apiFetch} />}
