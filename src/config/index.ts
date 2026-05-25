@@ -20,8 +20,8 @@ export const JWT_SECRET = envOrCrash("JWT_SECRET");
 export const JWT_EXPIRES_IN = "7d";
 
 // ── Admin seed ──
-export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+export const ADMIN_USERNAME = envOrCrash("ADMIN_USERNAME");
+export const ADMIN_PASSWORD = envOrCrash("ADMIN_PASSWORD");
 
 // ── Rate limits ──
 export const RATE_LIMIT_MAX = 1000;

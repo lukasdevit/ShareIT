@@ -6,6 +6,8 @@ export default defineConfig({
     env: {
       DB_PATH: "/tmp/projectS-test.db",
       JWT_SECRET: "test-secret-do-not-use-in-prod",
+      ADMIN_USERNAME: "admin",
+      ADMIN_PASSWORD: "admin123",
       B2_ENABLED: "false",
       B2_ENDPOINT: "",
       B2_KEY_ID: "",
