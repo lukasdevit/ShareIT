@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fs from "fs";
 import path from "path";
-import { db } from "../db/database.js";
+import { db, dbGet, dbRun } from "../db/database.js";
 import { requireAuth } from "./auth.js";
 import { getStorage } from "../services/storage.js";
 import { UPLOAD_DIR } from "../config/index.js";
@@ -117,22 +117,4 @@ async function deleteFromStorage(storageKey: string): Promise<void> {
     return;
   }
   await getStorage().delete(storageKey);
-}
-
-function dbGet<T>(sql: string, params: unknown[]): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row: T) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
-
-function dbRun(sql: string, params: unknown[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
 }

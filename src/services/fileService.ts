@@ -2,8 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { pipeline } from "stream/promises";
+import { nanoid } from "nanoid";
 import { db } from "../db/database.js";
-import { ALLOWED_MIME_TYPES } from "../config/index.js";
+import { ALLOWED_MIME_TYPES, BASE_URL } from "../config/index.js";
 import { scanFile } from "./scanService.js";
 import { getStorage, buildStorageKey } from "./storage.js";
 
@@ -82,6 +83,28 @@ export function validateFile(mimeType: string, _originalName: string): string | 
     return `File type "${mimeType}" is not allowed`;
   }
   return null;
+}
+
+/* ── Shared upload handler (used by /upload and /sharex/upload) ── */
+
+export async function handleUpload(
+  file: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
+  userId: number
+): Promise<{ url: string }> {
+  const originalName = sanitizeFilename(file.filename);
+
+  const validationError = validateFile(file.mimetype, originalName);
+  if (validationError) {
+    throw Object.assign(new Error(validationError), { statusCode: 415 });
+  }
+
+  const id = nanoid(10);
+  const ext = path.extname(file.filename);
+  const filename = `${id}${ext}`;
+
+  await saveFile(file.file, filename, originalName, file.mimetype, userId);
+
+  return { url: `${BASE_URL}/file/${filename}` };
 }
 
 function getUserQuota(userId: number): Promise<{ used: number; limit: number }> {
