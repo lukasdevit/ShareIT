@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { pipeline } from "stream/promises";
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
-import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_KEY_ID, B2_APP_KEY, B2_BUCKET, B2_PREFIX } from "../config/index.js";
+import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_KEY_ID, B2_APP_KEY, B2_BUCKET, B2_PREFIX_SHAREX } from "../config/index.js";
 
 /* ── Interface ── */
 
@@ -156,5 +156,5 @@ export function buildStorageKey(userId: number, filename: string): string {
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
   const base = `${userId}/${yyyy}/${mm}/${dd}/${filename}`;
-  return B2_PREFIX ? `${B2_PREFIX.replace(/\/$/, "")}/${base}` : base;
+  return B2_PREFIX_SHAREX ? `${B2_PREFIX_SHAREX.replace(/\/$/, "")}/${base}` : base;
 }
