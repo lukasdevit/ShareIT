@@ -17,14 +17,17 @@ export interface AppOptions {
 }
 
 export async function buildApp(opts: AppOptions = {}) {
+  const loggerEnv = process.env.LOG_PRETTY === "true";
   const app = Fastify({
     logger: opts.logger
-      ? {
-          transport: {
-            target: "pino-pretty",
-            options: { colorize: true, translateTime: "HH:MM:ss" },
-          },
-        }
+      ? loggerEnv
+        ? {
+            transport: {
+              target: "pino-pretty",
+              options: { colorize: true, translateTime: "HH:MM:ss" },
+            },
+          }
+        : true // plain JSON logger — no pino-pretty needed
       : false,
   });
 

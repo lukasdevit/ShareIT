@@ -1,6 +1,7 @@
 import sqlite3 from "sqlite3";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcrypt";
 
 const dbPath = process.env.DB_PATH || path.join(process.cwd(), "database.db");
 
@@ -67,4 +68,34 @@ export function closeDb(): void {
     try { fs.unlinkSync(dbPath + "-wal"); } catch { /* ignore */ }
     try { fs.unlinkSync(dbPath + "-shm"); } catch { /* ignore */ }
   }
+}
+
+export async function seedAdmin(): Promise<void> {
+  const username = process.env.ADMIN_USERNAME || "admin";
+  const password = process.env.ADMIN_PASSWORD || "admin123";
+
+  return new Promise((resolve) => {
+    db.get(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`, (err, row: { cnt: number }) => {
+      if (err || (row && row.cnt > 0)) {
+        if (row && row.cnt > 0) console.log("Admin user already exists, skipping seed");
+        resolve();
+        return;
+      }
+
+      bcrypt.hash(password, 10).then((hash) => {
+        db.run(
+          `INSERT INTO users (username, password_hash, created_at, is_admin) VALUES (?, ?, ?, 1)`,
+          [username, hash, new Date().toISOString()],
+          (err2) => {
+            if (err2) {
+              console.error("Failed to seed admin user:", err2.message);
+            } else {
+              console.log(`Seeded admin user: ${username}`);
+            }
+            resolve();
+          }
+        );
+      });
+    });
+  });
 }
