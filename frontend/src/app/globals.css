@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @config "../../tailwind.config.ts";
+@import "tailwindcss";
 
 body {
   background: #0a0a0a;
@@ -18,32 +18,33 @@ body {
     @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors;
   }
   .btn-zinc {
-    @apply btn bg-zinc-800 hover:bg-zinc-700 text-zinc-300;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-zinc-800 hover:bg-zinc-700 text-zinc-300;
   }
   .btn-blue {
-    @apply btn bg-blue-600 hover:bg-blue-500 text-white;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white;
   }
   .btn-green {
-    @apply btn bg-green-600 hover:bg-green-500 text-white;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-green-600 hover:bg-green-500 text-white;
   }
   .btn-red {
-    @apply btn bg-red-900/50 hover:bg-red-800 text-red-300;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-red-900/50 hover:bg-red-800 text-red-300;
   }
   .btn-ghost {
-    @apply btn bg-transparent hover:bg-zinc-800 text-zinc-400;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-transparent hover:bg-zinc-800 text-zinc-400;
   }
   .input {
     @apply w-full px-2.5 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs
            focus:outline-none focus:border-blue-500 transition-colors placeholder:text-zinc-600;
   }
   .input-sm {
-    @apply input px-2 py-1.5 rounded bg-zinc-900;
+    @apply w-full px-2 py-1.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs
+           focus:outline-none focus:border-blue-500 transition-colors placeholder:text-zinc-600;
   }
   .badge {
     @apply px-1.5 py-0.5 rounded text-[10px] font-medium;
   }
   .badge-amber {
-    @apply badge bg-amber-500/20 text-amber-400;
+    @apply px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400;
   }
   .msg-ok {
     @apply rounded-md bg-green-900/20 border border-green-800 p-3 text-sm text-green-400;
