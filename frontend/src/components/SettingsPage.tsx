@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { formatSize } from "../lib/utils";
 import type { StorageInfo, UserInfo } from "../lib/types";
-import { AdminPanel } from "./AdminPanel";
 
 interface Props {
   token: string;
@@ -153,9 +152,6 @@ export function SettingsPage({ token: _token, user, apiFetch, onBack }: Props) {
           </button>
         </form>
       </section>
-
-      {/* Admin Panel */}
-      {user.isAdmin && <AdminPanel apiFetch={apiFetch} />}
     </div>
   );
 }

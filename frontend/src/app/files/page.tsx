@@ -141,7 +141,7 @@ export default function FilesPage() {
       <header className="w-full max-w-2xl pt-12 pb-6 px-4">
         <div className="flex items-center justify-between gap-4">
           <div><h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1><p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p></div>
-          {user && (<div className="flex items-center gap-3"><span className="text-sm text-zinc-400">👤 {user.username}</span><button onClick={() => router.push("/settings")} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">⚙️ Settings</button><button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">Logout</button></div>)}
+          {user && (<div className="flex items-center gap-2"><span className="text-sm text-zinc-400">👤 {user.username}</span>{user.isAdmin && <button onClick={() => router.push("/admin")} className="px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">🛡️ Admin</button>}<button onClick={() => router.push("/settings")} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">⚙️ Settings</button><button onClick={logout} className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">Logout</button></div>)}
         </div>
       </header>
 
