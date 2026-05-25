@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import { db } from "../db/database.js";
 import { requireAdmin } from "./auth.js";
 import { getStorage } from "../services/storage.js";
-import { UPLOAD_DIR } from "../config/index.js";
+import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT } from "../config/index.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -204,7 +204,8 @@ export async function adminRoutes(app: FastifyInstance) {
             reply.code(400).send({ error: err.message });
           } else {
             // Extract column names from first row keys
-            const columns = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
+            const rows_ = rows as Record<string, unknown>[] | undefined;
+            const columns = rows_ && rows_.length > 0 ? Object.keys(rows_[0]) : [];
             reply.send({ type: "read", columns, rows, rowCount: rows?.length ?? 0 });
           }
           resolve(undefined);
@@ -289,6 +290,51 @@ export async function adminRoutes(app: FastifyInstance) {
               }
             });
           }
+        }
+      );
+    });
+  });
+
+  // Storage config & stats
+  app.get("/admin/storage", async (_request, reply) => {
+    return new Promise((resolve) => {
+      db.get(
+        `SELECT COUNT(*) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
+         FROM users LEFT JOIN files ON files.user_id = users.id`,
+        (err, row: { users: number; total_bytes: number; total_files: number } | undefined) => {
+          if (err) { reply.code(500).send({ error: err.message }); resolve(undefined); return; }
+
+          const config: Record<string, unknown> = {
+            backend: B2_ENABLED ? "b2" : "local",
+            default_storage_limit: DEFAULT_STORAGE_LIMIT,
+          };
+
+          if (B2_ENABLED) {
+            config.b2_endpoint = B2_ENDPOINT;
+            config.b2_region = B2_REGION;
+            config.b2_bucket = B2_BUCKET;
+            config.b2_prefix = B2_PREFIX;
+          } else {
+            // Local disk info
+            try {
+              const stats = fs.statfsSync(UPLOAD_DIR);
+              config.disk_total = stats.blocks * stats.bsize;
+              config.disk_free = stats.bfree * stats.bsize;
+              config.disk_used = config.disk_total - config.disk_free;
+            } catch {
+              config.disk_total = 0;
+              config.disk_used = 0;
+              config.disk_free = 0;
+            }
+          }
+
+          reply.send({
+            ...config,
+            users: row?.users ?? 0,
+            total_bytes: row?.total_bytes ?? 0,
+            total_files: row?.total_files ?? 0,
+          });
+          resolve(undefined);
         }
       );
     });
