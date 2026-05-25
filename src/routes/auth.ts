@@ -56,8 +56,11 @@ export async function requireAdmin(request: FastifyRequest, reply: FastifyReply)
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  // Register
-  app.post("/auth/register", async (request, reply) => {
+  // Skip per-route rate limits during tests
+  const isTest = (process.env.DB_PATH || "").includes("test");
+
+  // Register — strict rate limit: 3 per minute
+  app.post("/auth/register", isTest ? {} : { config: { rateLimit: { max: 3, timeWindow: 60_000 } } }, async (request, reply) => {
     const { username, password } = request.body as { username?: string; password?: string };
 
     if (!username || !password) {
@@ -90,8 +93,8 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  // Login
-  app.post("/auth/login", async (request, reply) => {
+  // Login — strict rate limit: 5 per minute
+  app.post("/auth/login", isTest ? {} : { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (request, reply) => {
     const { username, password } = request.body as { username?: string; password?: string };
 
     if (!username || !password) {
@@ -137,7 +140,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Change password
-  app.post("/auth/change-password", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.post("/auth/change-password", { preHandler: [requireAuth], ...(isTest ? {} : { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }) }, async (request, reply) => {
     const user = request.user!;
     const { currentPassword, newPassword } = request.body as {
       currentPassword?: string;
