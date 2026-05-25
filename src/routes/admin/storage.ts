@@ -18,7 +18,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
   app.get("/admin/storage", { config: { rateLimit: { max: STORAGE_RATE_LIMIT, timeWindow: STORAGE_RATE_WINDOW_MS } } }, async (_request, reply) => {
     const overrides = await getOverrides();
     const row = await dbGet<{ users: number; total_bytes: number; total_files: number }>(
-      `SELECT COUNT(*) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
+      `SELECT COUNT(DISTINCT users.id) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
        FROM users LEFT JOIN files ON files.user_id = users.id`
     );
 
