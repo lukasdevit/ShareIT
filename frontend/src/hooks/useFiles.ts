@@ -10,16 +10,24 @@ interface UseFilesOptions {
 
 /**
  * Hook for file listing, upload, delete, and toggle-public operations.
+ * Fetches images and other files in parallel for independent pagination.
  */
 export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   const { api } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Non-image files
   const [files, setFiles] = useState<FileInfo[]>([]);
-  const [fileType, setFileType] = useState<"all" | "image" | "file">("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
+
+  // Images
+  const [imageFiles, setImageFiles] = useState<FileInfo[]>([]);
+  const [imagePage, setImagePage] = useState(1);
+  const [imageTotalPages, setImageTotalPages] = useState(0);
+  const [imageTotal, setImageTotal] = useState(0);
+
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -29,25 +37,42 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   const [search, setSearch] = useState("");
   const [expireDays, setExpireDays] = useState("");
 
-  const fetchFiles = useCallback(async (p = 1, searchTerm = "") => {
+  const fetchFiles = useCallback(async (p = 1, imgP = 1, searchTerm = "") => {
     try {
-      
-      const params = new URLSearchParams({ page: String(p), limit: String(pageSize) });
-      if (fileType !== "all") params.set("type", fileType);
-      if (searchTerm) params.set("search", searchTerm);
-      const r = await api(`/files?${params.toString()}`);
-      if (r.ok) {
-        const d: FilePage = await r.json();
+      const base = new URLSearchParams({ limit: String(pageSize) });
+      if (searchTerm) base.set("search", searchTerm);
+
+      const fileParams = new URLSearchParams(base);
+      fileParams.set("page", String(p));
+      fileParams.set("type", "file");
+
+      const imgParams = new URLSearchParams(base);
+      imgParams.set("page", String(imgP));
+      imgParams.set("type", "image");
+
+      const [fileRes, imgRes] = await Promise.all([
+        api(`/files?${fileParams.toString()}`),
+        api(`/files?${imgParams.toString()}`),
+      ]);
+
+      if (fileRes.ok) {
+        const d: FilePage = await fileRes.json();
         setFiles(d.files);
         setPage(d.page);
         setTotalPages(d.totalPages);
         setTotal(d.total);
       }
-      
+      if (imgRes.ok) {
+        const d: FilePage = await imgRes.json();
+        setImageFiles(d.files);
+        setImagePage(d.page);
+        setImageTotalPages(d.totalPages);
+        setImageTotal(d.total);
+      }
     } catch {
       // handled by caller
     }
-  }, [api, pageSize, fileType]);
+  }, [api, pageSize]);
 
   const uploadFile = useCallback(async (file: File) => {
     setUploading(true);
@@ -85,22 +110,22 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
       });
 
       setUploading(false);
-      await fetchFiles(page, search);
+      await fetchFiles(1, 1, search);
     } catch (err) {
       setError((err as Error).message);
       setUploading(false);
     }
-  }, [api, fetchFiles, page, search, expireDays]);
+  }, [api, fetchFiles, search, expireDays]);
 
   const deleteFile = useCallback(async (id: number, force = false) => {
     if (force || deletingId === id) {
       setDeletingId(null);
       await api(`/file/${id}`, { method: "DELETE" });
-      await fetchFiles(page, search);
+      await fetchFiles(1, 1, search);
     } else {
       setDeletingId(id);
     }
-  }, [api, deletingId, fetchFiles, page, search]);
+  }, [api, deletingId, fetchFiles, search]);
 
   const togglePublic = useCallback(async (id: number, isPublic: boolean) => {
     await api(`/file/${id}`, {
@@ -108,8 +133,8 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_public: isPublic }),
     });
-    await fetchFiles(page, search);
-  }, [api, fetchFiles, page, search]);
+    await fetchFiles(1, 1, search);
+  }, [api, fetchFiles, search]);
 
   const copyLink = useCallback((filename: string, id: number) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
@@ -126,13 +151,15 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   }, [uploadFile]);
 
   return {
-    // State
-    files, page, totalPages, total, uploading, uploadProgress,
-    dragOver, error, copiedId, deletingId, search, expireDays,
-    fileInputRef, fileType,
+    // State — files (non-image)
+    files, page, totalPages, total,
+    // State — images
+    imageFiles, imagePage, imageTotalPages, imageTotal,
+    // State — UI
+    uploading, uploadProgress, dragOver, error, copiedId, deletingId,
+    search, expireDays, fileInputRef,
     // Actions
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
-    setSearch, setExpireDays, setDragOver, setError, setFileType,
-    handleDrop,
+    setSearch, setExpireDays, setDragOver, setError, handleDrop,
   };
 }
