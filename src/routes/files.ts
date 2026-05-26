@@ -104,12 +104,21 @@ export async function filesRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch("/file/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/file/:id", {
+    preHandler: [requireAuth],
+    schema: {
+      body: {
+        type: "object" as const,
+        required: ["is_public"],
+        properties: {
+          is_public: { type: "boolean" },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = request.user?.id;
-    const { is_public } = request.body as { is_public?: boolean };
-
-    if (is_public === undefined) return reply.code(400).send({ error: "is_public required" });
+    const { is_public } = request.body as { is_public: boolean };
 
     const file = await dbGet<{ user_id: number | null }>(
       `SELECT user_id FROM files WHERE id = ?`, [id]
@@ -125,38 +134,26 @@ export async function filesRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const userId = request.user?.id;
 
+    const file = await dbGet<{ path: string; user_id: number | null; storage_backend: string }>(
+      `SELECT path, user_id, storage_backend FROM files WHERE id = ?`,
+      [id]
+    );
+
+    if (!file) return reply.code(404).send({ error: "File not found" });
+    if (file.user_id !== userId) return reply.code(403).send({ error: "Not your file" });
+
     try {
-      const file = await dbGet<{ path: string; user_id: number | null; storage_backend: string }>(
-        `SELECT path, user_id, storage_backend FROM files WHERE id = ?`,
-        [id]
-      );
-
-      if (!file) return reply.code(404).send({ error: "File not found" });
-      if (file.user_id !== userId) return reply.code(403).send({ error: "Not your file" });
-
-      try {
-        await deleteFromStorage(file.path);
-      } catch (err) {
-        console.error("Storage delete failed:", (err as Error).message);
-        // Still delete the DB row — B2 may have retention delay
-      }
-
-      await dbRun(`DELETE FROM files WHERE id = ?`, [id]);
-      return reply.send({ ok: true });
+      await deleteFromStorage(file.path);
     } catch (err) {
-      return reply.code(500).send({ error: (err as Error).message });
+      console.error("Storage delete failed:", (err as Error).message);
     }
+
+    await dbRun(`DELETE FROM files WHERE id = ?`, [id]);
+    return reply.send({ ok: true });
   });
 }
 
-async function resolveReadStream(storageKey: string, backend: string): Promise<NodeJS.ReadableStream> {
-  if (backend === "local") {
-    const localPath = path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)
-      ? storageKey
-      : path.join(UPLOAD_DIR, storageKey);
-    if (!fs.existsSync(localPath)) throw new Error("Missing");
-    return fs.createReadStream(localPath);
-  }
+async function resolveReadStream(storageKey: string, _backend: string): Promise<NodeJS.ReadableStream> {
   const storage = getStorage();
   if (!(await storage.exists(storageKey))) throw new Error("Missing");
   return storage.createReadStream(storageKey);

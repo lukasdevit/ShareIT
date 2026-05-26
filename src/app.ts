@@ -56,6 +56,18 @@ export async function buildApp(opts: AppOptions = {}) {
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   });
 
+  // Global error handler — catches schema validation + unhandled errors
+  app.setErrorHandler((error, _request, reply) => {
+    if (error.validation) {
+      return reply.code(400).send({
+        error: "Bad Request",
+        message: error.message,
+      });
+    }
+    const statusCode = error.statusCode || 500;
+    return reply.code(statusCode).send({ error: error.message });
+  });
+
   await app.register(uploadRoutes);
   await app.register(filesRoutes);
   await app.register(sharexRoutes);

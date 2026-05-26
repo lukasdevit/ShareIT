@@ -7,18 +7,36 @@ import { DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
 const BCRYPT_ROUNDS = 10;
 
 export async function adminUserRoutes(app: FastifyInstance) {
-  // Create a new user
-  app.post("/admin/users", async (request, reply) => {
-    const { username, password, is_admin, storage_limit } = request.body as {
-      username?: string; password?: string; is_admin?: boolean; storage_limit?: number;
-    };
+  const createUserSchema = {
+    body: {
+      type: "object" as const,
+      required: ["username", "password"],
+      properties: {
+        username: { type: "string", minLength: 3 },
+        password: { type: "string", minLength: 6 },
+        is_admin: { type: "boolean" },
+        storage_limit: { type: "number", minimum: 1 },
+      },
+    },
+  };
 
-    if (!username || !password) {
-      return reply.code(400).send({ error: "Username and password required" });
-    }
-    if (username.length < 3 || password.length < 6) {
-      return reply.code(400).send({ error: "Username min 3 chars, password min 6 chars" });
-    }
+  const patchUserSchema = {
+    body: {
+      type: "object" as const,
+      minProperties: 1,
+      properties: {
+        storage_limit: { type: "number", minimum: 0 },
+        is_admin: { type: "boolean" },
+        new_password: { type: "string", minLength: 6 },
+      },
+    },
+  };
+
+  // Create a new user
+  app.post("/admin/users", { schema: createUserSchema }, async (request, reply) => {
+    const { username, password, is_admin, storage_limit } = request.body as {
+      username: string; password: string; is_admin?: boolean; storage_limit?: number;
+    };
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const limit = storage_limit && storage_limit > 0 ? storage_limit : DEFAULT_STORAGE_LIMIT;
@@ -56,7 +74,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     return reply.send({ users: rows, total, page, totalPages: Math.ceil(total / limit) });
   });
 
-  app.patch("/admin/users/:id", async (request, reply) => {
+  app.patch("/admin/users/:id", { schema: patchUserSchema }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { storage_limit, is_admin, new_password } = request.body as {
       storage_limit?: number; is_admin?: boolean; new_password?: string;
@@ -66,17 +84,14 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const values: (number | string)[] = [];
 
     if (storage_limit !== undefined) {
-      if (storage_limit < 0) return reply.code(400).send({ error: "Storage limit cannot be negative" });
       sets.push("storage_limit = ?"); values.push(storage_limit);
     }
     if (is_admin !== undefined) {
       sets.push("is_admin = ?"); values.push(is_admin ? 1 : 0);
     }
     if (new_password !== undefined) {
-      if (new_password.length < 6) return reply.code(400).send({ error: "New password must be at least 6 chars" });
       sets.push("password_hash = ?"); values.push(await bcrypt.hash(new_password, BCRYPT_ROUNDS));
     }
-    if (sets.length === 0) return reply.code(400).send({ error: "No fields to update" });
 
     values.push(id);
     const result = await dbRun(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, values);

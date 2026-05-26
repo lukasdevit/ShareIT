@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
-import { db } from "../db/index.js";
+import { dbGet, dbRun } from "../db/index.js";
 import {
   AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
   AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES, DEFAULT_STORAGE_LIMIT,
@@ -15,27 +15,53 @@ const BCRYPT_ROUNDS = 10;
 export { requireAuth, verifyToken, getTokenFromHeader } from "../middleware/index.js";
 
 export async function authRoutes(app: FastifyInstance) {
-  // Skip per-route rate limits during tests
   const isTest = (process.env.DB_PATH || "").includes("test");
 
-  // Register — strict rate limit: 3 per minute
-  app.post("/auth/register", isTest ? {} : { config: { rateLimit: { max: AUTH_REGISTER_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }, async (request, reply) => {
-    const { username, password } = request.body as { username?: string; password?: string };
+  // ── Schemas ──
 
-    if (!username || !password) {
-      return reply.code(400).send({ error: "Username and password required" });
-    }
-    if (username.length < 3 || password.length < 6) {
-      return reply.code(400).send({ error: "Username min 3 chars, password min 6 chars" });
-    }
+  const registerSchema = {
+    body: {
+      type: "object" as const,
+      required: ["username", "password"],
+      properties: {
+        username: { type: "string", minLength: 3 },
+        password: { type: "string", minLength: 6 },
+      },
+    },
+  };
 
-    // Check if registrations are disabled by admin
+  const loginSchema = {
+    body: {
+      type: "object" as const,
+      required: ["username", "password"],
+      properties: {
+        username: { type: "string" },
+        password: { type: "string" },
+      },
+    },
+  };
+
+  const changePasswordSchema = {
+    body: {
+      type: "object" as const,
+      required: ["currentPassword", "newPassword"],
+      properties: {
+        currentPassword: { type: "string" },
+        newPassword: { type: "string", minLength: 6 },
+      },
+    },
+  };
+
+  // ── Routes ──
+
+  app.post("/auth/register", {
+    schema: registerSchema,
+    ...(isTest ? {} : { config: { rateLimit: { max: AUTH_REGISTER_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }),
+  }, async (request, reply) => {
+    const { username, password } = request.body as { username: string; password: string };
+
     if (!isTest) {
-      const regSetting = await new Promise<{ value: string } | undefined>((resolve) => {
-        db.get(`SELECT value FROM settings WHERE key = 'registrations_open'`, (err, row: { value: string } | undefined) => {
-          resolve(err ? undefined : row);
-        });
-      });
+      const regSetting = await dbGet<{ value: string }>(`SELECT value FROM settings WHERE key = 'registrations_open'`);
       if (regSetting && regSetting.value === "false") {
         return reply.code(403).send({ error: "Registrations are currently disabled" });
       }
@@ -43,92 +69,63 @@ export async function authRoutes(app: FastifyInstance) {
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    return new Promise((resolve) => {
-      db.run(
+    try {
+      const result = await dbRun(
         `INSERT INTO users (username, password_hash, created_at, storage_limit) VALUES (?, ?, ?, ?)`,
-        [username, hash, new Date().toISOString(), DEFAULT_STORAGE_LIMIT],
-        function (err) {
-          if (err) {
-            if (err.message.includes("UNIQUE")) {
-              reply.code(409).send({ error: "Username already taken" });
-            } else {
-              reply.code(500).send({ error: err.message });
-            }
-          } else {
-            const token = signToken(this.lastID, username, false);
-            reply.send({ token, user: { id: this.lastID, username, isAdmin: false } });
-          }
-          resolve(undefined);
-        }
+        [username, hash, new Date().toISOString(), DEFAULT_STORAGE_LIMIT]
       );
-    });
+      const token = signToken(result.lastID, username, false);
+      return reply.send({ token, user: { id: result.lastID, username, isAdmin: false } });
+    } catch (err) {
+      if ((err as Error).message.includes("UNIQUE")) {
+        return reply.code(409).send({ error: "Username already taken" });
+      }
+      return reply.code(500).send({ error: (err as Error).message });
+    }
   });
 
-  // Login — strict rate limit: 5 per minute
-  app.post("/auth/login", isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }, async (request, reply) => {
-    const { username, password } = request.body as { username?: string; password?: string };
+  app.post("/auth/login", {
+    schema: loginSchema,
+    ...(isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }),
+  }, async (request, reply) => {
+    const { username, password } = request.body as { username: string; password: string };
 
-    if (!username || !password) {
-      return reply.code(400).send({ error: "Username and password required" });
-    }
-
-    return new Promise((resolve) => {
-      db.get(
+    const row = await dbGet<{ id: number; username: string; password_hash: string; is_admin: number; failed_logins: number; locked_until: string | null }>(
         `SELECT id, username, password_hash, is_admin, failed_logins, locked_until FROM users WHERE username = ?`,
-        [username],
-        async (err, row: { id: number; username: string; password_hash: string; is_admin: number; failed_logins: number; locked_until: string | null } | undefined) => {
-          if (err) {
-            reply.code(500).send({ error: err.message });
-            resolve(undefined);
-            return;
-          }
-          if (!row) {
-            reply.code(401).send({ error: "Invalid credentials" });
-            resolve(undefined);
-            return;
-          }
-
-          // Check if account is locked
-          if (row.locked_until && new Date(row.locked_until) > new Date()) {
-            const remaining = Math.ceil((new Date(row.locked_until).getTime() - Date.now()) / 60000);
-            reply.code(429).send({ error: `Account locked. Try again in ${remaining} minute${remaining !== 1 ? "s" : ""}.` });
-            resolve(undefined);
-            return;
-          }
-
-          const match = await bcrypt.compare(password, row.password_hash);
-          if (!match) {
-            // Increment failed logins, lock after threshold
-            const newCount = row.failed_logins + 1;
-            const lockedUntil = newCount >= MAX_FAILED_LOGINS
-              ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
-              : null;
-            await new Promise<void>((res) => {
-              db.run(
-                `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
-                [newCount, lockedUntil, row.id],
-                () => res()
-              );
-            });
-            const attemptsLeft = MAX_FAILED_LOGINS - newCount;
-            const msg = attemptsLeft > 0
-              ? `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining.`
-              : `Account locked for ${LOCKOUT_MINUTES} minutes.`;
-            reply.code(401).send({ error: msg });
-            resolve(undefined);
-            return;
-          }
-
-          // Successful login — reset counter
-          db.run(`UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?`, [row.id]);
-
-          const isAdmin = row.is_admin === 1;
-          const token = signToken(row.id, row.username, isAdmin);
-          reply.send({ token, user: { id: row.id, username: row.username, isAdmin } });
-          resolve(undefined);
-        }
+        [username]
       );
-    });
+
+      if (!row) {
+        return reply.code(401).send({ error: "Invalid credentials" });
+      }
+
+      if (row.locked_until && new Date(row.locked_until) > new Date()) {
+        const remaining = Math.ceil((new Date(row.locked_until).getTime() - Date.now()) / 60000);
+        return reply.code(429).send({ error: `Account locked. Try again in ${remaining} minute${remaining !== 1 ? "s" : ""}.` });
+      }
+
+      const match = await bcrypt.compare(password, row.password_hash);
+      if (!match) {
+        const newCount = row.failed_logins + 1;
+        const lockedUntil = newCount >= MAX_FAILED_LOGINS
+          ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
+          : null;
+        await dbRun(
+          `UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?`,
+          [newCount, lockedUntil, row.id]
+        );
+        const attemptsLeft = MAX_FAILED_LOGINS - newCount;
+        const msg = attemptsLeft > 0
+          ? `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining.`
+          : `Account locked for ${LOCKOUT_MINUTES} minutes.`;
+        return reply.code(401).send({ error: msg });
+      }
+
+      await dbRun(`UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?`, [row.id]);
+
+      const isAdmin = row.is_admin === 1;
+      const token = signToken(row.id, row.username, isAdmin);
+    return reply.send({ token, user: { id: row.id, username: row.username, isAdmin } });
   });
 
   // Current user
@@ -138,81 +135,43 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Change password
-  app.post("/auth/change-password", { preHandler: [requireAuth], ...(isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }) }, async (request, reply) => {
+  app.post("/auth/change-password", {
+    preHandler: [requireAuth],
+    schema: changePasswordSchema,
+    ...(isTest ? {} : { config: { rateLimit: { max: AUTH_LOGIN_LIMIT, timeWindow: AUTH_RATE_WINDOW_MS } } }),
+  }, async (request, reply) => {
     const user = request.user!;
-    const { currentPassword, newPassword } = request.body as {
-      currentPassword?: string;
-      newPassword?: string;
-    };
+    const { currentPassword, newPassword } = request.body as { currentPassword: string; newPassword: string };
 
-    if (!currentPassword || !newPassword) {
-      return reply.code(400).send({ error: "Current and new password required" });
-    }
-    if (newPassword.length < 6) {
-      return reply.code(400).send({ error: "New password must be at least 6 chars" });
+    const row = await dbGet<{ password_hash: string }>(
+      `SELECT password_hash FROM users WHERE id = ?`,
+      [user.id]
+    );
+    if (!row) {
+      return reply.code(404).send({ error: "User not found" });
     }
 
-    return new Promise((resolve) => {
-      db.get(
-        `SELECT password_hash FROM users WHERE id = ?`,
-        [user.id],
-        async (err, row: { password_hash: string } | undefined) => {
-          if (err || !row) {
-            reply.code(err ? 500 : 404).send({ error: err?.message || "User not found" });
-            resolve(undefined);
-            return;
-          }
+    const match = await bcrypt.compare(currentPassword, row.password_hash);
+    if (!match) {
+      return reply.code(401).send({ error: "Current password is incorrect" });
+    }
 
-          const match = await bcrypt.compare(currentPassword, row.password_hash);
-          if (!match) {
-            reply.code(401).send({ error: "Current password is incorrect" });
-            resolve(undefined);
-            return;
-          }
-
-          const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-          db.run(`UPDATE users SET password_hash = ? WHERE id = ?`, [hash, user.id], (err2) => {
-            if (err2) {
-              reply.code(500).send({ error: err2.message });
-            } else {
-              reply.send({ ok: true });
-            }
-            resolve(undefined);
-          });
-        }
-      );
-    });
+    const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await dbRun(`UPDATE users SET password_hash = ? WHERE id = ?`, [hash, user.id]);
+    return reply.send({ ok: true });
   });
 
   // Storage info
   app.get("/auth/storage", { preHandler: [requireAuth] }, async (request, reply) => {
     const user = request.user!;
 
-    return new Promise((resolve) => {
-      db.get(
-        `SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?`,
-        [user.id],
-        (err, row: { used: number } | undefined) => {
-          if (err) {
-            reply.code(500).send({ error: err.message });
-            resolve(undefined);
-            return;
-          }
-          const used = row?.used ?? 0;
-          db.get(
-            `SELECT storage_limit FROM users WHERE id = ?`,
-            [user.id],
-            (err2, userRow: { storage_limit: number } | undefined) => {
-              if (err2 || !userRow) {
-                reply.code(err2 ? 500 : 404).send({ error: err2?.message || "User not found" });
-              } else {
-                reply.send({ used, limit: userRow.storage_limit });
-              }
-              resolve(undefined);
-            }
-          );
-        }
-      );
-    });
+    const [usedRow, userRow] = await Promise.all([
+      dbGet<{ used: number }>(`SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?`, [user.id]),
+      dbGet<{ storage_limit: number }>(`SELECT storage_limit FROM users WHERE id = ?`, [user.id]),
+    ]);
+    if (!userRow) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+    return reply.send({ used: usedRow?.used ?? 0, limit: userRow.storage_limit });
   });
 }

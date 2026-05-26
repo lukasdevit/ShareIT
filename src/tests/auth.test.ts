@@ -36,7 +36,7 @@ describe("POST /auth/register", () => {
       .send({ username: "ab", password: "testpass123" })
       .expect(400);
 
-    expect(res.body.error).toContain("min 3 chars");
+    expect(res.body.message).toMatch(/username.*3|fewer.*3/);
   });
 
   it("rejects short passwords", async () => {
@@ -45,7 +45,7 @@ describe("POST /auth/register", () => {
       .send({ username: "validuser", password: "12345" })
       .expect(400);
 
-    expect(res.body.error).toContain("min 6 chars");
+    expect(res.body.message).toMatch(/password.*6|fewer.*6/);
   });
 
   it("rejects missing fields", async () => {
@@ -54,7 +54,7 @@ describe("POST /auth/register", () => {
       .send({ username: "someone" })
       .expect(400);
 
-    expect(res.body.error).toContain("required");
+    expect(res.body.message).toContain("required");
   });
 
   it("rejects duplicate usernames", async () => {
@@ -113,7 +113,7 @@ describe("POST /auth/login", () => {
       .send({})
       .expect(400);
 
-    expect(res.body.error).toContain("required");
+    expect(res.body.message).toContain("required");
   });
 });
 
@@ -206,7 +206,7 @@ describe("POST /auth/change-password", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ currentPassword: "newpass456", newPassword: "12345" })
       .expect(400);
-    expect(res.body.error).toContain("6 chars");
+    expect(res.body.message).toMatch(/password.*6|fewer.*6/);
   });
 });
 
