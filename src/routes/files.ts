@@ -59,14 +59,20 @@ export async function filesRoutes(app: FastifyInstance) {
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || "50", 10) || 50));
     const offset = (page - 1) * limit;
     const search = query.search?.trim() || "";
+    const type = (query as {type?: string}).type;
+    const typeClause = type === "image"
+      ? `AND mime_type LIKE 'image/%'`
+      : type === "file"
+        ? `AND mime_type NOT LIKE 'image/%'`
+        : "";
 
     // Use two separate complete queries to avoid dynamic SQL construction
     const countSQL = search
-      ? `SELECT COUNT(*) AS total FROM files WHERE user_id = ? AND (original_name LIKE ? OR filename LIKE ?)`
-      : `SELECT COUNT(*) AS total FROM files WHERE user_id = ?`;
+      ? `SELECT COUNT(*) AS total FROM files WHERE user_id = ? ${typeClause} AND (original_name LIKE ? OR filename LIKE ?)`
+      : `SELECT COUNT(*) AS total FROM files WHERE user_id = ? ${typeClause}`;
     const listSQL = search
-      ? `SELECT * FROM files WHERE user_id = ? AND (original_name LIKE ? OR filename LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?`
-      : `SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+      ? `SELECT * FROM files WHERE user_id = ? ${typeClause} AND (original_name LIKE ? OR filename LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?`
+      : `SELECT * FROM files WHERE user_id = ? ${typeClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
     const searchParam = search ? `%${search}%` : null;
 
     return new Promise((resolve) => {

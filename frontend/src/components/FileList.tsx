@@ -6,14 +6,12 @@ import type { FileInfo } from "../lib/types";
 interface Props {
   files: FileInfo[];
   copiedId: number | null;
-  deletingId: number | null;
   onCopyLink: (filename: string, id: number) => void;
-  onDelete: (id: number) => void;
   onTogglePublic: (id: number, isPublic: boolean) => void;
   onOpenViewer: (file: FileInfo) => void;
 }
 
-export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, onTogglePublic, onOpenViewer }: Props) {
+export function FileList({ files, copiedId, onCopyLink, onTogglePublic, onOpenViewer }: Props) {
   return (
     <section>
       <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Files ({files.length})</h2>
@@ -37,8 +35,6 @@ export function FileList({ files, copiedId, deletingId, onCopyLink, onDelete, on
               </button>
               <button onClick={() => onCopyLink(f.filename, f.id)}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors whitespace-nowrap">{copiedId === f.id ? "✓ Copied" : "Copy"}</button>
-              <button onClick={() => onDelete(f.id)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${deletingId === f.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === f.id ? "Confirm?" : "Delete"}</button>
             </div>
           </li>
         ))}
