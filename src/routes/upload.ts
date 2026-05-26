@@ -19,10 +19,6 @@ export async function uploadRoutes(app: FastifyInstance) {
       }
     }
 
-    try {
-      return reply.send(await handleUpload(file, request.user!.id, expiresInDays));
-    } catch (err: any) {
-      return reply.code(err.statusCode || 500).send({ error: err.message });
-    }
+    return reply.send(await handleUpload(file, request.user!.id, expiresInDays));
   });
 }

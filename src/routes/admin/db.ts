@@ -47,16 +47,23 @@ export async function adminDbRoutes(app: FastifyInstance) {
   });
 
   // Delete a single row by primary key value
-  app.delete("/admin/db/tables/:name/rows", async (request, reply) => {
+  app.delete("/admin/db/tables/:name/rows", {
+    schema: {
+      body: {
+        type: "object" as const,
+        required: ["pkColumn", "pkValue"],
+        properties: {
+          pkColumn: { type: "string" },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { name } = request.params as { name: string };
     if (!validateTable(name)) {
       return reply.code(400).send({ error: "Invalid table name" });
     }
 
-    const { pkColumn, pkValue } = request.body as { pkColumn?: string; pkValue?: unknown };
-    if (!pkColumn || pkValue === undefined) {
-      return reply.code(400).send({ error: "pkColumn and pkValue required" });
-    }
+    const { pkColumn, pkValue } = request.body as { pkColumn: string; pkValue: unknown };
 
     // Prevent deleting the last admin
     if (name === "users") {

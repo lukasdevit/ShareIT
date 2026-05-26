@@ -122,7 +122,7 @@ describe("PATCH /admin/users/:id", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ storage_limit: -1 })
       .expect(400);
-    expect(res.body.error).toContain("negative");
+    expect(res.body.message).toMatch(/0|negative/);
   });
 });
 

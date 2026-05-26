@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
-import { db } from "../db/index.js";
+import { dbGet, dbRun } from "../db/index.js";
 import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from "../config/index.js";
 import { scanFile } from "./scanService.js";
 import { getStorage, buildStorageKey } from "./storage/index.js";
@@ -74,20 +74,16 @@ export async function saveFile(
 
   const backend = B2_ENABLED ? 'b2' : 'local';
 
-  return new Promise((resolve, reject) => {
-    db.run(
+  try {
+    await dbRun(
       `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at, expires_at, storage_backend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [filename, originalName, storageKey, stats.size, mimeType, userId ?? null, new Date().toISOString(), expiresAt, backend],
-      (err) => {
-        if (err) {
-          storage.delete(storageKey).catch(() => {});
-          reject(err);
-        } else {
-          resolve(storageKey);
-        }
-      }
+      [filename, originalName, storageKey, stats.size, mimeType, userId ?? null, new Date().toISOString(), expiresAt, backend]
     );
-  });
+    return storageKey;
+  } catch (err) {
+    storage.delete(storageKey).catch(() => {});
+    throw err;
+  }
 }
 
 export function validateFile(mimeType: string, _originalName: string): string | null {
@@ -120,18 +116,13 @@ export async function handleUpload(
   return { url: `${BASE_URL}/file/${filename}` };
 }
 
-function getUserQuota(userId: number): Promise<{ used: number; limit: number }> {
-  return new Promise((resolve, reject) => {
-    db.get(
-      `SELECT u.storage_limit AS "limit", COALESCE(SUM(f.size), 0) AS used
-       FROM users u LEFT JOIN files f ON f.user_id = u.id
-       WHERE u.id = ?`,
-      [userId],
-      (err, row: { used: number; limit: number } | undefined) => {
-        if (err) reject(err);
-        else resolve(row ?? { used: 0, limit: 0 });
-      }
-    );
-  });
+async function getUserQuota(userId: number): Promise<{ used: number; limit: number }> {
+  const row = await dbGet<{ used: number; limit: number }>(
+    `SELECT u.storage_limit AS "limit", COALESCE(SUM(f.size), 0) AS used
+     FROM users u LEFT JOIN files f ON f.user_id = u.id
+     WHERE u.id = ?`,
+    [userId]
+  );
+  return row ?? { used: 0, limit: 0 };
 }
 
