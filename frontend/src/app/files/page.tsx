@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isImage } from "../../lib/utils";
 import { useAuth } from "../../lib/api";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useFiles } from "../../hooks/useFiles";
@@ -20,21 +19,20 @@ export default function FilesPage() {
 
   const {
     files, page: filePage, totalPages: fileTotalPages, total: fileTotal,
+    imageFiles, imagePage, imageTotalPages, imageTotal,
     uploading, uploadProgress, dragOver, error, copiedId, deletingId,
-    search, expireDays, fileInputRef, fileType, setFileType,
+    search, expireDays, fileInputRef,
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
     setSearch, setExpireDays, setDragOver, handleDrop,
-  } = useFiles({ pageSize: 3});
+  } = useFiles({ pageSize: 9 });
 
   const {
     lightboxIndex, viewingFile, fileContent,
     openViewer, closeViewer, openLightbox, closeLightbox,
   } = useFileViewer();
 
-  const imageFiles = files.filter((f) => isImage(f.mime_type));
-
   // Fetch files on mount and when search changes
-  useEffect(() => { if (isReady) fetchFiles(1, search); }, [fetchFiles, search, isReady]);
+  useEffect(() => { if (isReady) fetchFiles(1, 1, search); }, [fetchFiles, search, isReady]);
 
   // Keyboard shortcuts for lightbox/viewer
   useEffect(() => {
@@ -105,60 +103,65 @@ export default function FilesPage() {
           <input
             type="text" value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, search); }}
+            onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, 1, search); }}
             placeholder="Search files..."
             className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
           />
           {search && (
-            <button onClick={() => { setSearch(""); fetchFiles(1, ""); }}
+            <button onClick={() => { setSearch(""); fetchFiles(1, 1, ""); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">
               ✕
             </button>
           )}
         </div>
 
-        <div className="flex gap-2">
-        {(["all", "image", "file"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => { setFileType(t); fetchFiles(1, search); }}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-              fileType === t ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            {t === "all" ? "📁 All" : t === "image" ? "🖼️ Images" : "📄 Files"}
-          </button>
-        ))}
-      </div>
+        {/* Images section */}
         {imageFiles.length > 0 && (
-          <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId}
-            onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
-            onOpenLightbox={openLightbox} />
+          <>
+            <ImageGallery images={imageFiles} total={imageTotal} copiedId={copiedId} deletingId={deletingId}
+              onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
+              onOpenLightbox={openLightbox} />
+            {imageTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button onClick={() => fetchFiles(filePage, imagePage - 1, search)} disabled={imagePage <= 1}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  ← Prev
+                </button>
+                <span className="text-xs text-zinc-500">
+                  Images — Page {imagePage} of {imageTotalPages}
+                  <span className="text-zinc-600 ml-1">({imageTotal} total)</span>
+                </span>
+                <button onClick={() => fetchFiles(filePage, imagePage + 1, search)} disabled={imagePage >= imageTotalPages}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  Next →
+                </button>
+              </div>
+            )}
+            <hr className="border-zinc-800" />
+          </>
         )}
 
-        {(() => {
-          const others = files.filter((f) => !isImage(f.mime_type));
-          return others.length > 0 ? (
-            <FileList files={others} copiedId={copiedId}
-              onCopyLink={copyLink} onTogglePublic={togglePublic}
-              onOpenViewer={openViewer} />
-          ) : null;
-        })()}
+        {/* Files section */}
+        {files.length > 0 ? (
+          <FileList files={files} total={fileTotal} copiedId={copiedId}
+            onCopyLink={copyLink} onTogglePublic={togglePublic}
+            onOpenViewer={openViewer} />
+        ) : (
+          !imageFiles.length && <p className="text-sm text-zinc-600">No files uploaded yet.</p>
+        )}
 
-        {files.length === 0 && <p className="text-sm text-zinc-600">No files uploaded yet.</p>}
-
-        {/* Pagination */}
+        {/* Files pagination */}
         {fileTotalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pt-2">
-            <button onClick={() => fetchFiles(filePage - 1, search)} disabled={filePage <= 1}
+            <button onClick={() => fetchFiles(filePage - 1, imagePage, search)} disabled={filePage <= 1}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               ← Prev
             </button>
             <span className="text-xs text-zinc-500">
-              Page {filePage} of {fileTotalPages}
-              <span className="text-zinc-600 ml-1">({fileTotal} files)</span>
+              Files — Page {filePage} of {fileTotalPages}
+              <span className="text-zinc-600 ml-1">({fileTotal} total)</span>
             </span>
-            <button onClick={() => fetchFiles(filePage + 1, search)} disabled={filePage >= fileTotalPages}
+            <button onClick={() => fetchFiles(filePage + 1, imagePage, search)} disabled={filePage >= fileTotalPages}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               Next →
             </button>

@@ -5,6 +5,7 @@ import type { FileInfo } from "../lib/types";
 
 interface Props {
   images: FileInfo[];
+  total?: number;
   copiedId: number | null;
   deletingId: number | null;
   onCopyLink: (filename: string, id: number) => void;
@@ -13,10 +14,10 @@ interface Props {
   onOpenLightbox: (index: number) => void;
 }
 
-export function ImageGallery({ images, copiedId, deletingId, onCopyLink, onDelete, onTogglePublic, onOpenLightbox }: Props) {
+export function ImageGallery({ images, total, copiedId, deletingId, onCopyLink, onDelete, onTogglePublic, onOpenLightbox }: Props) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Images ({images.length})</h2>
+      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Images ({total ?? images.length})</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {images.map((f, idx) => (
           <div key={f.id} onClick={() => onOpenLightbox(idx)}

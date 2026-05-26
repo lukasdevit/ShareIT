@@ -5,16 +5,17 @@ import type { FileInfo } from "../lib/types";
 
 interface Props {
   files: FileInfo[];
+  total?: number;
   copiedId: number | null;
   onCopyLink: (filename: string, id: number) => void;
   onTogglePublic: (id: number, isPublic: boolean) => void;
   onOpenViewer: (file: FileInfo) => void;
 }
 
-export function FileList({ files, copiedId, onCopyLink, onTogglePublic, onOpenViewer }: Props) {
+export function FileList({ files, total, copiedId, onCopyLink, onTogglePublic, onOpenViewer }: Props) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Files ({files.length})</h2>
+      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Files ({total ?? files.length})</h2>
       <ul className="space-y-2">
         {files.map((f) => (
           <li key={f.id}
