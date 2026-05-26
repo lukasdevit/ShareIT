@@ -6,6 +6,8 @@ Originally started because I was tired of using bloated upload sites and wanted 
 
 Still heavily WIP, but already usable.
 
+<img src="docs/preview.png" alt="ShareIT screenshot" width="600" />
+
 **Live demo:** https://goletz.dev
 
 ---

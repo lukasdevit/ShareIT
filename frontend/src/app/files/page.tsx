@@ -21,10 +21,10 @@ export default function FilesPage() {
   const {
     files, page: filePage, totalPages: fileTotalPages, total: fileTotal,
     uploading, uploadProgress, dragOver, error, copiedId, deletingId,
-    search, expireDays, fileInputRef,
+    search, expireDays, fileInputRef, fileType, setFileType,
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
     setSearch, setExpireDays, setDragOver, handleDrop,
-  } = useFiles();
+  } = useFiles({ pageSize: 3});
 
   const {
     lightboxIndex, viewingFile, fileContent,
@@ -117,6 +117,19 @@ export default function FilesPage() {
           )}
         </div>
 
+        <div className="flex gap-2">
+        {(["all", "image", "file"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => { setFileType(t); fetchFiles(1, search); }}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+              fileType === t ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            {t === "all" ? "📁 All" : t === "image" ? "🖼️ Images" : "📄 Files"}
+          </button>
+        ))}
+      </div>
         {imageFiles.length > 0 && (
           <ImageGallery images={imageFiles} copiedId={copiedId} deletingId={deletingId}
             onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
@@ -126,8 +139,8 @@ export default function FilesPage() {
         {(() => {
           const others = files.filter((f) => !isImage(f.mime_type));
           return others.length > 0 ? (
-            <FileList files={others} copiedId={copiedId} deletingId={deletingId}
-              onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
+            <FileList files={others} copiedId={copiedId}
+              onCopyLink={copyLink} onTogglePublic={togglePublic}
               onOpenViewer={openViewer} />
           ) : null;
         })()}
@@ -167,7 +180,9 @@ export default function FilesPage() {
       {/* Text viewer */}
       {viewingFile && (
         <TextViewer file={viewingFile} content={fileContent}
-          copiedId={copiedId} onClose={closeViewer} onCopyLink={copyLink} />
+          copiedId={copiedId} deletingId={deletingId}
+          onClose={closeViewer} onCopyLink={copyLink}
+          onDelete={deleteFile} />
       )}
     </div>
   );

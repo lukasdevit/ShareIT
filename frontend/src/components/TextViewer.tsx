@@ -8,11 +8,13 @@ interface Props {
   file: FileInfo;
   content: string | null;
   copiedId: number | null;
+  deletingId: number | null;
   onClose: () => void;
+  onDelete: (id: number) => void;
   onCopyLink: (filename: string, id: number) => void;
 }
 
-export function TextViewer({ file, content, copiedId, onClose, onCopyLink }: Props) {
+export function TextViewer({ file, content, copiedId, deletingId, onClose, onDelete, onCopyLink }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
       <div className="relative w-full max-w-3xl max-h-[85vh] mx-4 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -25,6 +27,8 @@ export function TextViewer({ file, content, copiedId, onClose, onCopyLink }: Pro
             <button onClick={() => onCopyLink(file.filename, file.id)} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">
               {copiedId === file.id ? "Copied!" : "Copy link"}
             </button>
+            <button onClick={() => onDelete(file.id)}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${deletingId === file.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === file.id ? "Delete?" : "Delete"}</button>
             <button onClick={onClose} className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>

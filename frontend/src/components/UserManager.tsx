@@ -21,7 +21,7 @@ export function UserManager({ apiFetch }: Props) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<number | null>(null);
-  const [editStorage, setEditStorage] = useState("");
+  const [editStorage, setEditStorage] = useState(0);
   const [editAdmin, setEditAdmin] = useState(false);
   const [editPassword, setEditPassword] = useState("");
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -31,12 +31,11 @@ export function UserManager({ apiFetch }: Props) {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
 
-  // Create user form
   const [showCreate, setShowCreate] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newIsAdmin, setNewIsAdmin] = useState(false);
-  const [newStorageLimit, setNewStorageLimit] = useState("");
+  const [newStorageLimit, setNewStorageLimit] = useState(0);
 
   async function fetchUsers(p = 1, s = "") {
     setLoading(true);
@@ -59,7 +58,9 @@ export function UserManager({ apiFetch }: Props) {
 
   function openEdit(u: User) {
     setEditId(u.id);
-    setEditStorage(String(u.storage_limit));
+    setEditStorage(
+      u.storage_limit > 0 ? u.storage_limit / 1024 / 1024 / 1024 : 0
+    );
     setEditAdmin(u.is_admin === 1);
     setEditPassword("");
     setMessage(null);
@@ -70,7 +71,9 @@ export function UserManager({ apiFetch }: Props) {
     setMessage(null);
     const body: Record<string, unknown> = {};
     const limitNum = Number(editStorage);
-    if (!isNaN(limitNum) && limitNum >= 0) body.storage_limit = limitNum;
+    if (editStorage >=0) {
+      body.storage_limit = editStorage > 0 ? Math.round(limitNum * 1024 * 1024 * 1024) : 0;
+    }
     if (editAdmin !== (users.find((u) => u.id === editId)?.is_admin === 1)) body.is_admin = editAdmin;
     if (editPassword.trim()) body.new_password = editPassword.trim();
 
@@ -119,7 +122,9 @@ export function UserManager({ apiFetch }: Props) {
       const body: Record<string, unknown> = { username: newUsername.trim(), password: newPassword };
       if (newIsAdmin) body.is_admin = true;
       const limitNum = Number(newStorageLimit);
-      if (!isNaN(limitNum) && limitNum > 0) body.storage_limit = limitNum;
+      if (newStorageLimit >= 0) {
+        body.storage_limit = newStorageLimit > 0 ? Math.round(limitNum * 1024 * 1024 * 1024) : 0;
+      }
 
       const r = await apiFetch("/admin/users", {
         method: "POST",
@@ -133,7 +138,7 @@ export function UserManager({ apiFetch }: Props) {
       setNewUsername("");
       setNewPassword("");
       setNewIsAdmin(false);
-      setNewStorageLimit("");
+      setNewStorageLimit(0);
       await fetchUsers(page, search);
     } catch (err) {
       setMessage({ type: "err", text: (err as Error).message });
@@ -175,8 +180,8 @@ export function UserManager({ apiFetch }: Props) {
                 className="input-sm" placeholder="min 6 chars" minLength={6} />
             </div>
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Storage Limit (bytes, optional)</label>
-              <input type="number" value={newStorageLimit} onChange={(e) => setNewStorageLimit(e.target.value)}
+              <label className="block text-xs text-zinc-500 mb-1">Storage Limit (GB, optional)</label>
+              <input type="number" value={newStorageLimit} onChange={(e) => setNewStorageLimit(Number(e.target.value) || 0)}
                 className="input-sm" placeholder="Default: 10 GB" min="0" />
             </div>
             <div>
@@ -243,8 +248,8 @@ export function UserManager({ apiFetch }: Props) {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Storage Limit (bytes)</label>
-                        <input type="number" value={editStorage} onChange={(e) => setEditStorage(e.target.value)} className="input-sm" min="0" />
+                        <label className="block text-xs text-zinc-500 mb-1">Storage Limit (GB)</label>
+                        <input type="number" value={editStorage} onChange={(e) => setEditStorage(Number(e.target.value) || 0)} className="input-sm" min="0" />
                         <span className="text-xs text-zinc-600">{formatSize(Number(editStorage) || 0)}</span>
                       </div>
                       <div>

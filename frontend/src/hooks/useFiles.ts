@@ -16,6 +16,7 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FileInfo[]>([]);
+  const [fileType, setFileType] = useState<"all" | "image" | "file">("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
@@ -30,7 +31,9 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
 
   const fetchFiles = useCallback(async (p = 1, searchTerm = "") => {
     try {
+      
       const params = new URLSearchParams({ page: String(p), limit: String(pageSize) });
+      if (fileType !== "all") params.set("type", fileType);
       if (searchTerm) params.set("search", searchTerm);
       const r = await api(`/files?${params.toString()}`);
       if (r.ok) {
@@ -40,10 +43,11 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
         setTotalPages(d.totalPages);
         setTotal(d.total);
       }
+      
     } catch {
       // handled by caller
     }
-  }, [api, pageSize]);
+  }, [api, pageSize, fileType]);
 
   const uploadFile = useCallback(async (file: File) => {
     setUploading(true);
@@ -88,8 +92,8 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
     }
   }, [api, fetchFiles, page, search, expireDays]);
 
-  const deleteFile = useCallback(async (id: number) => {
-    if (deletingId === id) {
+  const deleteFile = useCallback(async (id: number, force = false) => {
+    if (force || deletingId === id) {
       setDeletingId(null);
       await api(`/file/${id}`, { method: "DELETE" });
       await fetchFiles(page, search);
@@ -125,10 +129,10 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
     // State
     files, page, totalPages, total, uploading, uploadProgress,
     dragOver, error, copiedId, deletingId, search, expireDays,
-    fileInputRef,
+    fileInputRef, fileType,
     // Actions
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
-    setSearch, setExpireDays, setDragOver, setError,
+    setSearch, setExpireDays, setDragOver, setError, setFileType,
     handleDrop,
   };
 }
