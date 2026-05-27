@@ -37,8 +37,14 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
           </div>
         </div>
         <div className="overflow-auto max-h-[70vh]">
-          {content === null ? (
+          {content === null && file.mime_type !== "application/pdf" ? (
             <div className="flex items-center justify-center h-32"><div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : file.mime_type === "application/pdf" ? (
+            <iframe
+              src={`${location.origin}/file/${file.filename}`}
+              className="w-full h-[70vh] border-0"
+              title={file.original_name}
+            />
           ) : file.mime_type === "text/markdown" || file.original_name.endsWith(".md") ? (
             <MarkdownBody content={content!} />
           ) : (

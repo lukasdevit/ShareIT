@@ -16,3 +16,7 @@ export function isImage(mime: string): boolean {
 export function isText(mime: string): boolean {
   return mime.startsWith("text/") || mime === "application/json" || mime === "application/xml" || mime.endsWith("+xml") || mime === "application/javascript";
 }
+
+export function isOpenable(mime: string): boolean {
+  return isText(mime) || mime === "application/pdf";
+}

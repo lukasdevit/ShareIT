@@ -1,6 +1,6 @@
 "use client";
 
-import { formatSize, formatDate, isText, isImage } from "../lib/utils";
+import { formatSize, formatDate, isText, isImage, isOpenable } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 
 function fileIcon(mime: string, name: string): string {
   if (isImage(mime)) return "🖼️";
-  if (mime === "application/pdf") return "📄";
+  if (mime === "application/pdf") return "�";
   if (mime === "application/zip" || mime === "application/gzip" || mime.includes("compressed") || name.endsWith(".zip") || name.endsWith(".tar.gz") || name.endsWith(".7z") || name.endsWith(".rar")) return "📦";
   if (isText(mime)) return "📝";
   return "📎";
@@ -27,9 +27,9 @@ export function FileList({ files, total, copiedId, onCopyLink, onTogglePublic, o
         {files.map((f) => (
           <li key={f.id}
             className={`flex items-center gap-3 p-3 rounded-lg border transition-colors
-              ${isText(f.mime_type) ? "cursor-pointer" : ""}
+              ${isOpenable(f.mime_type) ? "cursor-pointer" : ""}
               bg-zinc-900/50 border-zinc-800 hover:border-zinc-700`}
-            onClick={() => isText(f.mime_type) && onOpenViewer(f)}>
+            onClick={() => isOpenable(f.mime_type) && onOpenViewer(f)}>
             {/* File icon */}
             <span className="text-xl shrink-0">{fileIcon(f.mime_type, f.original_name)}</span>
             {/* Info */}
