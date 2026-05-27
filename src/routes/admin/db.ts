@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 
 /** Allowed table names — prevents injection via table name parameter */
-const ALLOWED_TABLES = new Set(["users", "files", "settings", "file_tags", "backup_logs"]);
+const ALLOWED_TABLES = new Set(["users", "files", "settings", "backup_logs"]);
 
 function validateTable(name: string): boolean {
   return ALLOWED_TABLES.has(name);
