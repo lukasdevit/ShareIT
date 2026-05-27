@@ -6,13 +6,18 @@ import { dbGet, dbAll, dbRun } from "./helpers.js";
 import { getStorage } from "../services/storage/index.js";
 import { ADMIN_USERNAME, ADMIN_PASSWORD, DEFAULT_STORAGE_LIMIT } from "../config/index.js";
 
+interface Logger {
+  info: (msg: string) => void;
+  warn: (msg: string) => void;
+}
+
 /**
  * Creates default admin user if none exists.
  */
-export async function seedAdmin(): Promise<void> {
+export async function seedAdmin(log?: Logger): Promise<void> {
   const row = await dbGet<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`);
   if (row && row.cnt > 0) {
-    console.log("Admin user already exists, skipping seed");
+    log?.info("Admin user already exists, skipping seed");
     return;
   }
 
@@ -21,13 +26,13 @@ export async function seedAdmin(): Promise<void> {
     `INSERT INTO users (username, password_hash, created_at, is_admin, storage_limit) VALUES (?, ?, ?, 1, ?)`,
     [ADMIN_USERNAME, hash, new Date().toISOString(), DEFAULT_STORAGE_LIMIT]
   );
-  console.log(`Seeded admin user: ${ADMIN_USERNAME}`);
+  log?.info(`Seeded admin user: ${ADMIN_USERNAME}`);
 }
 
 /**
  * Delete files past their expiration date. Returns count of deleted files.
  */
-export async function cleanupExpiredFiles(): Promise<number> {
+export async function cleanupExpiredFiles(log?: Logger): Promise<number> {
   const rows = await dbAll<{ id: number; path: string; storage_backend: string }>(
     `SELECT id, path, storage_backend FROM files WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`
   );
@@ -50,6 +55,6 @@ export async function cleanupExpiredFiles(): Promise<number> {
     deleted++;
   }
 
-  if (deleted > 0) console.log(`Cleaned up ${deleted} expired file(s)`);
+  if (deleted > 0) log?.info(`Cleaned up ${deleted} expired file(s)`);
   return deleted;
 }

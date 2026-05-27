@@ -25,7 +25,7 @@ db.run("PRAGMA journal_mode=WAL");
 export function closeDb(): void {
   db.close();
   // Clean up test database files
-  if (process.env.DB_PATH) {
+  if (DB_PATH !== path.join(process.cwd(), "database.db")) {
     try { fs.unlinkSync(dbPath); } catch { /* ignore */ }
     try { fs.unlinkSync(dbPath + "-wal"); } catch { /* ignore */ }
     try { fs.unlinkSync(dbPath + "-shm"); } catch { /* ignore */ }

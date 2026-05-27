@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import fs from "fs";
 import path from "path";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
-import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
+import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT, DOMAIN } from "../../config/index.js";
 
 const STORAGE_RATE_LIMIT = 60;       // requests per window
 const STORAGE_RATE_WINDOW_MS = 60_000;
@@ -66,7 +66,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 
 export async function adminSslRoutes(app: FastifyInstance) {
   app.get("/admin/ssl", async (request, reply) => {
-    const domain = process.env.DOMAIN || "localhost";
+    const domain = DOMAIN;
     const isLocal = domain === "localhost";
     const proto = (request.headers["x-forwarded-proto"] as string) || request.protocol || "http";
 

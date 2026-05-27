@@ -1,10 +1,12 @@
+import fs from "fs";
+
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
-import fs from "fs";
-import { UPLOAD_DIR, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, LOG_PRETTY } from "./config/index.js";
+
+import { UPLOAD_DIR, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, LOG_PRETTY, CORS_ORIGIN } from "./config/index.js";
 import { uploadRoutes } from "./routes/upload.js";
 import { filesRoutes } from "./routes/files.js";
 import { sharexRoutes } from "./routes/sharex.js";
@@ -52,7 +54,7 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || true,
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   });
 

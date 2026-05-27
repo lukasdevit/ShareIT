@@ -10,7 +10,7 @@ export async function uploadRoutes(app: FastifyInstance) {
     // Support expiration via header or query param (in days)
     let expiresInDays: number | undefined;
     const expiryHeader = request.headers["x-file-expires"] as string | undefined;
-    const expiryQuery = (request.query as any)?.expires;
+    const expiryQuery = (request.query as Record<string, string | undefined>)?.expires;
     const raw = expiryHeader || expiryQuery;
     if (raw) {
       const days = parseInt(raw, 10);
