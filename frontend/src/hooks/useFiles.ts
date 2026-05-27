@@ -30,6 +30,7 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadCount, setUploadCount] = useState({ done: 0, total: 0 });
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -74,47 +75,60 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
     }
   }, [api, pageSize]);
 
-  const uploadFile = useCallback(async (file: File) => {
+  const uploadFile = useCallback(async (fileOrFiles: File | File[]) => {
+    const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+    if (files.length === 0) return;
+
     setUploading(true);
     setUploadProgress(0);
+    setUploadCount({ done: 0, total: files.length });
     setError(null);
 
-    const form = new FormData();
-    form.append("file", file);
+    const token = localStorage.getItem("shareit_token");
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
-    try {
-      const xhr = new XMLHttpRequest();
-      const token = localStorage.getItem("shareit_token");
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]!;
+      const form = new FormData();
+      form.append("file", file);
 
-      await new Promise<void>((resolve, reject) => {
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          });
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else {
+              try {
+                const d = JSON.parse(xhr.responseText);
+                reject(new Error(d.error || "Upload failed"));
+              } catch { reject(new Error("Upload failed")); }
+            }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Network error")));
+
+          let url = `${baseUrl}/upload`;
+          if (expireDays) url += `?expires=${expireDays}`;
+          xhr.open("POST", url);
+          if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          xhr.setRequestHeader("X-File-Expires", expireDays);
+          xhr.send(form);
         });
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else {
-            try {
-              const d = JSON.parse(xhr.responseText);
-              reject(new Error(d.error || "Upload failed"));
-            } catch { reject(new Error("Upload failed")); }
-          }
-        });
-        xhr.addEventListener("error", () => reject(new Error("Network error")));
+      } catch (err) {
+        setError(`${file.name}: ${(err as Error).message}`);
+        setUploading(false);
+        return;
+      }
 
-        let url = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"}/upload`;
-        if (expireDays) url += `?expires=${expireDays}`;
-        xhr.open("POST", url);
-        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-        xhr.setRequestHeader("X-File-Expires", expireDays);
-        xhr.send(form);
-      });
-
-      setUploading(false);
-      await fetchFiles(1, 1, search);
-    } catch (err) {
-      setError((err as Error).message);
-      setUploading(false);
+      setUploadCount({ done: i + 1, total: files.length });
     }
+
+    setUploading(false);
+    await fetchFiles(1, 1, search);
   }, [api, fetchFiles, search, expireDays]);
 
   const deleteFile = useCallback(async (id: number, force = false) => {
@@ -146,8 +160,9 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) uploadFile(f);
+    if (e.dataTransfer.files.length > 0) {
+      uploadFile(Array.from(e.dataTransfer.files));
+    }
   }, [uploadFile]);
 
   return {
@@ -156,7 +171,7 @@ export function useFiles({ pageSize = 50 }: UseFilesOptions = {}) {
     // State — images
     imageFiles, imagePage, imageTotalPages, imageTotal,
     // State — UI
-    uploading, uploadProgress, dragOver, error, copiedId, deletingId,
+    uploading, uploadProgress, uploadCount, dragOver, error, copiedId, deletingId,
     search, expireDays, fileInputRef,
     // Actions
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
