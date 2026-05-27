@@ -13,7 +13,7 @@ export async function initScanner(): Promise<NodeClam | null> {
       },
       preference: "clamdscan",
     });
-    console.log("ClamAV scanner initialized");
+    console.warn("ClamAV scanner initialized");
     return scanner;
   } catch (err) {
     console.warn("ClamAV not available, skipping virus scans:", (err as Error).message);

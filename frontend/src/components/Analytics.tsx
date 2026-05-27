@@ -16,19 +16,20 @@ interface AnalyticsData {
   categories: Category[];
 }
 
-export function Analytics() {
+interface Props {
+  apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
+}
+
+export function Analytics({ apiFetch }: Props) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("shareit_token");
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/analytics`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch("/admin/analytics")
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d: AnalyticsData) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [apiFetch]);
 
   if (loading) return <section className="card"><p className="text-sm text-zinc-500">Loading…</p></section>;
   if (!data) return <section className="card"><p className="text-sm text-red-400">Failed to load analytics.</p></section>;

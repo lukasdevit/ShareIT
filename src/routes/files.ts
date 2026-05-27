@@ -1,11 +1,13 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs";
 import path from "path";
-import { db, dbGet, dbRun } from "../db/index.js";
+
+import type { FastifyInstance, FastifyRequest } from "fastify";
+
+import { dbGet, dbAll, dbRun } from "../db/index.js";
 import { requireAuth, getTokenFromHeader, verifyToken } from "../middleware/index.js";
-import { getStorage } from "../services/storage/index.js";
+import { LocalStorage } from "../services/storage/local.js";
+import { B2Storage } from "../services/storage/b2.js";
 import { deleteFromStorage } from "../utils/index.js";
-import { UPLOAD_DIR } from "../config/index.js";
 
 const FILE_SERVE_RATE = 300;       // requests per window
 const FILE_LIST_RATE = 120;        // requests per window
@@ -75,33 +77,20 @@ export async function filesRoutes(app: FastifyInstance) {
       : `SELECT * FROM files WHERE user_id = ? ${typeClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
     const searchParam = search ? `%${search}%` : null;
 
-    return new Promise((resolve) => {
+    try {
       const countParams = searchParam ? [userId, searchParam, searchParam] : [userId];
-      db.get(countSQL, countParams,
-        (err, row: { total: number } | undefined) => {
-          if (err) {
-            reply.code(500).send({ error: err.message });
-            resolve(undefined);
-            return;
-          }
-          const total = row?.total ?? 0;
-          const listParams = searchParam
-            ? [userId, searchParam, searchParam, limit, offset]
-            : [userId, limit, offset];
-          db.all(listSQL,
-            listParams,
-            (err2, files) => {
-              if (err2) {
-                reply.code(500).send({ error: err2.message });
-              } else {
-                reply.send({ files, total, page, totalPages: Math.ceil(total / limit) });
-              }
-              resolve(undefined);
-            }
-          );
-        }
-      );
-    });
+      const countRow = await dbGet<{ total: number }>(countSQL, countParams);
+      const total = countRow?.total ?? 0;
+
+      const listParams = searchParam
+        ? [userId, searchParam, searchParam, limit, offset]
+        : [userId, limit, offset];
+      const files = await dbAll(listSQL, listParams);
+
+      return reply.send({ files, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
   });
 
   app.patch("/file/:id", {
@@ -145,7 +134,7 @@ export async function filesRoutes(app: FastifyInstance) {
     try {
       await deleteFromStorage(file.path);
     } catch (err) {
-      console.error("Storage delete failed:", (err as Error).message);
+      request.log.error({ err }, "Storage delete failed");
     }
 
     await dbRun(`DELETE FROM files WHERE id = ?`, [id]);
@@ -153,8 +142,8 @@ export async function filesRoutes(app: FastifyInstance) {
   });
 }
 
-async function resolveReadStream(storageKey: string, _backend: string): Promise<NodeJS.ReadableStream> {
-  const storage = getStorage();
+async function resolveReadStream(storageKey: string, backend: string): Promise<NodeJS.ReadableStream> {
+  const storage = backend === "b2" ? new B2Storage() : new LocalStorage();
   if (!(await storage.exists(storageKey))) throw new Error("Missing");
   return storage.createReadStream(storageKey);
 }

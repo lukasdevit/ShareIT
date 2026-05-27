@@ -9,13 +9,12 @@ import {
   requireAuth, signToken,
 } from "../middleware/index.js";
 
+import { DB_PATH } from "../config/index.js";
+
 const BCRYPT_ROUNDS = 10;
 
-// Re-export for backward compatibility (used by other routes)
-export { requireAuth, verifyToken, getTokenFromHeader } from "../middleware/index.js";
-
 export async function authRoutes(app: FastifyInstance) {
-  const isTest = (process.env.DB_PATH || "").includes("test");
+  const isTest = DB_PATH.includes("test");
 
   // ── Schemas ──
 

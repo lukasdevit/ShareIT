@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
 import { formatSize } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
 
@@ -38,7 +40,7 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
           {content === null ? (
             <div className="flex items-center justify-center h-32"><div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : file.mime_type === "text/markdown" || file.original_name.endsWith(".md") ? (
-            <div className="p-4 text-sm text-zinc-300 markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(content) as string }} />
+            <MarkdownBody content={content!} />
           ) : (
             <pre className="p-4 text-sm text-zinc-300 font-mono whitespace-pre-wrap break-all">{content}</pre>
           )}
@@ -46,4 +48,11 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
       </div>
     </div>
   );
+}
+
+/* ── Private ── */
+
+function MarkdownBody({ content }: { content: string }) {
+  const html = useMemo(() => DOMPurify.sanitize(marked.parse(content) as string), [content]);
+  return <div className="p-4 text-sm text-zinc-300 markdown-body" dangerouslySetInnerHTML={{ __html: html }} />;
 }

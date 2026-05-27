@@ -1,7 +1,4 @@
-import dotenv from "dotenv";
 import path from "path";
-
-dotenv.config();
 
 function envOrCrash(key: string): string {
   const val = process.env[key];
@@ -14,6 +11,8 @@ export const PORT = 3000;
 export const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 export const LOG_PRETTY = process.env.LOG_PRETTY === "true";
 export const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+export const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
+export const DOMAIN = process.env.DOMAIN || "localhost";
 
 // ── Auth ──
 export const JWT_SECRET = envOrCrash("JWT_SECRET");
@@ -63,3 +62,8 @@ export const B2_PREFIX = process.env.B2_PREFIX || "Share/uploads/";
 
 // ── Database ──
 export const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "database.db");
+
+// ── DB Backups ──
+export const BACKUP_SCHEDULE_HOURS = parseInt(process.env.BACKUP_SCHEDULE_HOURS || "6", 10) || 6;
+export const BACKUP_RETRY_MAX = 3;
+export const BACKUP_RETRY_BASE_MS = 1000;

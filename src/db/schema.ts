@@ -24,15 +24,15 @@ export function runMigrations(): void {
   `);
 
   // Migrations for older databases
-  db.run(`ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE files ADD COLUMN expires_at TEXT`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE files ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'local'`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
+  const ignoreDuplicate = (err: Error | null) => {
+    if (err && !err.message.includes("duplicate column")) {
+      console.warn(`Migration warning: ${err.message}`);
+    }
+  };
+
+  db.run(`ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`, ignoreDuplicate);
+  db.run(`ALTER TABLE files ADD COLUMN expires_at TEXT`, ignoreDuplicate);
+  db.run(`ALTER TABLE files ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'local'`, ignoreDuplicate);
 
   // ── users table ──
   db.run(`
@@ -49,27 +49,29 @@ export function runMigrations(): void {
     )
   `);
 
-  db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT}`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
-  db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, (err) => {
-    if (err && !err.message.includes("duplicate column")) { /* */ }
-  });
+  db.run(`ALTER TABLE users ADD COLUMN email TEXT`, ignoreDuplicate);
+  db.run(`ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT}`, ignoreDuplicate);
+  db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`, ignoreDuplicate);
+  db.run(`ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0`, ignoreDuplicate);
+  db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, ignoreDuplicate);
 
   // ── settings table ──
   db.run(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    )
+  `);
+
+  // ── backup_logs table ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS backup_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      status TEXT NOT NULL,
+      size_bytes INTEGER,
+      error TEXT
     )
   `);
 }

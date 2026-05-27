@@ -12,20 +12,21 @@ interface SslData {
   note: string;
 }
 
-export function SslConfig() {
+interface Props {
+  apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
+}
+
+export function SslConfig({ apiFetch }: Props) {
   const [data, setData] = useState<SslData | null>(null);
   const [loading, setLoading] = useState(true);
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
-    const token = localStorage.getItem("shareit_token");
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/ssl`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch("/admin/ssl")
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d: SslData) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [apiFetch]);
 
   const expiryDate = data?.cert_expiry ? new Date(data.cert_expiry) : null;
   const daysLeft = expiryDate

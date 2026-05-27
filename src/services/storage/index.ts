@@ -12,7 +12,7 @@ let _storage: StorageProvider;
 export function getStorage(): StorageProvider {
   if (!_storage) {
     _storage = B2_ENABLED ? new B2Storage() : new LocalStorage();
-    console.log(`Storage: ${B2_ENABLED ? "Backblaze B2" : "local filesystem"}`);
+    console.warn(`Storage: ${B2_ENABLED ? "Backblaze B2" : "local filesystem"}`);
   }
   return _storage;
 }
