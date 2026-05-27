@@ -123,6 +123,8 @@ Push to `main` triggers:
 - ~~admin panel redesign~~ ✅
 - ~~database backups~~ ✅
 - ~~expanded MIME type support~~ ✅
+- audio / video playback in browser
+- CSV table rendering
 - file versioning / replacement
 - public sharing links with optional passwords
 - upload chunking for very large files

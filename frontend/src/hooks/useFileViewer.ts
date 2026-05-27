@@ -16,6 +16,10 @@ export function useFileViewer() {
 
   const openViewer = useCallback(async (file: FileInfo) => {
     setViewingFile(file);
+    if (file.mime_type === "application/pdf") {
+      setFileContent(""); // no fetch needed, iframe handles it
+      return;
+    }
     setFileContent(null);
     try {
       const r = await fetch(`/file/${file.filename}`);
