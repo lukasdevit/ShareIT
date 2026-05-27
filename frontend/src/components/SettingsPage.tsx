@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { formatSize } from "../lib/utils";
+import { useToast } from "./Toast";
+import { MetricCard } from "./MetricCard";
 import type { StorageInfo } from "../lib/types";
 
 interface Props {
@@ -10,9 +12,9 @@ interface Props {
 }
 
 export function SettingsPage({ apiFetch, onBack }: Props) {
+  const { toast } = useToast();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [pwMessage, setPwMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [storageLoading, setStorageLoading] = useState(true);
 
@@ -22,11 +24,10 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
         if (r.ok) setStorage(await r.json());
       })
       .finally(() => setStorageLoading(false));
-  }, []);
+  }, [apiFetch]);
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    setPwMessage(null);
     try {
       const r = await apiFetch("/auth/change-password", {
         method: "POST",
@@ -35,11 +36,11 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setPwMessage({ type: "ok", text: "Password changed successfully!" });
+      toast("Password changed successfully", "ok");
       setCurrentPassword("");
       setNewPassword("");
     } catch (err) {
-      setPwMessage({ type: "err", text: (err as Error).message });
+      toast((err as Error).message, "err");
     }
   }
 
@@ -55,26 +56,31 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
   const usagePercent = storage ? Math.min(100, (storage.used / storage.limit) * 100) : 0;
 
   return (
-    <div className="w-full max-w-xl mx-auto px-4 space-y-8">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
-      >
-        ← Back to files
-      </button>
+    <div className="space-y-8">
+      {/* Page header */}
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-zinc-500 mt-1">Manage your account, storage, and integrations.</p>
+      </div>
 
-      {/* Storage */}
+      {/* Metric cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <MetricCard label="Storage Used" value={storage ? formatSize(storage.used) : "—"} />
+        <MetricCard label="Storage Limit" value={storage ? formatSize(storage.limit) : "—"} />
+        <MetricCard
+          label="Usage"
+          value={storage ? `${usagePercent.toFixed(0)}%` : "—"}
+          sub={usagePercent > 90 ? "⚠️ Almost full" : usagePercent > 70 ? "Running low" : undefined}
+        />
+      </div>
+
+      {/* Storage bar */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Storage</h2>
+        <h2 className="text-base font-semibold text-zinc-200">Storage Usage</h2>
         {storageLoading ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <div className="h-3 bg-zinc-800 rounded-full animate-pulse-subtle" />
         ) : storage ? (
           <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">{formatSize(storage.used)} used</span>
-              <span className="text-zinc-500">of {formatSize(storage.limit)}</span>
-            </div>
             <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
@@ -84,20 +90,19 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
                 }}
               />
             </div>
-            <p className="text-xs text-zinc-600">
-              {usagePercent > 90
-                ? "⚠️ Almost full — delete some files to free space"
-                : `${(100 - usagePercent).toFixed(0)}% free`}
-            </p>
+            <div className="flex justify-between text-xs text-zinc-500">
+              <span>{formatSize(storage.used)} used</span>
+              <span>{formatSize(storage.limit)} total</span>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-zinc-500">Failed to load storage info</p>
         )}
       </section>
 
-      {/* ShareX Config */}
+      {/* ShareX */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-        <h2 className="text-lg font-semibold">ShareX Integration</h2>
+        <h2 className="text-base font-semibold text-zinc-200">ShareX Integration</h2>
         <p className="text-sm text-zinc-400">
           Download your personalized ShareX config file. Import it into ShareX under
           Destinations → Custom uploader settings.
@@ -112,7 +117,7 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
 
       {/* Change Password */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Change Password</h2>
+        <h2 className="text-base font-semibold text-zinc-200">Change Password</h2>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Current Password</label>
@@ -135,13 +140,6 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
               minLength={6}
             />
           </div>
-          {pwMessage && (
-            <p
-              className={`text-sm ${pwMessage.type === "ok" ? "text-green-400" : "text-red-400"}`}
-            >
-              {pwMessage.text}
-            </p>
-          )}
           <button
             type="submit"
             className="px-4 py-2 rounded-md text-sm font-medium bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"

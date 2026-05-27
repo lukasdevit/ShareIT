@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ShareIT",
   description: "Upload & share files instantly",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 import { Providers } from "./Providers";

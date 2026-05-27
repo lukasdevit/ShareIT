@@ -13,11 +13,12 @@ interface Props {
 
 export function LoginForm({ mode, username, password, error, onModeChange, onUsernameChange, onPasswordChange, onSubmit }: Props) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-4 pb-32">
-      <div className="w-full p-6 rounded-xl bg-zinc-900 border border-zinc-800">
-        <h2 className="text-lg font-semibold text-zinc-200 mb-1">
-          {mode === "login" ? "Welcome back" : "Create account"}
-        </h2>
+    <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm mx-auto px-4 pb-32">
+      <div className="w-full p-6 rounded-xl border border-zinc-800 bg-zinc-900/50">
+        <div className="flex items-center gap-2 mb-4">
+          <img src="/logo.svg" alt="" className="w-8 h-8" />
+          <span className="text-lg font-semibold text-zinc-200">ShareIT</span>
+        </div>
         <p className="text-sm text-zinc-500 mb-4">
           {mode === "login" ? "Sign in to access your files." : "Register to start uploading."}
         </p>

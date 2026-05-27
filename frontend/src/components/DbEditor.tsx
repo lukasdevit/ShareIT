@@ -73,7 +73,7 @@ export function DbEditor({ apiFetch, onTablesChanged, injectedSql, onConsumed }:
           {sqlHistory.length > 0 && (
             <select
               onChange={(e) => { if (e.target.value) setSqlQuery(e.target.value); e.target.value = ""; }}
-              className="px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs focus:outline-none max-w-[200px]"
+              className="px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs focus:outline-none max-w-50"
               value=""
             >
               <option value="">📋 History…</option>

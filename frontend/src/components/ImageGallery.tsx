@@ -17,7 +17,6 @@ interface Props {
 export function ImageGallery({ images, total, copiedId, deletingId, onCopyLink, onDelete, onTogglePublic, onOpenLightbox }: Props) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Images ({total ?? images.length})</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {images.map((f, idx) => (
           <div key={f.id} onClick={() => onOpenLightbox(idx)}

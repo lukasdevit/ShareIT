@@ -24,7 +24,7 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none overflow-hidden ${
+        className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 cursor-pointer transition-all select-none overflow-hidden pb-8 ${
           dragOver ? "border-blue-400 bg-blue-500/10" : "border-zinc-700 hover:border-zinc-500 bg-zinc-900"
         } ${uploading ? "pointer-events-none opacity-50" : ""}`}
       >
@@ -42,13 +42,16 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
           </div>
         ) : (
           <>
-            <svg className="w-8 h-8 mb-2 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            {/* Filled cloud + arrow */}
+            <svg className="w-20 h-16 mb-3 text-blue-500/50" viewBox="0 0 80 60" fill="currentColor">
+              <path d="M16 46c-6.63 0-12-5.37-12-12s5.37-12 12-12c1.6-5.6 7-9.6 13.2-9.6 5.8 0 10.8 3.4 12.8 8.4 3.6-1.6 7.6-2.4 12-2.4 8.8 0 16 7.2 16 16s-7.2 16-16 16H16z" opacity="0.25"/>
+              <path d="M28 38l12 10 12-10M40 48V26" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>
             <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
           </>
         )}
-        {/* Expiration selector inside the drop zone */}
+        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
+        {/* Expiration selector */}
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-zinc-800/50 border-t border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
           <span className="text-[11px] text-zinc-500 whitespace-nowrap">⏱️ Auto-delete:</span>
           <select
@@ -63,7 +66,6 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
             <option value="90">After 90 days</option>
           </select>
         </div>
-        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
       </div>
       {error && <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
     </div>

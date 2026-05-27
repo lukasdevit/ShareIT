@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatSize } from "../lib/utils";
+import { useToast } from "./Toast";
+import { CardSkeleton, RowSkeleton } from "./Skeleton";
+import { EmptyState } from "./EmptyState";
+import { MetricCard, MetricGrid } from "./MetricCard";
 
 interface BackupLog {
   id: number;
@@ -65,9 +69,25 @@ export function BackupPanel({ apiFetch }: Props) {
 
   const lastOk = logs.find((l) => l.status === "ok");
   const lastFail = logs.find((l) => l.status === "fail");
+  const successCount = logs.filter((l) => l.status === "ok").length;
+  const successRate = logs.length > 0 ? Math.round((successCount / logs.length) * 100) : 0;
 
   return (
     <section className="card space-y-5">
+      {/* Metric cards */}
+      <MetricGrid>
+        <MetricCard
+          label="Total Backups"
+          value={logs.length}
+          sub={logs.length > 0 ? `${successRate}% success rate` : undefined}
+        />
+        <MetricCard
+          label="Last Backup"
+          value={lastOk ? new Date(lastOk.timestamp).toLocaleDateString() : "—"}
+          sub={lastOk ? new Date(lastOk.timestamp).toLocaleTimeString() : undefined}
+        />
+      </MetricGrid>
+
       <div className="flex items-center justify-between">
         <h2 className="card-title">🗄️ Database Backups</h2>
       </div>
@@ -102,9 +122,18 @@ export function BackupPanel({ apiFetch }: Props) {
       <div>
         <h3 className="text-sm font-medium text-zinc-400 mb-2">History</h3>
         {loading ? (
-          <p className="text-xs text-zinc-500">Loading…</p>
+          <RowSkeleton cols={5} rows={3} />
         ) : logs.length === 0 ? (
-          <p className="text-xs text-zinc-500">No backup history</p>
+          <EmptyState
+            icon="🗄️"
+            title="No backup history"
+            description="Run a backup now to start tracking."
+            action={
+              <button onClick={runBackupNow} disabled={running} className="btn-blue text-xs">
+                ▶ Run First Backup
+              </button>
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-zinc-400">

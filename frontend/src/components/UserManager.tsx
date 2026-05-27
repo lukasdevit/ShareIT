@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { formatSize } from "../lib/utils";
+import { useToast } from "./Toast";
+import { CardSkeleton } from "./Skeleton";
+import { MetricCard, MetricGrid } from "./MetricCard";
 
 interface User {
   id: number;
@@ -18,13 +21,13 @@ interface Props {
 }
 
 export function UserManager({ apiFetch }: Props) {
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<number | null>(null);
   const [editStorage, setEditStorage] = useState(0);
   const [editAdmin, setEditAdmin] = useState(false);
   const [editPassword, setEditPassword] = useState("");
-  const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -63,12 +66,12 @@ export function UserManager({ apiFetch }: Props) {
     );
     setEditAdmin(u.is_admin === 1);
     setEditPassword("");
-    setMessage(null);
+    
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setMessage(null);
+    
     const body: Record<string, unknown> = {};
     const limitNum = Number(editStorage);
     if (editStorage >=0) {
@@ -78,7 +81,7 @@ export function UserManager({ apiFetch }: Props) {
     if (editPassword.trim()) body.new_password = editPassword.trim();
 
     if (Object.keys(body).length === 0) {
-      setMessage({ type: "err", text: "No changes to save" });
+      toast("No changes to save", "err");
       return;
     }
 
@@ -90,11 +93,11 @@ export function UserManager({ apiFetch }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setMessage({ type: "ok", text: "User updated!" });
+      toast("User updated", "ok");
       setEditPassword("");
       await fetchUsers(page, search);
     } catch (err) {
-      setMessage({ type: "err", text: (err as Error).message });
+      toast((err as Error).message, "err");
     }
   }
 
@@ -107,15 +110,15 @@ export function UserManager({ apiFetch }: Props) {
       setEditId(null);
       await fetchUsers(page, search);
     } catch (err) {
-      setMessage({ type: "err", text: (err as Error).message });
+      toast((err as Error).message, "err");
     }
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setMessage(null);
+    
     if (!newUsername.trim() || !newPassword.trim()) {
-      setMessage({ type: "err", text: "Username and password required" });
+      toast("Username and password required", "err");
       return;
     }
     try {
@@ -133,7 +136,7 @@ export function UserManager({ apiFetch }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setMessage({ type: "ok", text: `User "${d.username}" created!` });
+      toast(`User "${d.username}" created`, "ok");
       setShowCreate(false);
       setNewUsername("");
       setNewPassword("");
@@ -141,12 +144,13 @@ export function UserManager({ apiFetch }: Props) {
       setNewStorageLimit(0);
       await fetchUsers(page, search);
     } catch (err) {
-      setMessage({ type: "err", text: (err as Error).message });
+      toast((err as Error).message, "err");
     }
   }
 
   const totalUsed = users.reduce((sum, u) => sum + u.used, 0);
   const totalFiles = users.reduce((sum, u) => sum + u.file_count, 0);
+  const adminCount = users.filter((u) => u.is_admin === 1).length;
 
   function doSearch() {
     setPage(1);
@@ -155,6 +159,14 @@ export function UserManager({ apiFetch }: Props) {
 
   return (
     <section className="card">
+      {/* Metric cards */}
+      <MetricGrid>
+        <MetricCard label="Total Users" value={total} />
+        <MetricCard label="Admins" value={adminCount} />
+        <MetricCard label="Storage Used" value={formatSize(totalUsed)} />
+        <MetricCard label="Files" value={totalFiles} />
+      </MetricGrid>
+
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ User Manager</h2>
         <div className="flex gap-2">
@@ -197,12 +209,6 @@ export function UserManager({ apiFetch }: Props) {
         </form>
       )}
 
-      {message && !editId && (
-        <div className={`text-xs px-3 py-2 rounded ${message.type === "ok" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
-          {message.text}
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 relative">
           <input
@@ -224,7 +230,7 @@ export function UserManager({ apiFetch }: Props) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <CardSkeleton lines={5} />
       ) : (
         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
           {users.map((u) => {
@@ -268,7 +274,6 @@ export function UserManager({ apiFetch }: Props) {
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      {message && <p className={`text-xs ${message.type === "ok" ? "text-green-400" : "text-red-400"}`}>{message.text}</p>}
                       {deleteConfirm === u.id ? (
                         <div className="flex items-center gap-2 text-xs ml-auto">
                           <span className="text-red-400">Confirm delete?</span>

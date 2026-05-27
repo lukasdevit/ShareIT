@@ -15,11 +15,12 @@ interface TableData {
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
   refreshKey: number;
+  expanded: string | null;
+  onExpand: (table: string | null) => void;
 }
 
-export function TableBrowser({ apiFetch, refreshKey }: Props) {
+export function TableBrowser({ apiFetch, refreshKey, expanded, onExpand }: Props) {
   const [tables, setTables] = useState<TableInfo[]>([]);
-  const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [tableData, setTableData] = useState<TableData | null>(null);
   const [tableLoading, setTableLoading] = useState(false);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
@@ -33,6 +34,19 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
 
   useEffect(() => { fetchTables(); }, [refreshKey]);
 
+  // Auto-select users table when first loaded
+  useEffect(() => {
+    if (tables.length > 0 && !expanded) {
+      const preferred = tables.find((t) => t.name === "users") ?? tables[0];
+      if (preferred) onExpand(preferred.name);
+    }
+  }, [tables]);
+
+  // Load table data when expanded changes
+  useEffect(() => {
+    if (expanded) loadTableData(expanded);
+  }, [expanded]);
+
   async function loadTableData(tableName: string) {
     setTableLoading(true);
     setTableData(null);
@@ -45,11 +59,11 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
   }
 
   function handleTableClick(tableName: string) {
-    if (expandedTable === tableName) {
-      setExpandedTable(null);
+    if (expanded === tableName) {
+      onExpand(null);
       setTableData(null);
     } else {
-      setExpandedTable(tableName);
+      onExpand(tableName);
       loadTableData(tableName);
     }
   }
@@ -78,7 +92,7 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
             key={t.name}
             onClick={() => handleTableClick(t.name)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border ${
-              expandedTable === t.name
+              expanded === t.name
                 ? "bg-blue-600/20 text-blue-300 border-blue-600/40"
                 : "bg-zinc-800/50 text-zinc-300 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800"
             }`}
@@ -89,17 +103,17 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
         ))}
       </div>
 
-      {expandedTable && tableLoading && <p className="text-xs text-zinc-500 py-2">Loading {expandedTable}…</p>}
+      {expanded && tableLoading && <p className="text-xs text-zinc-500 py-2">Loading {expanded}…</p>}
 
-      {expandedTable && tableData && (
+      {expanded && tableData && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-zinc-300">{expandedTable}</span>
+              <span className="text-sm font-medium text-zinc-300">{expanded}</span>
               <span className="text-xs text-zinc-600">{tableData.rows.length} row{tableData.rows.length !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => loadTableData(expandedTable)}
+              <button onClick={() => loadTableData(expanded)}
                 className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors">
                 🔄 Refresh
               </button>
@@ -120,7 +134,7 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
                   const pkVal = row[pkCol];
                   const rowKey = `${i}-${pkVal}`;
                   const isConfirming = deleteRowConfirm === rowKey;
-                  const isAdminRow = expandedTable === "users" && (row["is_admin"] === 1 || row["is_admin"] === "1");
+                  const isAdminRow = expanded === "users" && (row["is_admin"] === 1 || row["is_admin"] === "1");
                   return (
                     <tr key={rowKey}>
                       <td className="px-1 py-1 text-center">
@@ -128,7 +142,7 @@ export function TableBrowser({ apiFetch, refreshKey }: Props) {
                           <span className="text-[10px] text-amber-500/50 px-1" title="Cannot delete admin user">🔒</span>
                         ) : isConfirming ? (
                           <span className="flex items-center gap-0.5">
-                            <button onClick={() => deleteTableRow(expandedTable, pkCol, pkVal)}
+                            <button onClick={() => deleteTableRow(expanded, pkCol, pkVal)}
                               className="text-[10px] text-red-400 hover:text-red-300 font-bold px-1">✓</button>
                             <button onClick={() => setDeleteRowConfirm(null)}
                               className="text-[10px] text-zinc-500 hover:text-zinc-300 px-1">✕</button>
