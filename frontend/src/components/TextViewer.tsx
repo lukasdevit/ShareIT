@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 import { formatSize } from "../lib/utils";
+import { CopyButton } from "./CopyButton";
 import type { FileInfo } from "../lib/types";
 
 interface Props {
@@ -26,9 +27,9 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
             <p className="text-xs text-zinc-500">{formatSize(file.size)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => onCopyLink(file.filename, file.id)} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">
-              {copiedId === file.id ? "Copied!" : "Copy link"}
-            </button>
+            <a href={`/file/${file.filename}`} target="_blank" rel="noreferrer"
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">Open in new Tab</a>
+              <CopyButton filename={file.filename} id={file.id} copiedId={copiedId} onClick={() => onCopyLink(file.filename, file.id)} />
             <button onClick={() => onDelete(file.id)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${deletingId === file.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === file.id ? "Delete?" : "Delete"}</button>
             <button onClick={onClose} className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">

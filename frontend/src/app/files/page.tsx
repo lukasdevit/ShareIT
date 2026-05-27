@@ -72,7 +72,7 @@ export default function FilesPage() {
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
       {/* Storage bar */}
       {storage && (
-        <div className="w-full max-w-2xl px-4 pt-6 pb-2">
+        <div className="w-full max-w-4xl xl:max-w-6xl mx-auto px-4 pt-6 pb-2">
           <div className="flex items-center gap-3 text-xs text-zinc-500">
             <span>{formatSize(storage.used)} of {formatSize(storage.limit)}</span>
             <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
@@ -101,7 +101,7 @@ export default function FilesPage() {
       />
 
       {/* Content area */}
-      <div className="w-full max-w-2xl px-4 pb-16 space-y-4">
+      <div className="w-full max-w-4xl xl:max-w-6xl mx-auto px-4 pb-16 space-y-4">
         {/* Tabs + Search */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
@@ -161,8 +161,8 @@ export default function FilesPage() {
           <>
             {viewMode === "all" && imageFiles.length > 0 && <hr className="border-zinc-800" />}
             {viewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Files ({fileTotal})</h2>}
-            <FileList files={files} total={fileTotal} copiedId={copiedId}
-              onCopyLink={copyLink} onTogglePublic={togglePublic}
+            <FileList files={files} total={fileTotal} copiedId={copiedId} deletingId={deletingId}
+              onCopyLink={copyLink} onTogglePublic={togglePublic} onDelete={deleteFile}
               onOpenViewer={openViewer} />
             {fileTotalPages > 1 && (
               <Pagination page={filePage} totalPages={fileTotalPages} total={fileTotal}
@@ -185,7 +185,7 @@ export default function FilesPage() {
           copiedId={copiedId} deletingId={deletingId}
           onClose={closeLightbox} onPrev={() => openLightbox(lightboxIndex - 1)}
           onNext={() => openLightbox(lightboxIndex + 1)}
-          onCopyLink={copyLink} onDelete={deleteFile} />
+          onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic} />
       )}
 
       {/* Text viewer */}
