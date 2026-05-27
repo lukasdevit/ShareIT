@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "../../lib/api";
+import { useEffect, useState } from "react";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useFiles } from "../../hooks/useFiles";
 import { useFileViewer } from "../../hooks/useFileViewer";
@@ -11,11 +9,17 @@ import { ImageGallery } from "../../components/ImageGallery";
 import { FileList } from "../../components/FileList";
 import { Lightbox } from "../../components/Lightbox";
 import { TextViewer } from "../../components/TextViewer";
+import { EmptyState } from "../../components/EmptyState";
+import { useAuth } from "../../lib/api";
+import { formatSize } from "../../lib/utils";
+
+type ViewMode = "all" | "images" | "files";
 
 export default function FilesPage() {
-  const { logout } = useAuth();
-  const { isReady, user } = useRequireAuth();
-  const router = useRouter();
+  const { api } = useAuth();
+  const { isReady } = useRequireAuth();
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [storage, setStorage] = useState<{ used: number; limit: number } | null>(null);
 
   const {
     files, page: filePage, totalPages: fileTotalPages, total: fileTotal,
@@ -31,10 +35,11 @@ export default function FilesPage() {
     openViewer, closeViewer, openLightbox, closeLightbox,
   } = useFileViewer();
 
-  // Fetch files on mount and when search changes
   useEffect(() => { if (isReady) fetchFiles(1, 1, search); }, [fetchFiles, search, isReady]);
+  useEffect(() => {
+    api("/auth/storage").then((r) => r.json()).then(setStorage).catch(() => {});
+  }, [api]);
 
-  // Keyboard shortcuts for lightbox/viewer
   useEffect(() => {
     if (lightboxIndex === null && viewingFile === null) return;
     function onKey(e: KeyboardEvent) {
@@ -56,34 +61,31 @@ export default function FilesPage() {
 
   if (!isReady) return null;
 
+  const usagePercent = storage ? Math.min(100, (storage.used / storage.limit) * 100) : 0;
+  const showImages = viewMode === "images" || viewMode === "all";
+  const showFiles = viewMode === "files" || viewMode === "all";
+  const isEmpty = !imageFiles.length && !files.length && !search;
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      {/* Header */}
-      <header className="w-full max-w-2xl pt-12 pb-6 px-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">📁 ShareIT</h1>
-            <p className="text-zinc-500 text-sm mt-1">Upload & share files instantly</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-400">👤 {user.username}</span>
-            {user.isAdmin && (
-              <button onClick={() => router.push("/admin")}
-                className="px-3 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
-                🛡️ Admin
-              </button>
-            )}
-            <button onClick={() => router.push("/settings")}
-              className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">
-              ⚙️ Settings
-            </button>
-            <button onClick={logout}
-              className="px-3 py-1 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors">
-              Logout
-            </button>
+      {/* Storage bar */}
+      {storage && (
+        <div className="w-full max-w-2xl px-4 pt-6 pb-2">
+          <div className="flex items-center gap-3 text-xs text-zinc-500">
+            <span>{formatSize(storage.used)} of {formatSize(storage.limit)}</span>
+            <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${usagePercent}%`,
+                  background: usagePercent > 90 ? "#ef4444" : usagePercent > 70 ? "#f59e0b" : "#3b82f6",
+                }}
+              />
+            </div>
+            <span>{usagePercent.toFixed(0)}%</span>
           </div>
         </div>
-      </header>
+      )}
 
       {/* Upload zone */}
       <UploadZone
@@ -96,87 +98,91 @@ export default function FilesPage() {
         onFileChange={handleFileChange}
       />
 
-      {/* File list */}
+      {/* Content area */}
       <div className="w-full max-w-2xl px-4 pb-16 space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <input
-            type="text" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, 1, search); }}
-            placeholder="Search files..."
-            className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
-          />
-          {search && (
-            <button onClick={() => { setSearch(""); fetchFiles(1, 1, ""); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">
-              ✕
-            </button>
-          )}
+        {/* Tabs + Search */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+            {(["all", "images", "files"] as ViewMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setViewMode(m)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                  viewMode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 relative">
+            <input
+              type="text" value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, 1, search); }}
+              placeholder="Search files..."
+              className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+            {search && (
+              <button onClick={() => { setSearch(""); fetchFiles(1, 1, ""); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
+            )}
+          </div>
         </div>
 
-        {/* Images section */}
-        {imageFiles.length > 0 && (
+        {/* Empty state */}
+        {isEmpty && !uploading && (
+          <EmptyState
+            icon="☁️"
+            title="No files yet"
+            description="Drop a file above or click the upload zone to get started."
+          />
+        )}
+
+        {/* Images */}
+        {showImages && imageFiles.length > 0 && (
           <>
+            {viewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Images ({imageTotal})</h2>}
             <ImageGallery images={imageFiles} total={imageTotal} copiedId={copiedId} deletingId={deletingId}
               onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
               onOpenLightbox={openLightbox} />
             {imageTotalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <button onClick={() => fetchFiles(filePage, imagePage - 1, search)} disabled={imagePage <= 1}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  ← Prev
-                </button>
-                <span className="text-xs text-zinc-500">
-                  Images — Page {imagePage} of {imageTotalPages}
-                  <span className="text-zinc-600 ml-1">({imageTotal} total)</span>
-                </span>
-                <button onClick={() => fetchFiles(filePage, imagePage + 1, search)} disabled={imagePage >= imageTotalPages}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  Next →
-                </button>
-              </div>
+              <Pagination page={imagePage} totalPages={imageTotalPages} total={imageTotal}
+                onPrev={() => fetchFiles(filePage, imagePage - 1, search)}
+                onNext={() => fetchFiles(filePage, imagePage + 1, search)} label="Images" />
             )}
-            <hr className="border-zinc-800" />
           </>
         )}
 
-        {/* Files section */}
-        {files.length > 0 ? (
-          <FileList files={files} total={fileTotal} copiedId={copiedId}
-            onCopyLink={copyLink} onTogglePublic={togglePublic}
-            onOpenViewer={openViewer} />
-        ) : (
-          !imageFiles.length && <p className="text-sm text-zinc-600">No files uploaded yet.</p>
+        {/* Files */}
+        {showFiles && files.length > 0 && (
+          <>
+            {viewMode === "all" && imageFiles.length > 0 && <hr className="border-zinc-800" />}
+            {viewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Files ({fileTotal})</h2>}
+            <FileList files={files} total={fileTotal} copiedId={copiedId}
+              onCopyLink={copyLink} onTogglePublic={togglePublic}
+              onOpenViewer={openViewer} />
+            {fileTotalPages > 1 && (
+              <Pagination page={filePage} totalPages={fileTotalPages} total={fileTotal}
+                onPrev={() => fetchFiles(filePage - 1, imagePage, search)}
+                onNext={() => fetchFiles(filePage + 1, imagePage, search)} label="Files" />
+            )}
+          </>
         )}
 
-        {/* Files pagination */}
-        {fileTotalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button onClick={() => fetchFiles(filePage - 1, imagePage, search)} disabled={filePage <= 1}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-              ← Prev
-            </button>
-            <span className="text-xs text-zinc-500">
-              Files — Page {filePage} of {fileTotalPages}
-              <span className="text-zinc-600 ml-1">({fileTotal} total)</span>
-            </span>
-            <button onClick={() => fetchFiles(filePage + 1, imagePage, search)} disabled={filePage >= fileTotalPages}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-              Next →
-            </button>
-          </div>
+        {/* Search empty */}
+        {search && !imageFiles.length && !files.length && !uploading && (
+          <EmptyState icon="🔍" title="No results" description={`No files matching "${search}"`} />
         )}
       </div>
 
       {/* Lightbox */}
       {lightboxIndex !== null && lightboxIndex < imageFiles.length && (
-        <Lightbox image={imageFiles[lightboxIndex]} index={lightboxIndex} total={imageFiles.length}
+        <Lightbox image={imageFiles[lightboxIndex]!} index={lightboxIndex} total={imageFiles.length}
           hasPrev={lightboxIndex > 0} hasNext={lightboxIndex < imageFiles.length - 1}
           copiedId={copiedId} deletingId={deletingId}
-          onClose={closeLightbox}
-          onPrev={() => openLightbox(Math.max(0, lightboxIndex - 1))}
-          onNext={() => openLightbox(Math.min(imageFiles.length - 1, lightboxIndex + 1))}
+          onClose={closeLightbox} onPrev={() => openLightbox(lightboxIndex - 1)}
+          onNext={() => openLightbox(lightboxIndex + 1)}
           onCopyLink={copyLink} onDelete={deleteFile} />
       )}
 
@@ -187,6 +193,24 @@ export default function FilesPage() {
           onClose={closeViewer} onCopyLink={copyLink}
           onDelete={deleteFile} />
       )}
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, total, label, onPrev, onNext }: {
+  page: number; totalPages: number; total: number; label: string;
+  onPrev: () => void; onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3 pt-2">
+      <button onClick={onPrev} disabled={page <= 1}
+        className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
+      <span className="text-xs text-zinc-500">
+        {label} — Page {page} of {totalPages}
+        <span className="text-zinc-600 ml-1">({total} total)</span>
+      </span>
+      <button onClick={onNext} disabled={page >= totalPages}
+        className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
     </div>
   );
 }

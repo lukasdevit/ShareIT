@@ -80,7 +80,7 @@ function UploadsChart({ daily, maxCount }: { daily: DailyPoint[]; maxCount: numb
           {daily.map((d) => (
             <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group relative" title={`${d.day}: ${d.count} files, ${formatSize(d.bytes)}`}>
               <span className="text-[10px] text-zinc-600 group-hover:text-zinc-300 transition-colors">{d.count}</span>
-              <div className="w-full bg-blue-500/60 hover:bg-blue-400 rounded-t transition-colors min-h-[2px]"
+              <div className="w-full bg-blue-500/60 hover:bg-blue-400 rounded-t transition-colors min-h-0.5"
                 style={{ height: `${Math.max(2, (d.count / maxCount) * 100)}%` }} />
               <span className="text-[9px] text-zinc-700">{d.day.slice(5)}</span>
             </div>

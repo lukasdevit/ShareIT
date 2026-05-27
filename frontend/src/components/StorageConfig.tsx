@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatSize } from "../lib/utils";
+import { useToast } from "./Toast";
+import { CardSkeleton } from "./Skeleton";
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
@@ -24,12 +26,13 @@ interface StorageData {
 }
 
 export function StorageConfig({ apiFetch }: Props) {
+  const { toast } = useToast();
   const [data, setData] = useState<StorageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -51,11 +54,11 @@ export function StorageConfig({ apiFetch }: Props) {
       registrations_open: String(data?.registrations_open !== false),
     });
     setEditing(true);
-    setMsg(null);
+    
   }
 
   async function save() {
-    setSaving(true); setMsg(null);
+    setSaving(true); 
     try {
       const r = await apiFetch("/admin/storage", {
         method: "PATCH",
@@ -64,15 +67,17 @@ export function StorageConfig({ apiFetch }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setMsg({ type: "ok", text: `Saved: ${d.updated.join(", ")}` });
+      const savedMsg = `Saved: ${d.updated.join(", ")}`; toast(savedMsg, "ok");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
       setEditing(false);
       load();
     } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
+      toast((e as Error).message, "err");
     } finally { setSaving(false); }
   }
 
-  if (loading) return <section className="card"><p className="text-sm text-zinc-500">Loading…</p></section>;
+  if (loading) return <section className="card"><CardSkeleton lines={4} /></section>;
   if (!data) return <section className="card"><p className="text-sm text-red-400">Failed to load storage info.</p></section>;
 
   return (
@@ -80,7 +85,10 @@ export function StorageConfig({ apiFetch }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="card-title">💾 Storage Configuration</h2>
         {!editing ? (
-          <button onClick={startEdit} className="btn-ghost text-xs">✏️ Edit</button>
+          <div className="flex items-center gap-2">
+            {saved && <span className="text-xs text-green-400 animate-slide-in">✓ Saved</span>}
+            <button onClick={startEdit} className="btn-ghost text-xs">✏️ Edit</button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <button onClick={save} disabled={saving} className="btn-green text-xs">{saving ? "Saving…" : "Save"}</button>
@@ -88,8 +96,6 @@ export function StorageConfig({ apiFetch }: Props) {
           </div>
         )}
       </div>
-
-      {msg && <p className={`text-xs ${msg.type === "ok" ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>}
 
       {editing ? (
         <div className="space-y-3">
