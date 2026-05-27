@@ -24,7 +24,7 @@ export default function FilesPage() {
   const {
     files, page: filePage, totalPages: fileTotalPages, total: fileTotal,
     imageFiles, imagePage, imageTotalPages, imageTotal,
-    uploading, uploadProgress, dragOver, error, copiedId, deletingId,
+    uploading, uploadProgress, uploadCount, dragOver, error, copiedId, deletingId,
     search, expireDays, fileInputRef,
     fetchFiles, uploadFile, deleteFile, togglePublic, copyLink,
     setSearch, setExpireDays, setDragOver, handleDrop,
@@ -54,8 +54,10 @@ export default function FilesPage() {
   }, [lightboxIndex, viewingFile, imageFiles.length, closeLightbox, closeViewer, openLightbox]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) uploadFile(f);
+    const fileList = e.target.files;
+    if (fileList && fileList.length > 0) {
+      uploadFile(Array.from(fileList));
+    }
     e.target.value = "";
   }
 
@@ -89,7 +91,7 @@ export default function FilesPage() {
 
       {/* Upload zone */}
       <UploadZone
-        uploading={uploading} uploadProgress={uploadProgress}
+        uploading={uploading} uploadProgress={uploadProgress} uploadCount={uploadCount}
         dragOver={dragOver} error={error} expireDays={expireDays}
         onExpireChange={setExpireDays} fileInputRef={fileInputRef}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

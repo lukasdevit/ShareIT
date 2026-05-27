@@ -5,6 +5,7 @@ import { RefObject } from "react";
 interface Props {
   uploading: boolean;
   uploadProgress: number;
+  uploadCount?: { done: number; total: number };
   dragOver: boolean;
   error: string | null;
   expireDays: string;
@@ -16,7 +17,7 @@ interface Props {
   onExpireChange: (value: string) => void;
 }
 
-export function UploadZone({ uploading, uploadProgress, dragOver, error, expireDays, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange, onExpireChange }: Props) {
+export function UploadZone({ uploading, uploadProgress, uploadCount, dragOver, error, expireDays, fileInputRef, onDragOver, onDragLeave, onDrop, onFileChange, onExpireChange }: Props) {
   return (
     <div className="w-full max-w-2xl px-4 mb-8">
       <div
@@ -37,7 +38,9 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
               />
             </div>
             <span className="text-xs text-zinc-400">
-              {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : "Processing..."}
+              {uploadCount && uploadCount.total > 1
+                ? `Uploading ${uploadCount.done + 1}/${uploadCount.total} — ${uploadProgress}%`
+                : uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : "Processing..."}
             </span>
           </div>
         ) : (
@@ -50,7 +53,7 @@ export function UploadZone({ uploading, uploadProgress, dragOver, error, expireD
             <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
           </>
         )}
-        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} multiple />
         {/* Expiration selector */}
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-zinc-800/50 border-t border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
           <span className="text-[11px] text-zinc-500 whitespace-nowrap">⏱️ Auto-delete:</span>

@@ -77,7 +77,7 @@ describe("POST /upload", () => {
     const res = await request
       .post("/upload")
       .set("Authorization", `Bearer ${userToken}`)
-      .attach("file", badFile, { contentType: "application/x-msdownload" })
+      .attach("file", badFile, { contentType: "application/x-shockwave-flash" })
       .expect(415);
 
     expect(res.body.error).toContain("not allowed");
