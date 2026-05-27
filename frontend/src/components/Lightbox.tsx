@@ -2,6 +2,9 @@
 
 import { formatSize, formatDate } from "../lib/utils";
 import type { FileInfo } from "../lib/types";
+import { DeleteButton } from "./DeleteButton";
+import { VisibilityToggle } from "./VisibilityToggle";
+import { CopyButton } from "./CopyButton";
 
 interface Props {
   image: FileInfo;
@@ -16,9 +19,10 @@ interface Props {
   onNext: () => void;
   onCopyLink: (filename: string, id: number) => void;
   onDelete: (id: number) => void;
+  onTogglePublic: (id: number, isPublic: boolean) => void;
 }
 
-export function Lightbox({ image, index, total, hasPrev, hasNext, copiedId, deletingId, onClose, onPrev, onNext, onCopyLink, onDelete }: Props) {
+export function Lightbox({ image, index, total, hasPrev, hasNext, copiedId, deletingId, onClose, onPrev, onNext, onCopyLink, onDelete, onTogglePublic }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
       <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" onClick={onClose}>
@@ -48,9 +52,12 @@ export function Lightbox({ image, index, total, hasPrev, hasNext, copiedId, dele
             <p className="text-xs text-zinc-400">{formatSize(image.size)} · {formatDate(image.created_at)} · {index + 1}/{total}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => onCopyLink(image.filename, image.id)} className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">{copiedId === image.id ? "Copied!" : "Copy link"}</button>
-            <button onClick={() => onDelete(image.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${deletingId === image.id ? "bg-red-600 text-white" : "bg-zinc-800 hover:bg-red-800 text-zinc-300"}`}>{deletingId === image.id ? "Confirm?" : "Delete"}</button>
+            <VisibilityToggle isPublic={!!image.is_public} onClick={() => onTogglePublic(image.id, !image.is_public)} />
+            <a href={`/file/${image.filename}`} target="_blank" rel="noreferrer"
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+              onClick={(e) => e.stopPropagation()}>Open in new Tab</a>
+            <CopyButton filename={image.filename} id={image.id} copiedId={copiedId} onClick={() => onCopyLink(image.filename, image.id)} />
+            <DeleteButton id={image.id} confirming={deletingId === image.id} onClick={() => onDelete(image.id)} />
           </div>
         </div>
       </div>
