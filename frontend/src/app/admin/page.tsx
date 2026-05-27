@@ -5,14 +5,15 @@ import { useAuth } from "../../lib/api";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { AdminPanel } from "../../components/AdminPanel";
 
-type Tab = "users" | "files" | "storage" | "ssl" | "analytics";
+type Tab = "users" | "database" | "storage" | "ssl" | "analytics" | "backups";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "users", label: "👥 Users" },
-  { key: "files", label: "🗄️ Files DB" },
+  { key: "database", label: "🗄️ Database" },
   { key: "storage", label: "💾 Storage" },
   { key: "ssl", label: "🔒 SSL" },
   { key: "analytics", label: "📊 Analytics" },
+  { key: "backups", label: "🗄️ Backups" },
 ];
 
 export default function AdminRoute() {

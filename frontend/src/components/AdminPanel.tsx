@@ -7,10 +7,11 @@ import { TableBrowser } from "./TableBrowser";
 import { StorageConfig } from "./StorageConfig";
 import { SslConfig } from "./SslConfig";
 import { Analytics } from "./Analytics";
+import { BackupPanel } from "./BackupPanel";
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
-  tab: "users" | "files" | "storage" | "ssl" | "analytics";
+  tab: "users" | "database" | "storage" | "ssl" | "analytics" | "backups";
 }
 
 export function AdminPanel({ apiFetch, tab }: Props) {
@@ -29,14 +30,15 @@ export function AdminPanel({ apiFetch, tab }: Props) {
       </button>
 
       {tab === "users" && <UserManager apiFetch={apiFetch} />}
-      {tab === "files" && (
+      {tab === "database" && (
         <section className="card">
           <TableBrowser apiFetch={apiFetch} refreshKey={tablesKey} />
         </section>
       )}
       {tab === "storage" && <StorageConfig apiFetch={apiFetch} />}
-      {tab === "ssl" && <SslConfig />}
-      {tab === "analytics" && <Analytics />}
+      {tab === "ssl" && <SslConfig apiFetch={apiFetch} />}
+      {tab === "analytics" && <Analytics apiFetch={apiFetch} />}
+      {tab === "backups" && <BackupPanel apiFetch={apiFetch} />}
     </div>
   );
 }

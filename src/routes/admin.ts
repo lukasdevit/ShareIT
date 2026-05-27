@@ -4,6 +4,7 @@ import { adminUserRoutes } from "./admin/users.js";
 import { adminDbRoutes } from "./admin/db.js";
 import { adminStorageRoutes, adminSslRoutes } from "./admin/storage.js";
 import { adminAnalyticsRoutes } from "./admin/analytics.js";
+import { adminBackupRoutes } from "./admin/backup.js";
 
 export async function adminRoutes(app: FastifyInstance) {
   // All admin routes require admin authentication.
@@ -16,4 +17,5 @@ export async function adminRoutes(app: FastifyInstance) {
   await adminStorageRoutes(app);
   await adminSslRoutes(app);
   await adminAnalyticsRoutes(app);
+  await adminBackupRoutes(app);
 }
