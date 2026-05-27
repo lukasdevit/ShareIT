@@ -1,10 +1,8 @@
 # ShareIT
 
-Self-hosted file sharing app built with Fastify, Next.js and Docker.
+Self-hosted file sharing app — Fastify + Next.js + Docker.
 
-Originally started because I was tired of using bloated upload sites and wanted something I fully controlled + worked nicely with ShareX.
-
-Still heavily WIP, but already usable.
+A clean, fast way to upload and share files. Built for ShareX integration with a Vercel-inspired dark UI, multi-file uploads, admin panel, and cloud storage support.
 
 <img src="docs/preview.png" alt="ShareIT screenshot" width="600" />
 
@@ -12,70 +10,59 @@ Still heavily WIP, but already usable.
 
 ---
 
-## What it currently does
+## Features
 
-- drag & drop uploads, normal uploads too
-- ShareX support
-- public/private files
-- image gallery + previews
-- admin panel
-- expiring files
-- local storage or Backblaze B2
-- JWT auth
-- Docker deployment
-- HTTPS through Caddy
-- basic rate limiting + login protection
+### Upload & Share
+- Drag & drop or click to upload — supports multi-file uploads
+- ShareX config generator (one-click setup)
+- Public / private file visibility toggles
+- Auto-expiring files (1–90 days)
+- File type icons (📝🖼️📄📦) and image gallery with lightbox
+- Markdown / text file preview with sanitized rendering
+- Storage usage bar with quota tracking
+
+### Admin Panel (Vercel-style dark UI)
+- User management — create, edit, delete, search, change limits
+- Database browser — browse tables, view rows, delete entries
+- Storage configuration — local or Backblaze B2, editable in-app
+- SSL / HTTPS status monitoring
+- Analytics — upload trends, top users, file type distribution
+- Backup system — run, download, view backup history with retry logic
+- Collapsible sidebar (⌘+\), toast notifications, skeleton loading, metric cards
+- Mobile-responsive with slide-out sidebar
+
+### Tech
+- JWT authentication with login lockout protection
+- Rate limiting (global + per-endpoint)
+- SQLite with WAL mode + automatic backups every 6h
+- Local filesystem or Backblaze B2 storage
+- Virus scanning support (ClamAV, optional)
+- Caddy reverse proxy with automatic Let's Encrypt SSL
+- CI/CD via GitHub Actions — tests → semantic-release → deploy
 
 ---
 
 ## Stack
 
-Backend:
-- Node.js
-- Fastify
-- TypeScript
-- SQLite
-
-Frontend:
-- Next.js 15
-- React 19
-- Tailwind
-
-Infra:
-- Docker
-- Caddy
-- GitHub Actions
-
----
-
-## Why I made it
-
-Mostly as a learning project at first, but it slowly turned into something I actually use daily.
-
-I also wanted to understand:
-- file upload pipelines
-- auth systems
-- reverse proxies
-- CI/CD
-- cloud object storage
-- production deployments
-- and many more I didn't knew I will even use in this project.
+| Layer | Tech |
+|-------|------|
+| Backend | Node 24, Fastify 5, TypeScript, SQLite |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4 |
+| Infra | Docker, Caddy, GitHub Actions |
+| Storage | Local filesystem or Backblaze B2 (S3-compatible) |
 
 ---
 
 ## Architecture
 
-```text
-Caddy
- ├── Fastify API
- └── Next.js frontend
-
-API
- ├── SQLite
- ├── local uploads
- └── optional Backblaze B2 storage
 ```
-
+Caddy (SSL)
+ ├── Fastify API (port 3000)
+ │   ├── SQLite database
+ │   ├── local uploads volume
+ │   └── optional B2 cloud storage
+ └── Next.js frontend (port 3001)
+```
 
 ---
 
@@ -86,62 +73,59 @@ git clone https://github.com/lukasdevit/ShareIT.git
 cd ShareIT
 
 cp .env.example .env
+# edit .env with your secrets
+
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Frontend:
-```text
-localhost:3001
-```
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3001 |
+| API | http://localhost:3000 |
 
-API:
-```text
-localhost:3000
-```
+Dev mode mounts `src/` volumes for hot-reload on both services.
 
 ---
 
-## Running production
+## Production deploy
 
 ```bash
 git clone https://github.com/lukasdevit/ShareIT.git
 cd ShareIT
 
 cp .env.example .env
-# edit .env with your actual config
+# edit .env with real values
+
 docker compose up -d
 ```
 
-This spins up the API, frontend, and Caddy all at once. Caddy handles SSL automatically — just point a domain at your server and you're good.
+Spins up API, frontend, and Caddy. Caddy auto-provisions SSL — just point a domain.
 
-A few things worth doing before exposing it to the internet:
-- change the default admin password
-- set up your storage backend (local path or B2 bucket)
-- double-check the rate limiting config in `.env`
+**Before going public:**
+- Change default admin password
+- Configure storage backend (local or B2)
+- Review rate limits in `.env`
+- Set `BACKUP_SCHEDULE_HOURS` (default: every 6h)
 
----
+### CI/CD
 
-## Planned stuff
-
-- FOCUS ON UX NOW, it's painful but doable. 
-- ~~better mobile UX~~ implement mobile UX at all
-- multi-file uploads
-- login/register architecture, we will see what I decide to use
-- usage analytics
-- better search
-- dark mode
-
-probably more things once I break production again
+Push to `main` triggers:
+1. Tests (57 across 4 suites)
+2. semantic-release (changelog + version bump)
+3. SSH deploy — `git pull` + `docker compose up -d --build`
 
 ---
 
-## Things I learned building this
+## Planned
 
-- handling uploads properly is harder than it looks
-- auth edge cases are annoying
-- reverse proxies save a lot of headaches
-- Docker makes deployment way less painful
-- SQLite is actually pretty nice for single-server apps
+- ~~multi-file uploads~~ ✅
+- ~~better mobile UX~~ ✅
+- ~~admin panel redesign~~ ✅
+- ~~database backups~~ ✅
+- ~~expanded MIME type support~~ ✅
+- file versioning / replacement
+- public sharing links with optional passwords
+- upload chunking for very large files
 
 ---
 
