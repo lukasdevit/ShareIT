@@ -19,7 +19,7 @@
     "sharex"
   ],
   "author": "kukasz",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1053.0",
     "@aws-sdk/lib-storage": "^3.1053.0",

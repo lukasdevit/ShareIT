@@ -37,7 +37,7 @@ A clean, fast way to upload and share files. Built for ShareX integration with a
 - SQLite with WAL mode + automatic backups every 6h
 - Local filesystem or Backblaze B2 storage
 - Virus scanning support (ClamAV, optional)
-- Caddy reverse proxy with automatic Let's Encrypt SSL
+- Caddy reverse proxy with HTTPS support
 - CI/CD via GitHub Actions — tests → semantic-release → deploy
 
 ---
@@ -48,7 +48,8 @@ A clean, fast way to upload and share files. Built for ShareX integration with a
 |-------|------|
 | Backend | Node 24, Fastify 5, TypeScript, SQLite |
 | Frontend | Next.js 16, React 19, Tailwind CSS 4 |
-| Infra | Docker, Caddy, GitHub Actions |
+| Proxy | Caddy (HTTPS + reverse proxy) |
+| Infra | Docker, GitHub Actions |
 | Storage | Local filesystem or Backblaze B2 (S3-compatible) |
 
 ---
@@ -99,7 +100,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Spins up API, frontend, and Caddy. Caddy auto-provisions SSL — just point a domain.
+Spins up API, frontend, and Caddy. Place your TLS certs in `caddy/certs/` (see Caddyfile).
 
 **Before going public:**
 - Change default admin password
@@ -116,18 +117,40 @@ Push to `main` triggers:
 
 ---
 
-## Planned
+## Roadmap
 
+### Done
 - ~~multi-file uploads~~ ✅
 - ~~better mobile UX~~ ✅
 - ~~admin panel redesign~~ ✅
 - ~~database backups~~ ✅
 - ~~expanded MIME type support~~ ✅
-- audio / video playback in browser
-- CSV table rendering
-- file versioning / replacement
-- public sharing links with optional passwords
-- upload chunking for very large files
+- ~~shared button components, delete for files~~ ✅
+- ~~SSL / HTTPS status monitoring~~ ✅
+- ~~analytics dashboard~~ ✅
+
+### Quick Wins
+- Public landing page for unauthenticated visitors (replace login-only root)
+- Replace `any` casts in test files with proper types
+
+### Features
+- Audio / video playback in browser
+- CSV / table rendering in file viewer
+- File versioning / replacement (update a file, keep history)
+- Shareable links — generate one-time or time-limited URLs for private files
+- Password-protected public shares
+- Password reset flow (self-service or admin-only)
+- Bulk operations — multi-select files to delete, toggle visibility, or download as zip
+- Upload chunking for very large files (>1 GB)
+
+### API / DX
+- OpenAPI / Swagger docs via `@fastify/swagger`
+- Admin route test coverage (user CRUD, analytics, backups)
+- Service-layer unit tests (backup, pagination, storage helpers)
+
+### Infra / Ops
+- Health dashboard — disk space alerts, failed-login notifications
+- Uptime monitoring endpoint for external watchers (UptimeRobot, etc.)
 
 ---
 
