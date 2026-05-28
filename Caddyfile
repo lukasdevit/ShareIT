@@ -1,4 +1,6 @@
-{$DOMAIN:localhost}, goletz.dev {
+shareit.goletz.dev, goletz.dev {
+  tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
+
   handle /file/* {
     reverse_proxy api:3000
   }
