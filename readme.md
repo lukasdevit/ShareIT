@@ -6,7 +6,7 @@ A clean, fast way to upload and share files. Built for ShareX integration with a
 
 <img src="docs/preview.png" alt="ShareIT screenshot" width="600" />
 
-**Live demo:** https://goletz.dev
+**Live demo:** https://shareit.goletz.dev
 
 ---
 
