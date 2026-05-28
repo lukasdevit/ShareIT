@@ -87,12 +87,12 @@ export function StorageConfig({ apiFetch }: Props) {
         {!editing ? (
           <div className="flex items-center gap-2">
             {saved && <span className="text-xs text-green-400 animate-slide-in">✓ Saved</span>}
-            <button onClick={startEdit} className="btn-ghost text-xs">✏️ Edit</button>
+            <button type="button" onClick={startEdit} className="btn-ghost text-xs">✏️ Edit</button>
           </div>
         ) : (
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="btn-green text-xs">{saving ? "Saving…" : "Save"}</button>
-            <button onClick={() => setEditing(false)} className="btn-zinc text-xs">Cancel</button>
+            <button type="button" onClick={save} disabled={saving} className="btn-green text-xs">{saving ? "Saving…" : "Save"}</button>
+            <button type="button" onClick={() => setEditing(false)} className="btn-zinc text-xs">Cancel</button>
           </div>
         )}
       </div>
@@ -100,8 +100,8 @@ export function StorageConfig({ apiFetch }: Props) {
       {editing ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Backend</label>
-            <select value={form.backend} onChange={(e) => setForm({ ...form, backend: e.target.value })}
+            <label htmlFor="storage-backend" className="block text-xs text-zinc-500 mb-1">Backend</label>
+            <select id="storage-backend" value={form.backend} onChange={(e) => setForm({ ...form, backend: e.target.value })}
               className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500">
               <option value="local">💻 Local filesystem</option>
               <option value="b2">☁️ Backblaze B2</option>
@@ -111,8 +111,8 @@ export function StorageConfig({ apiFetch }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[["b2_endpoint", "Endpoint"], ["b2_region", "Region"], ["b2_bucket", "Bucket"], ["b2_prefix", "Prefix"]].map(([key, label]) => (
                 <div key={key}>
-                  <label className="block text-xs text-zinc-500 mb-1">{label}</label>
-                  <input value={form[key] || ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  <label htmlFor={`b2-${key}`} className="block text-xs text-zinc-500 mb-1">{label}</label>
+                  <input id={`b2-${key}`} value={form[key] || ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
                 </div>
               ))}
@@ -124,6 +124,8 @@ export function StorageConfig({ apiFetch }: Props) {
               <p className="text-xs text-zinc-500 mt-0.5">Allow new users to sign up</p>
             </div>
             <button
+              type="button"
+              aria-label={form.registrations_open === "true" ? "Disable user registrations" : "Enable user registrations"}
               onClick={() => setForm({ ...form, registrations_open: form.registrations_open === "true" ? "false" : "true" })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.registrations_open === "true" ? "bg-green-600" : "bg-zinc-600"}`}>
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.registrations_open === "true" ? "translate-x-6" : "translate-x-1"}`} />

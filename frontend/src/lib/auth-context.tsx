@@ -11,6 +11,8 @@ export interface AuthState {
   user: UserInfo | null;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
+  demoLogin: () => Promise<void>;
+  endDemoSession: () => Promise<void>;
   logout: () => void;
   api: (path: string, options?: RequestInit) => Promise<Response>;
 }
@@ -58,6 +60,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("shareit_token", d.token);
   }
 
+  async function demoLogin() {
+    const r = await apiFetch(null, "/auth/demo", { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    setToken(d.token);
+    setUser(d.user);
+    localStorage.setItem("shareit_token", d.token);
+  }
+
+  async function endDemoSession() {
+    if (!token || !user?.isDemo) return;
+    try {
+      await apiFetch(token, "/auth/demo-session", { method: "POST" });
+    } catch { /* best-effort */ }
+  }
+
   async function register(username: string, password: string) {
     const r = await apiFetch(null, "/auth/register", {
       method: "POST",
@@ -78,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ token, user, login, register, logout, api }}>
+    <AuthCtx.Provider value={{ token, user, login, register, demoLogin, endDemoSession, logout, api }}>
       {children}
     </AuthCtx.Provider>
   );

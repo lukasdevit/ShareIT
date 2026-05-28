@@ -27,6 +27,7 @@ export function LoginForm({ mode, username, password, error, onModeChange, onUse
             value={username}
             onChange={(e) => onUsernameChange(e.target.value)}
             placeholder="Username"
+            aria-label="Username"
             className="w-full px-3 py-2 rounded-md text-sm bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
             autoFocus
           />
@@ -35,6 +36,7 @@ export function LoginForm({ mode, username, password, error, onModeChange, onUse
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
             placeholder="Password"
+            aria-label="Password"
             className="w-full px-3 py-2 rounded-md text-sm bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
           />
           {error && <p className="text-xs text-red-400">{error}</p>}

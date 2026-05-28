@@ -53,7 +53,7 @@ export function UploadZone({ uploading, uploadProgress, uploadCount, dragOver, e
             <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
           </>
         )}
-        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} multiple />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} multiple aria-label="Choose files to upload" />
         {/* Expiration selector */}
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-zinc-800/50 border-t border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
           <span className="text-[11px] text-zinc-500 whitespace-nowrap">⏱️ Auto-delete:</span>

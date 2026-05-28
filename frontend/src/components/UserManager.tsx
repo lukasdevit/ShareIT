@@ -170,10 +170,10 @@ export function UserManager({ apiFetch }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ User Manager</h2>
         <div className="flex gap-2">
-          <button onClick={() => setShowCreate(!showCreate)} className="btn-blue">
+          <button type="button" onClick={() => setShowCreate(!showCreate)} className="btn-blue">
             {showCreate ? "Cancel" : "➕ Create User"}
           </button>
-          <button onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
+          <button type="button" onClick={() => fetchUsers(page, search)} className="btn-zinc">🔄 Refresh</button>
         </div>
       </div>
 
@@ -182,18 +182,18 @@ export function UserManager({ apiFetch }: Props) {
           <h3 className="text-sm font-medium text-zinc-300">Create New User</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Username *</label>
-              <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+              <label htmlFor="new-username" className="block text-xs text-zinc-500 mb-1">Username *</label>
+              <input id="new-username" type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
                 className="input-sm" placeholder="newuser" minLength={3} />
             </div>
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Password *</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+              <label htmlFor="new-password" className="block text-xs text-zinc-500 mb-1">Password *</label>
+              <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                 className="input-sm" placeholder="min 6 chars" minLength={6} />
             </div>
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Storage Limit (GB, optional)</label>
-              <input type="number" value={newStorageLimit} onChange={(e) => setNewStorageLimit(Number(e.target.value) || 0)}
+              <label htmlFor="new-storage" className="block text-xs text-zinc-500 mb-1">Storage Limit (GB, optional)</label>
+              <input id="new-storage" type="number" value={newStorageLimit} onChange={(e) => setNewStorageLimit(Number(e.target.value) || 0)}
                 className="input-sm" placeholder="Default: 10 GB" min="0" />
             </div>
             <div>
@@ -217,10 +217,11 @@ export function UserManager({ apiFetch }: Props) {
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") doSearch(); }}
             placeholder="Search users..."
+            aria-label="Search users"
             className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
           />
           {search && (
-            <button onClick={() => { setSearch(""); fetchUsers(1, ""); }}
+            <button type="button" onClick={() => { setSearch(""); fetchUsers(1, ""); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
           )}
         </div>
@@ -254,8 +255,8 @@ export function UserManager({ apiFetch }: Props) {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs text-zinc-500 mb-1">Storage Limit (GB)</label>
-                        <input type="number" value={editStorage} onChange={(e) => setEditStorage(Number(e.target.value) || 0)} className="input-sm" min="0" />
+                        <label htmlFor={`edit-storage-${u.id}`} className="block text-xs text-zinc-500 mb-1">Storage Limit (GB)</label>
+                        <input id={`edit-storage-${u.id}`} type="number" value={editStorage} onChange={(e) => setEditStorage(Number(e.target.value) || 0)} className="input-sm" min="0" />
                         <span className="text-xs text-zinc-600">{formatSize(Number(editStorage) || 0)}</span>
                       </div>
                       <div>
@@ -267,8 +268,8 @@ export function UserManager({ apiFetch }: Props) {
                         </label>
                       </div>
                       <div>
-                        <label className="block text-xs text-zinc-500 mb-1">New Password</label>
-                        <input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)}
+                        <label htmlFor={`edit-password-${u.id}`} className="block text-xs text-zinc-500 mb-1">New Password</label>
+                        <input id={`edit-password-${u.id}`} type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)}
                           placeholder="(leave blank)" className="input-sm" />
                       </div>
                     </div>
@@ -294,7 +295,7 @@ export function UserManager({ apiFetch }: Props) {
                         <span className="text-sm font-medium text-zinc-200">{u.username}</span>
                         {u.is_admin === 1 && <span className="badge-amber">ADMIN</span>}
                       </div>
-                      <button onClick={() => openEdit(u)} className="btn-ghost">✏️ Edit</button>
+                      <button type="button" onClick={() => openEdit(u)} className="btn-ghost">✏️ Edit</button>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-zinc-500">
                       <span>{formatSize(u.used)} / {formatSize(u.storage_limit)}</span>
@@ -311,10 +312,10 @@ export function UserManager({ apiFetch }: Props) {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
-          <button onClick={() => fetchUsers(page - 1, search)} disabled={page <= 1}
+          <button type="button" onClick={() => fetchUsers(page - 1, search)} disabled={page <= 1}
             className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
           <span className="text-xs text-zinc-500">Page {page} of {totalPages}</span>
-          <button onClick={() => fetchUsers(page + 1, search)} disabled={page >= totalPages}
+          <button type="button" onClick={() => fetchUsers(page + 1, search)} disabled={page >= totalPages}
             className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
         </div>
       )}

@@ -14,12 +14,13 @@ export interface JwtPayload {
   id: number;
   username: string;
   isAdmin: boolean;
+  isDemo: boolean;
 }
 
 // ── Token utilities ──
 
-export function signToken(userId: number, username: string, isAdmin: boolean): string {
-  return jwt.sign({ id: userId, username, isAdmin }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export function signToken(userId: number, username: string, isAdmin: boolean, isDemo = false): string {
+  return jwt.sign({ id: userId, username, isAdmin, isDemo }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
 export function verifyToken(token: string): JwtPayload | null {

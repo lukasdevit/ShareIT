@@ -30,9 +30,9 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
             <a href={`/file/${file.filename}`} target="_blank" rel="noreferrer"
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">Open in new Tab</a>
               <CopyButton filename={file.filename} id={file.id} copiedId={copiedId} onClick={() => onCopyLink(file.filename, file.id)} />
-            <button onClick={() => onDelete(file.id)}
+            <button type="button" onClick={() => onDelete(file.id)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${deletingId === file.id ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 hover:bg-red-900 text-zinc-400 hover:text-red-400"}`}>{deletingId === file.id ? "Delete?" : "Delete"}</button>
-            <button onClick={onClose} className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
+            <button type="button" aria-label="Close viewer" onClick={onClose} className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
@@ -45,6 +45,7 @@ export function TextViewer({ file, content, copiedId, deletingId, onClose, onDel
               src={`${location.origin}/file/${file.filename}`}
               className="w-full h-[70vh] border-0"
               title={file.original_name}
+              sandbox="allow-scripts allow-same-origin"
             />
           ) : file.mime_type === "text/markdown" || file.original_name.endsWith(".md") ? (
             <MarkdownBody content={content!} />

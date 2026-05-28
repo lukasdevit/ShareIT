@@ -1,24 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRequireAuth } from "../../hooks/useRequireAuth";
-import { useFiles } from "../../hooks/useFiles";
-import { useFileViewer } from "../../hooks/useFileViewer";
-import { UploadZone } from "../../components/UploadZone";
-import { ImageGallery } from "../../components/ImageGallery";
-import { FileList } from "../../components/FileList";
-import { Lightbox } from "../../components/Lightbox";
-import { TextViewer } from "../../components/TextViewer";
-import { EmptyState } from "../../components/EmptyState";
-import { useAuth } from "../../lib/api";
-import { formatSize } from "../../lib/utils";
+import { useFiles } from "../hooks/useFiles";
+import { useFileViewer } from "../hooks/useFileViewer";
+import { UploadZone } from "./UploadZone";
+import { ImageGallery } from "./ImageGallery";
+import { FileList } from "./FileList";
+import { Lightbox } from "./Lightbox";
+import { TextViewer } from "./TextViewer";
+import { EmptyState } from "./EmptyState";
+import { useAuth } from "../lib/auth-context";
+import { useDashboard } from "../context/DashboardContext";
+import type { FilesViewMode } from "../context/DashboardContext";
+import { formatSize } from "../lib/utils";
 
-type ViewMode = "all" | "images" | "files";
-
-export default function FilesPage() {
-  const { api } = useAuth();
-  const { isReady } = useRequireAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>("all");
+export function FilesPanel() {
+  const { user, api } = useAuth();
+  const { filesViewMode, setFilesViewMode } = useDashboard();
   const [storage, setStorage] = useState<{ used: number; limit: number } | null>(null);
 
   const {
@@ -35,7 +33,7 @@ export default function FilesPage() {
     openViewer, closeViewer, openLightbox, closeLightbox,
   } = useFileViewer();
 
-  useEffect(() => { if (isReady) fetchFiles(1, 1, search); }, [fetchFiles, search, isReady]);
+  useEffect(() => { fetchFiles(1, 1, search); }, [fetchFiles, search]);
   useEffect(() => {
     api("/auth/storage").then((r) => r.json()).then(setStorage).catch(() => {});
   }, [api]);
@@ -61,15 +59,22 @@ export default function FilesPage() {
     e.target.value = "";
   }
 
-  if (!isReady) return null;
-
   const usagePercent = storage ? Math.min(100, (storage.used / storage.limit) * 100) : 0;
-  const showImages = viewMode === "images" || viewMode === "all";
-  const showFiles = viewMode === "files" || viewMode === "all";
+  const showImages = filesViewMode === "images" || filesViewMode === "all";
+  const showFiles = filesViewMode === "files" || filesViewMode === "all";
   const isEmpty = !imageFiles.length && !files.length && !search;
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+      {/* Demo banner */}
+      {user?.isDemo && (
+        <div className="w-full bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-center">
+          <span className="text-xs text-amber-400">
+            🎭 Demo session — files are deleted when you close this tab. Storage limit: 100 MB.
+          </span>
+        </div>
+      )}
+
       {/* Storage bar */}
       {storage && (
         <div className="w-full max-w-4xl xl:max-w-6xl mx-auto px-4 pt-6 pb-2">
@@ -105,12 +110,13 @@ export default function FilesPage() {
         {/* Tabs + Search */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
-            {(["all", "images", "files"] as ViewMode[]).map((m) => (
+            {(["all", "images", "files"] as FilesViewMode[]).map((m) => (
               <button
+                type="button"
                 key={m}
-                onClick={() => setViewMode(m)}
+                onClick={() => setFilesViewMode(m)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
-                  viewMode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                  filesViewMode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
                 {m}
@@ -123,10 +129,11 @@ export default function FilesPage() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") fetchFiles(1, 1, search); }}
               placeholder="Search files..."
+              aria-label="Search files"
               className="w-full px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
             />
             {search && (
-              <button onClick={() => { setSearch(""); fetchFiles(1, 1, ""); }}
+              <button type="button" onClick={() => { setSearch(""); fetchFiles(1, 1, ""); }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm">✕</button>
             )}
           </div>
@@ -144,7 +151,7 @@ export default function FilesPage() {
         {/* Images */}
         {showImages && imageFiles.length > 0 && (
           <>
-            {viewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Images ({imageTotal})</h2>}
+            {filesViewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Images ({imageTotal})</h2>}
             <ImageGallery images={imageFiles} total={imageTotal} copiedId={copiedId} deletingId={deletingId}
               onCopyLink={copyLink} onDelete={deleteFile} onTogglePublic={togglePublic}
               onOpenLightbox={openLightbox} />
@@ -159,8 +166,8 @@ export default function FilesPage() {
         {/* Files */}
         {showFiles && files.length > 0 && (
           <>
-            {viewMode === "all" && imageFiles.length > 0 && <hr className="border-zinc-800" />}
-            {viewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Files ({fileTotal})</h2>}
+            {filesViewMode === "all" && imageFiles.length > 0 && <hr className="border-zinc-800" />}
+            {filesViewMode === "all" && <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Files ({fileTotal})</h2>}
             <FileList files={files} total={fileTotal} copiedId={copiedId} deletingId={deletingId}
               onCopyLink={copyLink} onTogglePublic={togglePublic} onDelete={deleteFile}
               onOpenViewer={openViewer} />
@@ -205,13 +212,13 @@ function Pagination({ page, totalPages, total, label, onPrev, onNext }: {
 }) {
   return (
     <div className="flex items-center justify-center gap-3 pt-2">
-      <button onClick={onPrev} disabled={page <= 1}
+      <button type="button" onClick={onPrev} disabled={page <= 1}
         className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
       <span className="text-xs text-zinc-500">
         {label} — Page {page} of {totalPages}
         <span className="text-zinc-600 ml-1">({total} total)</span>
       </span>
-      <button onClick={onNext} disabled={page >= totalPages}
+      <button type="button" onClick={onNext} disabled={page >= totalPages}
         className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
     </div>
   );

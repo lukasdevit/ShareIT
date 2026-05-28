@@ -25,23 +25,23 @@ interface Props {
 export function Lightbox({ image, index, total, hasPrev, hasNext, copiedId, deletingId, onClose, onPrev, onNext, onCopyLink, onDelete, onTogglePublic }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
-      <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" onClick={onClose}>
+      <button type="button" aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" onClick={onClose}>
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
       {hasPrev && (
-        <button className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+        <button type="button" aria-label="Previous image" className="absolute left-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
           onClick={(e) => { e.stopPropagation(); onPrev(); }}>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
         </button>
       )}
       {hasNext && (
-        <button className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+        <button type="button" aria-label="Next image" className="absolute right-4 z-10 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
           onClick={(e) => { e.stopPropagation(); onNext(); }}>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
         </button>
       )}
-      {hasPrev && <img src={`${location.origin}/file/${image.filename}`} className="hidden" />}
-      {hasNext && <img src={`${location.origin}/file/${image.filename}`} className="hidden" />}
+      {hasPrev && <img src={`${location.origin}/file/${image.filename}`} className="hidden" alt="" />}
+      {hasNext && <img src={`${location.origin}/file/${image.filename}`} className="hidden" alt="" />}
       <img key={image.filename} src={`${location.origin}/file/${image.filename}`} alt={image.original_name}
         className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg opacity-0 transition-opacity duration-300"
         onLoad={(e) => (e.currentTarget.style.opacity = "1")} onClick={(e) => e.stopPropagation()} />

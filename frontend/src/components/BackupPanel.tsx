@@ -97,7 +97,7 @@ export function BackupPanel({ apiFetch }: Props) {
         <button onClick={runBackupNow} disabled={running} className="btn-blue text-xs">
           {running ? "Running…" : "▶ Backup Now"}
         </button>
-        <button onClick={downloadLatest} disabled={downloading} className="btn-zinc text-xs">
+        <button type="button" onClick={downloadLatest} disabled={downloading} className="btn-zinc text-xs">
           {downloading ? "Downloading…" : "⬇ Download Latest"}
         </button>
       </div>
@@ -129,7 +129,7 @@ export function BackupPanel({ apiFetch }: Props) {
             title="No backup history"
             description="Run a backup now to start tracking."
             action={
-              <button onClick={runBackupNow} disabled={running} className="btn-blue text-xs">
+              <button type="button" onClick={runBackupNow} disabled={running} className="btn-blue text-xs">
                 ▶ Run First Backup
               </button>
             }

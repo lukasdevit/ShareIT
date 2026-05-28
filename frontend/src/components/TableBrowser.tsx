@@ -89,6 +89,7 @@ export function TableBrowser({ apiFetch, refreshKey, expanded, onExpand }: Props
       <div className="flex flex-wrap gap-1">
         {tables.map((t) => (
           <button
+            type="button"
             key={t.name}
             onClick={() => handleTableClick(t.name)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border ${
@@ -113,7 +114,7 @@ export function TableBrowser({ apiFetch, refreshKey, expanded, onExpand }: Props
               <span className="text-xs text-zinc-600">{tableData.rows.length} row{tableData.rows.length !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => loadTableData(expanded)}
+              <button type="button" onClick={() => loadTableData(expanded)}
                 className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors">
                 🔄 Refresh
               </button>
@@ -142,13 +143,13 @@ export function TableBrowser({ apiFetch, refreshKey, expanded, onExpand }: Props
                           <span className="text-[10px] text-amber-500/50 px-1" title="Cannot delete admin user">🔒</span>
                         ) : isConfirming ? (
                           <span className="flex items-center gap-0.5">
-                            <button onClick={() => deleteTableRow(expanded, pkCol, pkVal)}
+                            <button type="button" onClick={() => deleteTableRow(expanded, pkCol, pkVal)}
                               className="text-[10px] text-red-400 hover:text-red-300 font-bold px-1">✓</button>
-                            <button onClick={() => setDeleteRowConfirm(null)}
+                            <button type="button" onClick={() => setDeleteRowConfirm(null)}
                               className="text-[10px] text-zinc-500 hover:text-zinc-300 px-1">✕</button>
                           </span>
                         ) : (
-                          <button onClick={() => setDeleteRowConfirm(rowKey)}
+                          <button type="button" onClick={() => setDeleteRowConfirm(rowKey)}
                             className="text-[10px] text-zinc-600 hover:text-red-400 px-1 transition-colors">✕</button>
                         )}
                       </td>

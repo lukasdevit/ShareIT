@@ -108,6 +108,7 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
           Destinations → Custom uploader settings.
         </p>
         <button
+          type="button"
           onClick={downloadShareXConfig}
           className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
         >
@@ -120,8 +121,9 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
         <h2 className="text-base font-semibold text-zinc-200">Change Password</h2>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">Current Password</label>
+            <label htmlFor="current-password" className="block text-sm text-zinc-400 mb-1">Current Password</label>
             <input
+              id="current-password"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -130,8 +132,9 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
             />
           </div>
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">New Password</label>
+            <label htmlFor="new-password" className="block text-sm text-zinc-400 mb-1">New Password</label>
             <input
+              id="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}

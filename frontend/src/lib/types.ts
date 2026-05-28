@@ -25,6 +25,7 @@ export interface UserInfo {
   id: number;
   username: string;
   isAdmin: boolean;
+  isDemo: boolean;
 }
 
 export interface AdminUserRow {
