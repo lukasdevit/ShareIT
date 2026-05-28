@@ -61,6 +61,6 @@ jobs:
           script: |
             cd ~/ShareIT
             git pull origin main
-            sg docker -c "DOMAIN=goletz.dev docker compose up -d --build --remove-orphans"
+            sg docker -c "DOMAIN=shareit.goletz.dev docker compose up -d --build --remove-orphans"
             sg docker -c "docker image prune -f"
-            echo "✅ Deploy complete — https://goletz.dev"
+            echo "✅ Deploy complete — https://shareit.goletz.dev"
