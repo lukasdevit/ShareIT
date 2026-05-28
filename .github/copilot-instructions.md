@@ -136,6 +136,7 @@ throw Object.assign(new Error("Unsupported MIME type"), { statusCode: 415 });
 
 ## Commit & Release
 
+- check if you are on the correct branch, if not make one.
 - See `/memories/repo/commit-conventions.md`
 - `fix:` → patch release
 - `feat:` → minor release
