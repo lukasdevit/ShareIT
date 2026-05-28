@@ -36,6 +36,11 @@ export const LOCKOUT_MINUTES = 15;
 // ── Storage ──
 export const DEFAULT_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB
 
+// ── Demo users ──
+export const DEMO_STORAGE_LIMIT = 100 * 1024 * 1024; // 100 MB
+export const DEMO_CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+export const DEMO_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+
 // ── File serving ──
 export const FILE_CACHE_MAX_AGE = 31536000; // 1 year
 

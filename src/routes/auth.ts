@@ -1,17 +1,34 @@
 import type { FastifyInstance } from "fastify";
+import crypto from "crypto";
 import bcrypt from "bcrypt";
-import { dbGet, dbRun } from "../db/index.js";
+import { nanoid } from "nanoid";
+import { dbGet, dbAll, dbRun } from "../db/index.js";
 import {
   AUTH_LOGIN_LIMIT, AUTH_REGISTER_LIMIT,
   AUTH_RATE_WINDOW_MS, MAX_FAILED_LOGINS, LOCKOUT_MINUTES, DEFAULT_STORAGE_LIMIT,
+  DEMO_STORAGE_LIMIT,
 } from "../config/index.js";
 import {
   requireAuth, signToken,
 } from "../middleware/index.js";
+import { deleteFromStorage } from "../utils/index.js";
 
 import { DB_PATH } from "../config/index.js";
 
 const BCRYPT_ROUNDS = 10;
+
+// ── Funny demo name pool ──
+const DEMO_ADJECTIVES = [
+  "Sleepy", "Grumpy", "Sassy", "Wobbly", "Funky", "Cheeky", "Bouncy",
+  "Zigzag", "Noodle", "Pickle", "Waffle", "Squishy", "Giggly", "Dizzy",
+  "Snazzy", "Goofy", "Loopy", "Jolly", "Zippy", "Cranky",
+];
+
+const DEMO_NOUNS = [
+  "Raccoon", "Banana", "Sloth", "Penguin", "Taco", "Muffin", "Potato",
+  "Duck", "Llama", "Wombat", "Narwhal", "Koala", "Hamster", "Badger",
+  "Ferret", "Walrus", "Otter", "Corgi", "Axolotl", "Capybara",
+];
 
 export async function authRoutes(app: FastifyInstance) {
   const isTest = DB_PATH.includes("test");
@@ -130,7 +147,7 @@ export async function authRoutes(app: FastifyInstance) {
   // Current user
   app.get("/auth/me", { preHandler: [requireAuth] }, async (request, reply) => {
     const user = request.user!;
-    return reply.send({ user: { id: user.id, username: user.username, isAdmin: user.isAdmin } });
+    return reply.send({ user: { id: user.id, username: user.username, isAdmin: user.isAdmin, isDemo: user.isDemo } });
   });
 
   // Change password
@@ -172,5 +189,51 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "User not found" });
     }
     return reply.send({ used: usedRow?.used ?? 0, limit: userRow.storage_limit });
+  });
+
+  // ── Demo account ──
+
+  app.post("/auth/demo", {
+    ...(isTest ? {} : { config: { rateLimit: { max: 10, timeWindow: AUTH_RATE_WINDOW_MS } } }),
+  }, async (_request, reply) => {
+    const adj = DEMO_ADJECTIVES[Math.floor(Math.random() * DEMO_ADJECTIVES.length)]!;
+    const noun = DEMO_NOUNS[Math.floor(Math.random() * DEMO_NOUNS.length)]!;
+    const username = `${adj}${noun}_${nanoid(6)}`;
+    const password = crypto.randomBytes(12).toString("hex");
+
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    try {
+      const result = await dbRun(
+        `INSERT INTO users (username, password_hash, created_at, storage_limit, is_demo) VALUES (?, ?, ?, ?, 1)`,
+        [username, hash, new Date().toISOString(), DEMO_STORAGE_LIMIT]
+      );
+      const token = signToken(result.lastID, username, false, true);
+      return reply.send({ token, user: { id: result.lastID, username, isAdmin: false, isDemo: true } });
+    } catch {
+      return reply.code(500).send({ error: "Failed to create demo account" });
+    }
+  });
+
+  app.post("/auth/demo-session", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user!;
+    if (!user.isDemo) {
+      return reply.code(403).send({ error: "Not a demo session" });
+    }
+
+    // Delete all files from storage
+    const files = await dbAll<{ path: string; storage_backend: string }>(
+      `SELECT path, storage_backend FROM files WHERE user_id = ?`,
+      [user.id]
+    );
+    for (const f of files) {
+      await deleteFromStorage(f.path);
+    }
+
+    // Delete from DB
+    await dbRun(`DELETE FROM files WHERE user_id = ?`, [user.id]);
+    await dbRun(`DELETE FROM users WHERE id = ? AND is_demo = 1`, [user.id]);
+
+    return reply.send({ ok: true });
   });
 }

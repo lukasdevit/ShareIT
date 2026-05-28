@@ -9,6 +9,7 @@ interface Props {
 export function DeleteButton({ id, confirming, onClick }: Props) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
         confirming

@@ -26,7 +26,7 @@ export function useRequireAuth(requireAdmin = false): AuthResult {
       return;
     }
     if (requireAdmin && !user.isAdmin) {
-      router.replace("/files");
+      router.replace("/");
     }
   }, [user, router, requireAdmin]);
 

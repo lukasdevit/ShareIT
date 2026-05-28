@@ -54,6 +54,7 @@ export function runMigrations(): void {
     db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`, ignoreDuplicate);
     db.run(`ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0`, ignoreDuplicate);
     db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, ignoreDuplicate);
+    db.run(`ALTER TABLE users ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0`, ignoreDuplicate);
 
     // ── settings table ──
     db.run(`
