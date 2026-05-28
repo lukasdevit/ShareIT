@@ -141,12 +141,13 @@ throw Object.assign(new Error("Unsupported MIME type"), { statusCode: 415 });
 - `feat:` → minor release
 - `!` or `BREAKING CHANGE` → major release
 - `chore`, `style`, `refactor`, `docs`, `test`, `ci` do not trigger release
-- Prefer merge commits (no squash)
+- Prefer squash merges (one clean commit per PR)
 - Branch naming:
   - `feat/description`
   - `fix/description`
   - `chore/description`
   - `style/description`
+- Merge via `gh pr merge --squash --delete-branch`
 
 ## Testing
 
