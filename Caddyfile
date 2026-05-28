@@ -1,4 +1,4 @@
-{$DOMAIN:localhost} {
+{$DOMAIN:localhost}, goletz.dev {
   handle /file/* {
     reverse_proxy api:3000
   }
