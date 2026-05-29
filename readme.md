@@ -1,169 +1,59 @@
 # ShareIT
 
-Self-hosted file sharing app — Fastify + Next.js + Docker.
+A self-hosted file sharing app you can run on your own server. Upload files, share them with a link, and manage everything from a clean ui.
 
-A clean, fast way to upload and share files. Built for ShareX integration with a Vercel-inspired dark UI, multi-file uploads, admin panel, and cloud storage support.
+Think of it as your personal Imgur or Dropbox — but you own the data.
 
 <img src="docs/preview.png" alt="ShareIT screenshot" width="600" />
 
-**Live demo:** https://shareit.goletz.dev
+**Try the live demo:** [shareit.goletz.dev](https://shareit.goletz.dev)
 
 ---
 
-## Features
+## What can it do?
 
-### Upload & Share
+- **Drag & drop to upload** — throw files at it, it just works. Multiple at once, even big ones (up to 1 GB per file).
+- **ShareX ready** — one click to generate a ShareX config, then screenshot and upload without thinking about it.
+- **Public or private files** — keep stuff to yourself or share a link with anyone.
+- **Auto-expiring uploads** — set files to disappear after a few days if you want.
+- **Image gallery & file previews** — browse images in a lightbox, preview markdown and text files right in the browser.
+- **Dark admin panel** — manage users, browse the database, check analytics, run backups. All from a clean Vercel-style UI that works great on mobile too.
+- **Storage quotas** — each user gets a limit, and they can see how much they've used.
 
-- Drag & drop or click to upload — supports multi-file uploads
-- ShareX config generator (one-click setup)
-- Public / private file visibility toggles
-- Auto-expiring files (1–90 days)
-- File type icons (📝🖼️📄📦) and image gallery with lightbox
-- Markdown / text file preview with sanitized rendering
-- Storage usage bar with quota tracking
-
-### Admin Panel (Vercel-style dark UI)
-
-- User management — create, edit, delete, search, change limits
-- Database browser — browse tables, view rows, delete entries
-- Storage configuration — local or Backblaze B2, editable in-app
-- SSL / HTTPS status monitoring
-- Analytics — upload trends, top users, file type distribution
-- Backup system — run, download, view backup history with retry logic
-- Collapsible sidebar (⌘+\), toast notifications, skeleton loading, metric cards
-- Mobile-responsive with slide-out sidebar
-
-### Tech
-
-- JWT authentication with login lockout protection
-- Rate limiting (global + per-endpoint)
-- SQLite with WAL mode + automatic backups every 6h
-- Local filesystem or Backblaze B2 storage
-- Virus scanning support (ClamAV, optional)
-- Caddy reverse proxy with HTTPS support
-- CI/CD via GitHub Actions — tests → semantic-release → deploy
+Under the hood it covers the basics you'd expect: JWT logins, rate limiting, automatic backups, and HTTPS via Caddy.
 
 ---
 
-## Stack
+## How it's built
 
-| Layer    | Tech                                             |
-| -------- | ------------------------------------------------ |
-| Backend  | Node 24, Fastify 5, TypeScript, SQLite           |
-| Frontend | Next.js 16, React 19, Tailwind CSS 4             |
-| Proxy    | Caddy (HTTPS + reverse proxy)                    |
-| Infra    | Docker, GitHub Actions                           |
-| Storage  | Local filesystem or Backblaze B2 (S3-compatible) |
+- **Backend:** Node + Fastify + TypeScript, SQLite for the database
+- **Frontend:** Next.js + React + Tailwind CSS
+- **Everything runs in Docker** with Caddy handling HTTPS
+
+You can store files on the local disk or point it at Backblaze B2 if you want cloud storage.
 
 ---
 
-## Architecture
-
-```
-Caddy (SSL)
- ├── Fastify API (port 3000)
- │   ├── SQLite database
- │   ├── local uploads volume
- │   └── optional B2 cloud storage
- └── Next.js frontend (port 3001)
-```
-
----
-
-## Running locally
+## Getting started
 
 ```bash
 git clone https://github.com/lukasdevit/ShareIT.git
 cd ShareIT
-
-cp .env.example .env
-# edit .env with your secrets
-
+cp .env.example .env   # fill in your secrets
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-| Service  | URL                   |
-| -------- | --------------------- |
-| Frontend | http://localhost:3001 |
-| API      | http://localhost:3000 |
+That's it. The frontend will be at [localhost:3001](http://localhost:3001), the API at [localhost:3000](http://localhost:3000). Dev mode gives you hot reload on both.
 
-Dev mode mounts `src/` volumes for hot-reload on both services.
+For production, just use `docker compose up -d` instead, and make sure to:
+- Change the default admin password
+- Drop your TLS certs into `caddy/certs/`
+- Review the rate limits and backup schedule in `.env`
 
----
-
-## Production deploy
-
-```bash
-git clone https://github.com/lukasdevit/ShareIT.git
-cd ShareIT
-
-cp .env.example .env
-# edit .env with real values
-
-docker compose up -d
-```
-
-Spins up API, frontend, and Caddy. Place your TLS certs in `caddy/certs/` (see Caddyfile).
-
-**Before going public:**
-
-- Change default admin password
-- Configure storage backend (local or B2)
-- Review rate limits in `.env`
-- Set `BACKUP_SCHEDULE_HOURS` (default: every 6h)
-
-### CI/CD
-
-Push to `main` triggers:
-
-1. Tests (57 across 4 suites)
-2. semantic-release (changelog + version bump)
-3. SSH deploy — `git pull` + `docker compose up -d --build`
-
----
-
-## Roadmap
-
-### Done
-
-- ~~multi-file uploads~~ ✅
-- ~~better mobile UX~~ ✅
-- ~~admin panel redesign~~ ✅
-- ~~database backups~~ ✅
-- ~~expanded MIME type support~~ ✅
-- ~~shared button components, delete for files~~ ✅
-- ~~SSL / HTTPS status monitoring~~ ✅
-- ~~analytics dashboard~~ ✅
-
-### Quick Wins
-
-- Public landing page for unauthenticated visitors (replace login-only root)
-- Replace `any` casts in test files with proper types
-
-### Features
-
-- Audio / video playback in browser
-- CSV / table rendering in file viewer
-- File versioning / replacement (update a file, keep history)
-- Shareable links — generate one-time or time-limited URLs for private files
-- Password-protected public shares
-- Password reset flow (self-service or admin-only)
-- Bulk operations — multi-select files to delete, toggle visibility, or download as zip
-- Upload chunking for very large files (>1 GB)
-
-### API / DX
-
-- OpenAPI / Swagger docs via `@fastify/swagger`
-- Admin route test coverage (user CRUD, analytics, backups)
-- Service-layer unit tests (backup, pagination, storage helpers)
-
-### Infra / Ops
-
-- Health dashboard — disk space alerts, failed-login notifications
-- Uptime monitoring endpoint for external watchers (UptimeRobot, etc.)
+Push to `main` and CI/CD takes over — tests run, a release gets tagged, and it deploys automatically.
 
 ---
 
 ## License
 
-MIT
+MIT — do whatever you want with it.

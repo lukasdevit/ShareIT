@@ -5,4 +5,4 @@ uploads/*
 *.db-shm
 *.db-wal
 caddy/certs/coverage/
-coverage/*
+coverage/**.tsbuildinfo
