@@ -16,6 +16,7 @@ interface LogEntry {
   url?: string;
   statusCode?: number;
   responseTime?: number;
+  err?: { message?: string; stack?: string; url?: string };
 }
 
 interface Props {
@@ -49,59 +50,109 @@ function timeColor(ms: number): string {
   return 'text-red-400';
 }
 
-function LogLine({ entry }: { entry: LogEntry }) {
+function LogLine({ entry, expanded, onToggle }: { entry: LogEntry; expanded: boolean; onToggle: () => void }) {
+  const hasDetail =
+    !!entry.err || !!entry.url || entry.responseTime !== undefined;
+
   return (
-    <div className="flex gap-2 hover:bg-zinc-900/50 py-0.5 items-baseline">
-      {/* Timestamp */}
-      <span className="text-zinc-600 shrink-0 w-18 text-right">
-        {new Date(entry.time).toLocaleTimeString()}
-      </span>
-
-      {/* Level badge */}
-      <span
-        className={`shrink-0 w-10 text-center rounded px-0.5 text-[10px] font-semibold ${
-          entry.levelName === 'error' || entry.levelName === 'fatal'
-            ? 'bg-red-500/20 text-red-400'
-            : entry.levelName === 'warn'
-              ? 'bg-amber-500/15 text-amber-400'
-              : 'bg-zinc-800 text-zinc-500'
-        }`}
+    <div className="relative">
+      <div
+        className={`flex gap-2 hover:bg-zinc-900/50 py-0.5 items-baseline ${hasDetail ? 'cursor-pointer' : ''}`}
+        onClick={() => hasDetail && onToggle()}
       >
-        {entry.levelName.toUpperCase().slice(0, 4)}
-      </span>
+        {/* Timestamp */}
+        <span className="text-zinc-600 shrink-0 w-18 text-right text-[11px]">
+          {new Date(entry.time).toLocaleTimeString()}
+        </span>
 
-      {/* Message */}
-      <span className="text-zinc-300 break-all leading-snug">{entry.msg}</span>
+        {/* Level badge */}
+        <span
+          className={`shrink-0 w-10 text-center rounded px-0.5 text-[10px] font-semibold ${
+            entry.levelName === 'error' || entry.levelName === 'fatal'
+              ? 'bg-red-500/20 text-red-400'
+              : entry.levelName === 'warn'
+                ? 'bg-amber-500/15 text-amber-400'
+                : 'bg-zinc-800 text-zinc-500'
+          }`}
+        >
+          {entry.levelName.toUpperCase().slice(0, 4)}
+        </span>
 
-      {/* HTTP method + url + status + time */}
-      {entry.method && entry.url && (
-        <span className="shrink-0 flex items-baseline gap-1.5">
-          <span
-            className={`font-semibold ${METHOD_COLORS[entry.method] || 'text-zinc-500'}`}
-          >
-            {entry.method}
-          </span>
-          <span className="text-zinc-500 max-w-75 truncate">
-            {entry.url}
-          </span>
-          {entry.statusCode !== undefined && (
-            <span className={`font-semibold ${statusColor(entry.statusCode)}`}>
-              {entry.statusCode}
+        {/* Message */}
+        <span className="text-zinc-300 break-all leading-snug flex-1 min-w-0">{entry.msg}</span>
+
+        {/* HTTP method + status + time */}
+        {entry.method && (
+          <span className="shrink-0 flex items-baseline gap-1.5">
+            <span className={`font-semibold text-xs ${METHOD_COLORS[entry.method] || 'text-zinc-500'}`}>
+              {entry.method}
             </span>
+            {entry.statusCode !== undefined && (
+              <span className={`font-semibold text-xs ${statusColor(entry.statusCode)}`}>
+                {entry.statusCode}
+              </span>
+            )}
+            {entry.responseTime !== undefined && (
+              <span className={`text-xs ${timeColor(entry.responseTime)}`}>
+                {entry.responseTime}ms
+              </span>
+            )}
+          </span>
+        )}
+
+        {/* User */}
+        {entry.user && (
+          <span className="text-zinc-600 text-[11px] shrink-0">@{entry.user}</span>
+        )}
+
+        {/* Expand indicator */}
+        {hasDetail && (
+          <span className="text-zinc-600 text-[10px] shrink-0">
+            {expanded ? '▲' : '▶'}
+          </span>
+        )}
+      </div>
+
+      {/* Expanded detail popover */}
+      {expanded && (
+        <div className="ml-28 max-w-lg p-3 rounded-md bg-zinc-800/90 border border-zinc-700 text-xs space-y-1 shadow-lg z-10">
+          {entry.url && (
+            <div>
+              <span className="text-zinc-500">URL: </span>
+              <span className="text-zinc-300 break-all">{entry.url}</span>
+            </div>
+          )}
+          {entry.reqId && (
+            <div>
+              <span className="text-zinc-500">Request ID: </span>
+              <span className="text-zinc-400 font-mono">{entry.reqId}</span>
+            </div>
           )}
           {entry.responseTime !== undefined && (
-            <span className={timeColor(entry.responseTime)}>
-              {entry.responseTime}ms
-            </span>
+            <div>
+              <span className="text-zinc-500">Response time: </span>
+              <span className={timeColor(entry.responseTime)}>
+                {entry.responseTime}ms
+              </span>
+            </div>
           )}
-        </span>
-      )}
-
-      {/* User */}
-      {entry.user && (
-        <span className="text-zinc-600 text-[11px] shrink-0">
-          @{entry.user}
-        </span>
+          {entry.err && (
+            <div>
+              <span className="text-red-400 font-semibold">Error:</span>
+              {entry.err.message && (
+                <p className="text-red-300 mt-0.5">{entry.err.message}</p>
+              )}
+              {entry.err.stack && (
+                <pre className="text-zinc-500 mt-1 whitespace-pre-wrap text-[10px] max-h-40 overflow-y-auto">
+                  {entry.err.stack}
+                </pre>
+              )}
+              {entry.err.url && (
+                <p className="text-zinc-500 mt-1">Page: {entry.err.url}</p>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -114,6 +165,7 @@ export function LogViewer({ apiFetch }: Props) {
   const [level, setLevel] = useState('30');
   const [lines, setLines] = useState('200');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const fetchLogs = useCallback(() => {
@@ -240,7 +292,7 @@ export function LogViewer({ apiFetch }: Props) {
         <div className="bg-zinc-950 rounded-lg border border-zinc-800 overflow-auto max-h-[60vh]">
           <div className="p-3 font-mono text-xs leading-relaxed">
             {logs.map((entry, i) => (
-              <LogLine key={i} entry={entry} />
+              <LogLine key={i} entry={entry} expanded={expandedIdx === i} onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)} />
             ))}
             <div ref={bottomRef} />
           </div>
