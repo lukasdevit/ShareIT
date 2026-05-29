@@ -2,11 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useFileList } from '@/hooks/useFileList';
-import { useFileUpload } from '@/hooks/useFileUpload';
 import { useFileActions } from '@/hooks/useFileActions';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { UploadZone } from '@/components/files/UploadZone';
-import { S3UploadZone } from '@/components/files/S3UploadZone';
 import { ImageGallery } from '@/components/files/ImageGallery';
 import { FileList } from '@/components/files/FileList';
 import { Lightbox } from '@/components/files/Lightbox';
@@ -42,20 +40,6 @@ export function FilesPanel() {
     fetchFiles,
     setSearch,
   } = useFileList(api, { pageSize: PAGE_SIZE });
-
-  const {
-    uploading,
-    uploadProgress,
-    uploadCount,
-    dragOver,
-    error,
-    expireDays,
-    fileInputRef,
-    uploadFile,
-    handleDrop,
-    setDragOver,
-    setExpireDays,
-  } = useFileUpload(api, token);
 
   const {
     copiedId,
@@ -116,14 +100,6 @@ export function FilesPanel() {
     openLightbox,
   ]);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const fileList = e.target.files;
-    if (fileList && fileList.length > 0) {
-      uploadFile(Array.from(fileList), refreshList);
-    }
-    e.target.value = '';
-  }
-
   const showImages = filesViewMode === 'images' || filesViewMode === 'all';
   const showFiles = filesViewMode === 'files' || filesViewMode === 'all';
   const isEmpty = !imageFiles.length && !files.length && !search;
@@ -143,28 +119,12 @@ export function FilesPanel() {
       {/* Storage bar */}
       {storage && <StorageBar used={storage.used} limit={storage.limit} />}
 
-      {/* Upload zone — S3 multipart when enabled in admin panel, otherwise legacy XHR */}
-      {storage?.s3_upload_enabled ? (
-        <S3UploadZone token={token} onUploadComplete={refreshList} />
-      ) : (
-        <UploadZone
-          uploading={uploading}
-          uploadProgress={uploadProgress}
-          uploadCount={uploadCount}
-          dragOver={dragOver}
-          error={error}
-          expireDays={expireDays}
-          onExpireChange={setExpireDays}
-          fileInputRef={fileInputRef}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => handleDrop(e, refreshList)}
-          onFileChange={handleFileChange}
-        />
-      )}
+      {/* Upload zone */}
+      <UploadZone
+        s3Enabled={storage?.s3_upload_enabled ?? false}
+        token={token}
+        onUploadComplete={refreshList}
+      />
 
       {/* Content area */}
       <div className="w-full max-w-4xl xl:max-w-6xl mx-auto px-4 pb-16 space-y-4">
@@ -214,7 +174,7 @@ export function FilesPanel() {
         </div>
 
         {/* Empty state */}
-        {isEmpty && !uploading && (
+        {isEmpty && (
           <EmptyState
             icon="☁️"
             title="No files yet"
@@ -288,7 +248,7 @@ export function FilesPanel() {
         )}
 
         {/* Search empty */}
-        {search && !imageFiles.length && !files.length && !uploading && (
+        {search && !imageFiles.length && !files.length && (
           <EmptyState
             icon="🔍"
             title="No results"

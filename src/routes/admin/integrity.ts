@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { dbAll, dbGet, dbRun } from '../../db/index.js';
-import { UPLOAD_DIR, B2_ENABLED } from '../../config/index.js';
+import { UPLOAD_DIR, isB2Enabled } from '../../config/index.js';
 import { recordAction } from './actions.js';
 import { B2Storage } from '../../services/storage/b2.js';
 import { deleteFromStorage } from '../../utils/index.js';
@@ -249,7 +249,7 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
       }
 
       // ── Check B2 files against B2 storage ──
-      if (B2_ENABLED && b2DbFiles.length > 0) {
+      if ((await isB2Enabled()) && b2DbFiles.length > 0) {
         const b2 = new B2Storage();
         for (const dbFile of b2DbFiles) {
           const key = dbFile.path;

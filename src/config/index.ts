@@ -93,14 +93,63 @@ export const ALLOWED_MIME_TYPES = [
   'font/woff2',
 ];
 
-// ── Backblaze B2 ──
-export const B2_ENABLED = process.env.B2_ENABLED === 'true';
+// Lazy-loaded from DB (admin panel overrides)
+let _dbSettings: Record<string, string> | null = null;
+
+async function loadDbSettings(): Promise<Record<string, string>> {
+  if (_dbSettings) return _dbSettings;
+  try {
+    const { dbAll } = await import('../db/index.js');
+    const rows = await dbAll<{ key: string; value: string }>(
+      `SELECT key, value FROM settings`
+    );
+    _dbSettings = {};
+    for (const r of rows) _dbSettings[r.key] = r.value;
+  } catch {
+    _dbSettings = {};
+  }
+  return _dbSettings;
+}
+
+/** Clear cached DB settings — call after admin config changes */
+export function clearConfigCache(): void {
+  _dbSettings = null;
+}
+
+function dbOrEnv(key: string, envFallback: string, db: Record<string, string>): string {
+  return db[key] || envFallback;
+}
+
+export async function isB2Enabled(): Promise<boolean> {
+  const db = await loadDbSettings();
+  return db.backend === 'b2';
+}
+
+export async function getB2Endpoint(): Promise<string> {
+  return dbOrEnv('b2_endpoint', process.env.B2_ENDPOINT || '	https://s3.eu-central-003.backblazeb2.com', await loadDbSettings());
+}
+export async function getB2Region(): Promise<string> {
+  return dbOrEnv('b2_region', process.env.B2_REGION || 'eu-central-003', await loadDbSettings());
+}
+export async function getB2Bucket(): Promise<string> {
+  return dbOrEnv('b2_bucket', process.env.B2_BUCKET || 'my-bucket-name', await loadDbSettings());
+}
+export async function getB2Prefix(): Promise<string> {
+  return dbOrEnv('b2_prefix', process.env.B2_PREFIX || 'shareit/storage/', await loadDbSettings());
+}
+export async function getB2KeyId(): Promise<string> {
+  return dbOrEnv('b2_key_id', process.env.B2_KEY_ID || 'keyid', await loadDbSettings());
+}
+export async function getB2AppKey(): Promise<string> {
+  return dbOrEnv('b2_app_key', process.env.B2_APP_KEY || 'appkey', await loadDbSettings());
+}
+
+// Direct env access for display/fallback
+// B2_ENABLED env var is deprecated — use admin panel backend setting instead
 export const B2_ENDPOINT = process.env.B2_ENDPOINT || '';
 export const B2_REGION = process.env.B2_REGION || 'us-west-004';
-export const B2_KEY_ID = process.env.B2_KEY_ID || '';
-export const B2_APP_KEY = process.env.B2_APP_KEY || '';
 export const B2_BUCKET = process.env.B2_BUCKET || '';
-export const B2_PREFIX = process.env.B2_PREFIX || 'Share/uploads/';
+export const B2_PREFIX = process.env.B2_PREFIX || 'shareit/storage/';
 
 // ── Database ──
 export const DB_PATH =

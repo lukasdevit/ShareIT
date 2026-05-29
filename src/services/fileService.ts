@@ -5,7 +5,7 @@ import { pipeline } from 'stream/promises';
 
 import { nanoid } from 'nanoid';
 import { dbGet, dbRun } from '../db/index.js';
-import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from '../config/index.js';
+import { ALLOWED_MIME_TYPES, BASE_URL, isB2Enabled } from '../config/index.js';
 import { scanFile } from './scanService.js';
 import { getStorage, buildStorageKey } from './storage/index.js';
 import { formatBytes } from '../utils/index.js';
@@ -29,9 +29,9 @@ export async function saveFile(
   userId?: number,
   expiresInDays?: number
 ): Promise<string> {
-  const storage = getStorage();
+  const storage = await getStorage();
   const storageKey = userId
-    ? buildStorageKey(userId, filename)
+    ? await buildStorageKey(userId, filename)
     : `anonymous/${filename}`;
 
   // Stream to temp file first (needed for size check + virus scan)
@@ -81,7 +81,7 @@ export async function saveFile(
     ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
-  const backend = B2_ENABLED ? 'b2' : 'local';
+  const backend = (await isB2Enabled()) ? 'b2' : 'local';
 
   try {
     await dbRun(

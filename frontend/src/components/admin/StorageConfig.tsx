@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { formatSize } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
+import { VisibilityToggle } from '@/components/ui/VisibilityToggle';
 import { CardSkeleton } from '@/components/ui/CardSkeleton';
 
 interface Props {
@@ -16,6 +16,9 @@ interface StorageData {
   b2_region?: string;
   b2_bucket?: string;
   b2_prefix?: string;
+  b2_key_id?: string;
+  b2_has_key_id?: boolean;
+  b2_has_app_key?: boolean;
   disk_total?: number;
   disk_used?: number;
   disk_free?: number;
@@ -30,10 +33,31 @@ export function StorageConfig({ apiFetch }: Props) {
   const { toast } = useToast();
   const [data, setData] = useState<StorageData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showKeyId, setShowKeyId] = useState(false);
+  const [showAppKey, setShowAppKey] = useState(false);
+
+  const revealAppKey = useCallback(async () => {
+    if (showAppKey) { setShowAppKey(false); return; }
+    try {
+      const r = await apiFetch('/admin/storage/secrets');
+      const d = await r.json();
+      if (d.b2_app_key) setForm((f) => ({ ...f, b2_app_key: d.b2_app_key }));
+    } catch { /* */ }
+    setShowAppKey(true);
+  }, [showAppKey, apiFetch]);
+
+  const revealKey = useCallback(async () => {
+    if (showKeyId) { setShowKeyId(false); return; }
+    try {
+      const r = await apiFetch('/admin/storage/secrets');
+      const d = await r.json();
+      if (d.b2_key_id) setForm((f) => ({ ...f, b2_key_id: d.b2_key_id }));
+    } catch { /* */ }
+    setShowKeyId(true);
+  }, [showKeyId, apiFetch]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -41,6 +65,16 @@ export function StorageConfig({ apiFetch }: Props) {
       .then((r) => r.json())
       .then((d) => {
         setData(d);
+        setForm((prev) => ({
+          backend: d.backend || 'local',
+          b2_endpoint: d.b2_endpoint || '',
+          b2_region: d.b2_region || '',
+          b2_bucket: d.b2_bucket || '',
+          b2_prefix: d.b2_prefix || '',
+          b2_key_id: prev.b2_key_id || '',
+          b2_app_key: prev.b2_app_key || '',
+          s3_upload_enabled: String(d.s3_upload_enabled === true),
+        }));
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -49,18 +83,6 @@ export function StorageConfig({ apiFetch }: Props) {
   useEffect(() => {
     load();
   }, [load]);
-
-  function startEdit() {
-    setForm({
-      backend: data?.backend || 'local',
-      b2_endpoint: data?.b2_endpoint || '',
-      b2_region: data?.b2_region || '',
-      b2_bucket: data?.b2_bucket || '',
-      b2_prefix: data?.b2_prefix || '',
-      s3_upload_enabled: String(data?.s3_upload_enabled === true),
-    });
-    setEditing(true);
-  }
 
   async function save() {
     setSaving(true);
@@ -76,7 +98,6 @@ export function StorageConfig({ apiFetch }: Props) {
       toast(savedMsg, 'ok');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      setEditing(false);
       load();
     } catch (e) {
       toast((e as Error).message, 'err');
@@ -102,44 +123,22 @@ export function StorageConfig({ apiFetch }: Props) {
     <section className="card space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="card-title">💾 Storage Configuration</h2>
-        {!editing ? (
-          <div className="flex items-center gap-2">
-            {saved && (
-              <span className="text-xs text-green-400 animate-slide-in">
-                ✓ Saved
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={startEdit}
-              className="btn-ghost text-xs"
-            >
-              ✏️ Edit
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className="btn-green text-xs"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="btn-zinc text-xs"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {saved && (
+            <span className="text-xs text-green-400">✓ Saved</span>
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="btn-green text-xs"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
 
-      {editing ? (
-        <div className="space-y-3">
+      <div className="space-y-3">
           <div>
             <label
               htmlFor="storage-backend"
@@ -166,22 +165,36 @@ export function StorageConfig({ apiFetch }: Props) {
                 ['b2_prefix', 'Prefix'],
               ].map(([key, label]) => (
                 <div key={key}>
-                  <label
-                    htmlFor={`b2-${key}`}
-                    className="block text-xs text-zinc-500 mb-1"
-                  >
-                    {label}
-                  </label>
-                  <input
-                    id={`b2-${key}`}
-                    value={form[key] || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, [key]: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
-                  />
+                  <label htmlFor={`b2-${key}`} className="block text-xs text-zinc-500 mb-1">{label}</label>
+                  <input id={`b2-${key}`} type="text" value={form[key] || ''}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
                 </div>
               ))}
+              <div>
+                <label htmlFor="b2-key_id" className="block text-xs text-zinc-500 mb-1">Key ID</label>
+                <div className="relative">
+                  <input id="b2-key_id" type={showKeyId ? 'text' : 'password'} value={form.b2_key_id || ''}
+                    placeholder={data?.b2_has_key_id ? '••••••••' : ''}
+                    onChange={(e) => setForm({ ...form, b2_key_id: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                    <VisibilityToggle isPublic={showKeyId} onClick={revealKey} />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="b2-app_key" className="block text-xs text-zinc-500 mb-1">Application Key</label>
+                <div className="relative">
+                  <input id="b2-app_key" type={showAppKey ? 'text' : 'password'} value={form.b2_app_key || ''}
+                    placeholder={data?.b2_has_app_key ? '••••••••' : ''}
+                    onChange={(e) => setForm({ ...form, b2_app_key: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                    <VisibilityToggle isPublic={showAppKey} onClick={revealAppKey} />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
@@ -215,129 +228,6 @@ export function StorageConfig({ apiFetch }: Props) {
             </button>
           </div>
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <StatCard
-              label="Backend"
-              value={
-                data.backend === 'b2'
-                  ? '☁️ Backblaze B2'
-                  : '💻 Local filesystem'
-              }
-            />
-            <StatCard
-              label="Default user limit"
-              value={formatSize(data.default_storage_limit)}
-            />
-          </div>
-          {data.backend === 'b2' && <B2Details data={data} />}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
-            <div>
-              <span className="text-sm font-medium text-zinc-200">
-                S3 Multipart Upload
-              </span>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Direct-to-storage chunked uploads
-              </p>
-            </div>
-            <span
-              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${
-                data.s3_upload_enabled
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-zinc-700/50 text-zinc-500'
-              }`}
-            >
-              {data.s3_upload_enabled ? '✅ Enabled' : '⏻ Disabled'}
-            </span>
-          </div>
-          {data.backend === 'local' && (data.disk_total || 0) > 0 && (
-            <DiskBar data={data} />
-          )}
-          <Totals
-            users={data.users}
-            files={data.total_files}
-            bytes={data.total_bytes}
-          />
-        </>
-      )}
     </section>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <p className="text-sm font-medium text-zinc-200 mt-0.5">{value}</p>
-    </div>
-  );
-}
-
-function B2Details({ data }: { data: StorageData }) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-zinc-300">B2 Configuration</h3>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {[
-          ['Endpoint', data.b2_endpoint],
-          ['Region', data.b2_region],
-          ['Bucket', data.b2_bucket],
-          ['Prefix', data.b2_prefix],
-        ].map(([label, val]) => (
-          <div key={label} className="p-2 rounded bg-zinc-800/30">
-            <span className="text-zinc-500">{label}</span>
-            <p className="text-zinc-300 mt-0.5 truncate">{val}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DiskBar({ data }: { data: StorageData }) {
-  const total = data.disk_total || 0;
-  const used = data.disk_used || 0;
-  const free = data.disk_free || 0;
-  const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-zinc-300">Disk Usage</h3>
-      <div className="w-full h-4 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${pct}%`,
-            background: pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#3b82f6',
-          }}
-        />
-      </div>
-      <div className="flex justify-between text-xs text-zinc-500">
-        <span>{formatSize(used)} used</span>
-        <span>{formatSize(free)} free</span>
-        <span>{formatSize(total)} total</span>
-      </div>
-    </div>
-  );
-}
-
-function Totals({
-  users,
-  files,
-  bytes,
-}: {
-  users: number;
-  files: number;
-  bytes: number;
-}) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-zinc-300">Totals</h3>
-      <div className="flex gap-4 text-xs text-zinc-400">
-        <span>{users} users</span>
-        <span>{files} files</span>
-        <span>{formatSize(bytes)} stored</span>
-      </div>
-    </div>
   );
 }

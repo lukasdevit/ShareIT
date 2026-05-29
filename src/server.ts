@@ -1,5 +1,5 @@
 import { buildApp } from './app.js';
-import { PORT, B2_ENABLED, BACKUP_SCHEDULE_HOURS } from './config/index.js';
+import { PORT, isB2Enabled, BACKUP_SCHEDULE_HOURS } from './config/index.js';
 import { seedAdmin, cleanupExpiredFiles, backupDatabase } from './db/index.js';
 import type { StorageProvider } from './services/storage/types.js';
 import { LocalStorage } from './services/storage/local.js';
@@ -21,7 +21,7 @@ await seedAdmin(app.log);
 
 // Run DB backup immediately and every N hours (configurable via BACKUP_SCHEDULE_HOURS)
 const BACKUP_INTERVAL = BACKUP_SCHEDULE_HOURS * 60 * 60 * 1000;
-function runBackup() {
+async function runBackup() {
   const destinations: {
     provider: StorageProvider;
     keyPrefix?: string;
@@ -35,7 +35,7 @@ function runBackup() {
       keep: 7,
     },
   ];
-  if (B2_ENABLED) {
+  if (await isB2Enabled()) {
     destinations.push({
       provider: new B2Storage(),
       keyPrefix: 'backups/db',
