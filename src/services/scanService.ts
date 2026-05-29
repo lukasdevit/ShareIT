@@ -1,7 +1,7 @@
-import NodeClam from "clamscan";
-import fs from "fs";
-import path from "path";
-import { UPLOAD_DIR } from "../config/index.js";
+import NodeClam from 'clamscan';
+import fs from 'fs';
+import path from 'path';
+import { UPLOAD_DIR } from '../config/index.js';
 
 let scanner: NodeClam | null = null;
 
@@ -9,21 +9,26 @@ export async function initScanner(): Promise<NodeClam | null> {
   try {
     scanner = await new NodeClam().init({
       clamdscan: {
-        socket: "/var/run/clamav/clamd.ctl", // or use host/port
+        socket: '/var/run/clamav/clamd.ctl', // or use host/port
       },
-      preference: "clamdscan",
+      preference: 'clamdscan',
     });
-    console.warn("ClamAV scanner initialized");
+    console.warn('ClamAV scanner initialized');
     return scanner;
   } catch (err) {
-    console.warn("ClamAV not available, skipping virus scans:", (err as Error).message);
+    console.warn(
+      'ClamAV not available, skipping virus scans:',
+      (err as Error).message
+    );
     return null;
   }
 }
 
-export async function scanFile(filepath: string): Promise<{ clean: boolean; viruses: string[] }> {
+export async function scanFile(
+  filepath: string
+): Promise<{ clean: boolean; viruses: string[] }> {
   if (!scanner) {
-    console.warn("Scanner not initialized, skipping scan for:", filepath);
+    console.warn('Scanner not initialized, skipping scan for:', filepath);
     return { clean: true, viruses: [] };
   }
 

@@ -8,12 +8,15 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest",
-    "test:admin": "vitest run src/tests/admin",
-    "test:integration": "vitest run src/tests/integration",
+    "test:admin": "vitest run tests/backend/admin",
+    "test:integration": "vitest run tests/backend/integration",
+    "test:frontend": "cd frontend && npm run test",
     "test:coverage": "vitest run --coverage",
     "release": "semantic-release",
     "dev": "B2_ENABLED=false tsx watch --env-file=.env src/server.ts",
-    "dev:all": "B2_ENABLED=false concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\""
+    "dev:all": "B2_ENABLED=false concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\"",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
   },
   "repository": {
     "type": "git",
@@ -54,6 +57,7 @@
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^9.2.1",
+    "prettier": "^3.8.3",
     "semantic-release": "^25.0.3",
     "supertest": "^7.2.2",
     "typescript": "^6.0.3",

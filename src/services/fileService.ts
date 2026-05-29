@@ -1,24 +1,24 @@
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { pipeline } from "stream/promises";
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { pipeline } from 'stream/promises';
 
-import { nanoid } from "nanoid";
-import { dbGet, dbRun } from "../db/index.js";
-import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from "../config/index.js";
-import { scanFile } from "./scanService.js";
-import { getStorage, buildStorageKey } from "./storage/index.js";
-import { formatBytes } from "../utils/index.js";
+import { nanoid } from 'nanoid';
+import { dbGet, dbRun } from '../db/index.js';
+import { ALLOWED_MIME_TYPES, BASE_URL, B2_ENABLED } from '../config/index.js';
+import { scanFile } from './scanService.js';
+import { getStorage, buildStorageKey } from './storage/index.js';
+import { formatBytes } from '../utils/index.js';
 
 export function sanitizeFilename(name: string): string {
   let safe = path.basename(name);
-  safe = safe.replace(/\0/g, "");
+  safe = safe.replace(/\0/g, '');
   safe = safe.trim();
   if (safe.length > 255) {
     const ext = path.extname(safe);
     safe = safe.substring(0, 255 - ext.length) + ext;
   }
-  return safe || "untitled";
+  return safe || 'untitled';
 }
 
 export async function saveFile(
@@ -45,7 +45,9 @@ export async function saveFile(
     if (quota.used + stats.size > quota.limit) {
       fs.unlinkSync(tmpPath);
       throw Object.assign(
-        new Error(`Storage quota exceeded. You've used ${formatBytes(quota.used)} of ${formatBytes(quota.limit)}.`),
+        new Error(
+          `Storage quota exceeded. You've used ${formatBytes(quota.used)} of ${formatBytes(quota.limit)}.`
+        ),
         { statusCode: 413 }
       );
     }
@@ -56,7 +58,9 @@ export async function saveFile(
   if (!scanResult.clean) {
     fs.unlinkSync(tmpPath);
     throw Object.assign(
-      new Error("This file could not be uploaded because it may contain malware."),
+      new Error(
+        'This file could not be uploaded because it may contain malware.'
+      ),
       { statusCode: 422 }
     );
   }
@@ -66,7 +70,11 @@ export async function saveFile(
     const readStream = fs.createReadStream(tmpPath);
     await storage.save(storageKey, readStream);
   } finally {
-    try { fs.unlinkSync(tmpPath); } catch { /* */ }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* */
+    }
   }
 
   const expiresAt = expiresInDays
@@ -78,7 +86,17 @@ export async function saveFile(
   try {
     await dbRun(
       `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at, expires_at, storage_backend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [filename, originalName, storageKey, stats.size, mimeType, userId ?? null, new Date().toISOString(), expiresAt, backend]
+      [
+        filename,
+        originalName,
+        storageKey,
+        stats.size,
+        mimeType,
+        userId ?? null,
+        new Date().toISOString(),
+        expiresAt,
+        backend,
+      ]
     );
     return storageKey;
   } catch (err) {
@@ -87,7 +105,10 @@ export async function saveFile(
   }
 }
 
-export function validateFile(mimeType: string, _originalName: string): string | null {
+export function validateFile(
+  mimeType: string,
+  _originalName: string
+): string | null {
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return `File type "${mimeType}" is not allowed`;
   }
@@ -112,12 +133,21 @@ export async function handleUpload(
   const ext = path.extname(file.filename);
   const filename = `${id}${ext}`;
 
-  await saveFile(file.file, filename, originalName, file.mimetype, userId, expiresInDays);
+  await saveFile(
+    file.file,
+    filename,
+    originalName,
+    file.mimetype,
+    userId,
+    expiresInDays
+  );
 
   return { url: `${BASE_URL}/file/${filename}` };
 }
 
-async function getUserQuota(userId: number): Promise<{ used: number; limit: number }> {
+async function getUserQuota(
+  userId: number
+): Promise<{ used: number; limit: number }> {
   const row = await dbGet<{ used: number; limit: number }>(
     `SELECT u.storage_limit AS "limit", COALESCE(SUM(f.size), 0) AS used
      FROM users u LEFT JOIN files f ON f.user_id = u.id
@@ -126,4 +156,3 @@ async function getUserQuota(userId: number): Promise<{ used: number; limit: numb
   );
   return row ?? { used: 0, limit: 0 };
 }
-

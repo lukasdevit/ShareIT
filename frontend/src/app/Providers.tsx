@@ -1,16 +1,19 @@
-"use client";
+'use client';
 
-import { AuthProvider } from "../lib/auth-context";
-import { DashboardProvider } from "../context/DashboardContext";
-import { NavHeader } from "../components/NavHeader";
+import { AuthProvider } from '@/features/auth/AuthProvider';
+import { DashboardProvider } from '@/features/dashboard/DashboardProvider';
+import { NavHeader } from '@/components/layout/NavHeader';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <DashboardProvider>
-        <NavHeader />
-        {children}
-      </DashboardProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <DashboardProvider>
+          <NavHeader />
+          {children}
+        </DashboardProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

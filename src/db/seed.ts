@@ -1,10 +1,14 @@
-import bcrypt from "bcrypt";
-import fs from "fs";
-import path from "path";
-import { db } from "./connection.js";
-import { dbGet, dbAll, dbRun } from "./helpers.js";
-import { getStorage } from "../services/storage/index.js";
-import { ADMIN_USERNAME, ADMIN_PASSWORD, DEFAULT_STORAGE_LIMIT } from "../config/index.js";
+import bcrypt from 'bcrypt';
+import fs from 'fs';
+import path from 'path';
+import { db } from './connection.js';
+import { dbGet, dbAll, dbRun } from './helpers.js';
+import { getStorage } from '../services/storage/index.js';
+import {
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD,
+  DEFAULT_STORAGE_LIMIT,
+} from '../config/index.js';
 
 interface Logger {
   info: (msg: string) => void;
@@ -15,9 +19,11 @@ interface Logger {
  * Creates default admin user if none exists.
  */
 export async function seedAdmin(log?: Logger): Promise<void> {
-  const row = await dbGet<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`);
+  const row = await dbGet<{ cnt: number }>(
+    `SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`
+  );
   if (row && row.cnt > 0) {
-    log?.info("Admin user already exists, skipping seed");
+    log?.info('Admin user already exists, skipping seed');
     return;
   }
 
@@ -33,7 +39,11 @@ export async function seedAdmin(log?: Logger): Promise<void> {
  * Delete files past their expiration date. Returns count of deleted files.
  */
 export async function cleanupExpiredFiles(log?: Logger): Promise<number> {
-  const rows = await dbAll<{ id: number; path: string; storage_backend: string }>(
+  const rows = await dbAll<{
+    id: number;
+    path: string;
+    storage_backend: string;
+  }>(
     `SELECT id, path, storage_backend FROM files WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`
   );
 
@@ -41,15 +51,25 @@ export async function cleanupExpiredFiles(log?: Logger): Promise<number> {
   for (const row of rows) {
     // Delete from storage
     try {
-      if (row.storage_backend === "local") {
+      if (row.storage_backend === 'local') {
         const localPath = path.isAbsolute(row.path)
           ? row.path
-          : path.join(process.cwd(), "uploads", row.path);
-        try { fs.unlinkSync(localPath); } catch { /* already gone */ }
+          : path.join(process.cwd(), 'uploads', row.path);
+        try {
+          fs.unlinkSync(localPath);
+        } catch {
+          /* already gone */
+        }
       } else {
-        try { await getStorage().delete(row.path); } catch { /* already gone */ }
+        try {
+          await getStorage().delete(row.path);
+        } catch {
+          /* already gone */
+        }
       }
-    } catch { /* storage delete failed, still remove DB row */ }
+    } catch {
+      /* storage delete failed, still remove DB row */
+    }
 
     await dbRun(`DELETE FROM files WHERE id = ?`, [row.id]);
     deleted++;

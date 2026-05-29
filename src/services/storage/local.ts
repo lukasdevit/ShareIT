@@ -1,8 +1,8 @@
-import fs from "fs";
-import path from "path";
-import { pipeline } from "stream/promises";
-import { UPLOAD_DIR } from "../../config/index.js";
-import type { StorageProvider } from "./types.js";
+import fs from 'fs';
+import path from 'path';
+import { pipeline } from 'stream/promises';
+import { UPLOAD_DIR } from '../../config/index.js';
+import type { StorageProvider } from './types.js';
 
 export class LocalStorage implements StorageProvider {
   private resolve(key: string): string {
@@ -27,7 +27,11 @@ export class LocalStorage implements StorageProvider {
   }
 
   async delete(key: string): Promise<void> {
-    try { fs.unlinkSync(this.resolve(key)); } catch { /* already gone */ }
+    try {
+      fs.unlinkSync(this.resolve(key));
+    } catch {
+      /* already gone */
+    }
   }
 
   async exists(key: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-import type { Readable } from "stream";
+import type { Readable } from 'stream';
 
 export interface StorageProvider {
   /** Save stream at key, return size in bytes */

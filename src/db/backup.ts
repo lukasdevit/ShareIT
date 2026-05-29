@@ -1,11 +1,15 @@
-import { execSync } from "child_process";
-import fs from "fs";
-import os from "os";
-import path from "path";
+import { execSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-import { DB_PATH, BACKUP_RETRY_MAX, BACKUP_RETRY_BASE_MS } from "../config/index.js";
-import { dbRun } from "./helpers.js";
-import type { StorageProvider } from "../services/storage/types.js";
+import {
+  DB_PATH,
+  BACKUP_RETRY_MAX,
+  BACKUP_RETRY_BASE_MS,
+} from '../config/index.js';
+import { dbRun } from './helpers.js';
+import type { StorageProvider } from '../services/storage/types.js';
 
 interface Logger {
   info: (msg: string) => void;
@@ -16,20 +20,29 @@ interface Logger {
  * Create a safe SQLite backup and return its temp file path + readable stream.
  * Uses sqlite3 .backup command (transactional), falls back to file copy.
  */
-export function createBackup(log?: Logger): { filepath: string; stream: NodeJS.ReadableStream; timestamp: string; size: number } | null {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+export function createBackup(
+  log?: Logger
+): {
+  filepath: string;
+  stream: NodeJS.ReadableStream;
+  timestamp: string;
+  size: number;
+} | null {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(os.tmpdir(), `shareit-backup-${timestamp}.db`);
 
   let size = 0;
   try {
-    execSync(`sqlite3 "${DB_PATH}" ".backup '${dest}'"`, { stdio: "pipe" });
+    execSync(`sqlite3 "${DB_PATH}" ".backup '${dest}'"`, { stdio: 'pipe' });
     size = fs.statSync(dest).size;
     log?.info(`Backup snapshot created: ${dest} (${size} bytes)`);
   } catch {
     try {
       fs.copyFileSync(DB_PATH, dest);
       size = fs.statSync(dest).size;
-      log?.info(`Backup snapshot created (copy fallback): ${dest} (${size} bytes)`);
+      log?.info(
+        `Backup snapshot created (copy fallback): ${dest} (${size} bytes)`
+      );
     } catch (err) {
       log?.warn(`Backup snapshot failed: ${(err as Error).message}`);
       return null;
@@ -46,12 +59,17 @@ export function createBackup(log?: Logger): { filepath: string; stream: NodeJS.R
  */
 export async function backupToStorage(
   provider: StorageProvider,
-  backup: { filepath: string; stream: NodeJS.ReadableStream; timestamp: string; size: number },
-  keyPrefix = "backups/",
-  destinationLabel = "local",
-  log?: Logger,
+  backup: {
+    filepath: string;
+    stream: NodeJS.ReadableStream;
+    timestamp: string;
+    size: number;
+  },
+  keyPrefix = 'backups/',
+  destinationLabel = 'local',
+  log?: Logger
 ): Promise<{ ok: boolean; error?: string }> {
-  const key = `${keyPrefix.replace(/\/$/, "")}/database-${backup.timestamp}.db`;
+  const key = `${keyPrefix.replace(/\/$/, '')}/database-${backup.timestamp}.db`;
   const timestamp = new Date().toISOString();
 
   for (let attempt = 1; attempt <= BACKUP_RETRY_MAX; attempt++) {
@@ -62,23 +80,25 @@ export async function backupToStorage(
       stream.destroy();
 
       log?.info(`Backup uploaded to ${destinationLabel}: ${key}`);
-      await logBackup(timestamp, destinationLabel, "ok", backup.size);
+      await logBackup(timestamp, destinationLabel, 'ok', backup.size);
       return { ok: true };
     } catch (err) {
       const msg = (err as Error).message;
-      log?.warn(`Backup attempt ${attempt}/${BACKUP_RETRY_MAX} to ${destinationLabel} failed: ${msg}`);
+      log?.warn(
+        `Backup attempt ${attempt}/${BACKUP_RETRY_MAX} to ${destinationLabel} failed: ${msg}`
+      );
 
       if (attempt < BACKUP_RETRY_MAX) {
         const delay = BACKUP_RETRY_BASE_MS * Math.pow(2, attempt - 1);
         await new Promise((r) => setTimeout(r, delay));
       } else {
-        await logBackup(timestamp, destinationLabel, "fail", backup.size, msg);
+        await logBackup(timestamp, destinationLabel, 'fail', backup.size, msg);
         return { ok: false, error: msg };
       }
     }
   }
 
-  return { ok: false, error: "unknown" };
+  return { ok: false, error: 'unknown' };
 }
 
 /**
@@ -96,8 +116,16 @@ export async function backupToStorage(
  */
 export async function backupDatabase(
   log: Logger,
-  ...destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; keep?: number }[]
-): Promise<{ ok: boolean; results: { label: string; ok: boolean; error?: string }[] }> {
+  ...destinations: {
+    provider: StorageProvider;
+    keyPrefix?: string;
+    label?: string;
+    keep?: number;
+  }[]
+): Promise<{
+  ok: boolean;
+  results: { label: string; ok: boolean; error?: string }[];
+}> {
   if (destinations.length === 0) return { ok: true, results: [] };
 
   const backup = createBackup(log);
@@ -105,29 +133,38 @@ export async function backupDatabase(
 
   const results = await Promise.all(
     destinations.map((d) =>
-      backupToStorage(d.provider, backup, d.keyPrefix, d.label ?? "unknown", log)
-        .then((r) => ({ label: d.label ?? "unknown", ...r })),
-    ),
+      backupToStorage(
+        d.provider,
+        backup,
+        d.keyPrefix,
+        d.label ?? 'unknown',
+        log
+      ).then((r) => ({ label: d.label ?? 'unknown', ...r }))
+    )
   );
 
   // Rotate old backups for destinations with keep count
   for (const d of destinations) {
     if (d.keep && d.keep > 0) {
-      await rotateBackups(d.provider, d.keyPrefix ?? "backups/", d.keep, log);
+      await rotateBackups(d.provider, d.keyPrefix ?? 'backups/', d.keep, log);
     }
   }
 
   // Clean up temp file
-  try { fs.unlinkSync(backup.filepath); } catch { /* best effort */ }
+  try {
+    fs.unlinkSync(backup.filepath);
+  } catch {
+    /* best effort */
+  }
 
   const succeeded = results.filter((r) => r.ok).length;
   const total = destinations.length;
   if (succeeded === 0 && total > 0) {
-    log.warn("All backup destinations failed");
+    log.warn('All backup destinations failed');
   } else if (succeeded < total) {
     log.warn(`Backup completed: ${succeeded}/${total} destinations OK`);
   } else {
-    log.info("Backup completed successfully");
+    log.info('Backup completed successfully');
   }
 
   return { ok: succeeded > 0, results };
@@ -138,18 +175,20 @@ async function rotateBackups(
   provider: StorageProvider,
   keyPrefix: string,
   keep: number,
-  log?: Logger,
+  log?: Logger
 ): Promise<void> {
-  const prefix = keyPrefix.replace(/\/$/, "");
+  const prefix = keyPrefix.replace(/\/$/, '');
 
   try {
     // Only rotate if the provider supports listing keys
-    if (!("listKeys" in provider)) return;
+    if (!('listKeys' in provider)) return;
 
-    const listable = provider as StorageProvider & { listKeys(prefix: string): Promise<string[]> };
+    const listable = provider as StorageProvider & {
+      listKeys(prefix: string): Promise<string[]>;
+    };
     const keys = await listable.listKeys(prefix);
     const matching = keys
-      .filter((k) => k.startsWith(`${prefix}/database-`) && k.endsWith(".db"))
+      .filter((k) => k.startsWith(`${prefix}/database-`) && k.endsWith('.db'))
       .sort()
       .reverse();
 
@@ -168,12 +207,14 @@ async function logBackup(
   destination: string,
   status: string,
   sizeBytes?: number,
-  error?: string,
+  error?: string
 ): Promise<void> {
   try {
     await dbRun(
       `INSERT INTO backup_logs (timestamp, destination, status, size_bytes, error) VALUES (?, ?, ?, ?, ?)`,
-      [timestamp, destination, status, sizeBytes ?? null, error ?? null],
+      [timestamp, destination, status, sizeBytes ?? null, error ?? null]
     );
-  } catch { /* logging failure shouldn't break backup */ }
+  } catch {
+    /* logging failure shouldn't break backup */
+  }
 }

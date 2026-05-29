@@ -1,9 +1,9 @@
-import fs from "fs";
-import path from "path";
-import { UPLOAD_DIR } from "../config/index.js";
+import fs from 'fs';
+import path from 'path';
+import { UPLOAD_DIR } from '../config/index.js';
 
-const LOG_DIR = path.join(UPLOAD_DIR, "logs");
-const LOG_FILE = path.join(LOG_DIR, "app.log");
+const LOG_DIR = path.join(UPLOAD_DIR, 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'app.log');
 const RING_SIZE = 2000;
 
 interface LogEntry {
@@ -27,7 +27,12 @@ function ensureDir(): void {
 }
 
 const LEVEL_NAMES: Record<number, string> = {
-  10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal",
+  10: 'trace',
+  20: 'debug',
+  30: 'info',
+  40: 'warn',
+  50: 'error',
+  60: 'fatal',
 };
 
 function formatLogLine(entry: LogEntry): string {
@@ -57,8 +62,10 @@ export function writeLog(entry: LogEntry): void {
   // Disk (best-effort, non-blocking)
   try {
     ensureDir();
-    fs.appendFileSync(LOG_FILE, formatLogLine(entry) + "\n");
-  } catch { /* log write failure shouldn't crash */ }
+    fs.appendFileSync(LOG_FILE, formatLogLine(entry) + '\n');
+  } catch {
+    /* log write failure shouldn't crash */
+  }
 }
 
 /**
@@ -67,9 +74,7 @@ export function writeLog(entry: LogEntry): void {
  * @param minLevel minimum log level to include (default 30 = info)
  */
 export function getLogs(lines = 200, minLevel = 30): LogEntry[] {
-  return ring
-    .filter((e) => e.level >= minLevel)
-    .slice(-lines);
+  return ring.filter((e) => e.level >= minLevel).slice(-lines);
 }
 
 /**
@@ -79,8 +84,10 @@ export function clearLogs(): void {
   ring.length = 0;
   try {
     ensureDir();
-    fs.writeFileSync(LOG_FILE, "");
-  } catch { /* best effort */ }
+    fs.writeFileSync(LOG_FILE, '');
+  } catch {
+    /* best effort */
+  }
 }
 
 /**
@@ -88,9 +95,9 @@ export function clearLogs(): void {
  */
 export function readLogFile(): string {
   try {
-    if (!fs.existsSync(LOG_FILE)) return "";
-    return fs.readFileSync(LOG_FILE, "utf-8");
+    if (!fs.existsSync(LOG_FILE)) return '';
+    return fs.readFileSync(LOG_FILE, 'utf-8');
   } catch {
-    return "";
+    return '';
   }
 }
