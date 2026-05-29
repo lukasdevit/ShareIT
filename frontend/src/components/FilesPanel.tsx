@@ -17,6 +17,7 @@ import { StorageBar } from '@/components/files/StorageBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useDashboard } from '@/features/dashboard/DashboardProvider';
 import type { FilesViewMode } from '@/features/dashboard/DashboardProvider';
+import type { StorageInfo } from '@/types';
 
 /** Grid density: 9 items per page (3×3) for the image gallery + file list. */
 const PAGE_SIZE = 9;
@@ -24,10 +25,7 @@ const PAGE_SIZE = 9;
 export function FilesPanel() {
   const { user, api, token } = useAuth();
   const { filesViewMode, setFilesViewMode } = useDashboard();
-  const [storage, setStorage] = useState<{
-    used: number;
-    limit: number;
-  } | null>(null);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
 
   // ── Data hooks ──
   const {
@@ -145,8 +143,8 @@ export function FilesPanel() {
       {/* Storage bar */}
       {storage && <StorageBar used={storage.used} limit={storage.limit} />}
 
-      {/* Upload zone — S3 multipart when B2 is enabled, otherwise legacy XHR */}
-      {process.env.NEXT_PUBLIC_S3_UPLOAD_ENABLED === 'true' ? (
+      {/* Upload zone — S3 multipart when enabled in admin panel, otherwise legacy XHR */}
+      {storage?.s3_upload_enabled ? (
         <S3UploadZone token={token} onUploadComplete={refreshList} />
       ) : (
         <UploadZone

@@ -21,6 +21,7 @@ export interface FilePage {
 export interface StorageInfo {
   used: number;
   limit: number;
+  s3_upload_enabled?: boolean;
 }
 
 export interface UserInfo {
