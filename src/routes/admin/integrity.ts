@@ -2,8 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { dbAll, dbGet, dbRun } from '../../db/index.js';
-import { UPLOAD_DIR } from '../../config/index.js';
+import { UPLOAD_DIR, B2_ENABLED } from '../../config/index.js';
 import { recordAction } from './actions.js';
+import { B2Storage } from '../../services/storage/b2.js';
+import { deleteFromStorage } from '../../utils/index.js';
 
 interface CheckRow {
   id: number;
@@ -122,9 +124,11 @@ async function resolveIssue(
       );
     }
   } else if (action === 'delete-file' && issue.disk_path) {
+    await deleteFromStorage(issue.disk_path);
+
+    // Clean up empty local dirs if the path was local
     const absPath = path.join(UPLOAD_DIR, issue.disk_path);
     if (fs.existsSync(absPath)) {
-      fs.unlinkSync(absPath);
       cleanEmptyDirs(absPath);
     }
     if (username) {
@@ -182,10 +186,10 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
         if (user) userId = user.id;
       }
 
-      // Scope DB query by userId if provided
+      // Scope DB query by userId if provided — include storage_backend
       const dbQuery = userId
-        ? `SELECT id, filename, original_name, path, size, user_id FROM files WHERE user_id = ?`
-        : `SELECT id, filename, original_name, path, size, user_id FROM files`;
+        ? `SELECT id, filename, original_name, path, size, user_id, storage_backend FROM files WHERE user_id = ?`
+        : `SELECT id, filename, original_name, path, size, user_id, storage_backend FROM files`;
       const dbFiles = await dbAll<{
         id: number;
         filename: string;
@@ -193,10 +197,15 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
         path: string;
         size: number;
         user_id: number | null;
+        storage_backend: string;
       }>(dbQuery, userId ? [userId] : []);
 
+      // Split files by storage backend
+      const localDbFiles = dbFiles.filter((f) => f.storage_backend !== 'b2');
+      const b2DbFiles = dbFiles.filter((f) => f.storage_backend === 'b2');
+
       const dbByPath = new Map<string, (typeof dbFiles)[0]>();
-      for (const f of dbFiles) dbByPath.set(resolvePath(f.path), f);
+      for (const f of localDbFiles) dbByPath.set(resolvePath(f.path), f);
 
       // Scope disk scan to user's directory if userId provided
       const diskFiles = new Map<string, string>();
@@ -208,6 +217,7 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
 
       const insertRows: (string | number | null)[][] = [];
 
+      // ── Check local files against disk ──
       for (const [relPath, dbFile] of dbByPath) {
         const absPath = path.join(UPLOAD_DIR, relPath);
         if (!fs.existsSync(absPath)) {
@@ -233,6 +243,40 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
               relPath,
               dbFile.size,
               diskSize,
+            ]);
+          }
+        }
+      }
+
+      // ── Check B2 files against B2 storage ──
+      if (B2_ENABLED && b2DbFiles.length > 0) {
+        const b2 = new B2Storage();
+        for (const dbFile of b2DbFiles) {
+          const key = dbFile.path;
+          try {
+            const b2Size = await b2.size(key);
+            if (b2Size !== dbFile.size) {
+              insertRows.push([
+                'size-mismatch',
+                dbFile.id,
+                dbFile.filename,
+                dbFile.original_name,
+                dbFile.user_id,
+                key,
+                dbFile.size,
+                b2Size,
+              ]);
+            }
+          } catch {
+            insertRows.push([
+              'missing-file',
+              dbFile.id,
+              dbFile.filename,
+              dbFile.original_name,
+              dbFile.user_id,
+              null,
+              dbFile.size,
+              null,
             ]);
           }
         }
