@@ -306,7 +306,7 @@ export async function authRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const user = request.user!;
 
-      const [usedRow, userRow] = await Promise.all([
+      const [usedRow, userRow, s3Row] = await Promise.all([
         dbGet<{ used: number }>(
           `SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?`,
           [user.id]
@@ -315,6 +315,9 @@ export async function authRoutes(app: FastifyInstance) {
           `SELECT storage_limit FROM users WHERE id = ?`,
           [user.id]
         ),
+        dbGet<{ value: string }>(
+          `SELECT value FROM settings WHERE key = 's3_upload_enabled'`
+        ),
       ]);
       if (!userRow) {
         return reply.code(404).send({ error: 'User not found' });
@@ -322,6 +325,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({
         used: usedRow?.used ?? 0,
         limit: userRow.storage_limit,
+        s3_upload_enabled: s3Row?.value === 'true',
       });
     }
   );

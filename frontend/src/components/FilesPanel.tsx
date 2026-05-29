@@ -6,6 +6,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { useFileActions } from '@/hooks/useFileActions';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { UploadZone } from '@/components/files/UploadZone';
+import { S3UploadZone } from '@/components/files/S3UploadZone';
 import { ImageGallery } from '@/components/files/ImageGallery';
 import { FileList } from '@/components/files/FileList';
 import { Lightbox } from '@/components/files/Lightbox';
@@ -144,24 +145,28 @@ export function FilesPanel() {
       {/* Storage bar */}
       {storage && <StorageBar used={storage.used} limit={storage.limit} />}
 
-      {/* Upload zone */}
-      <UploadZone
-        uploading={uploading}
-        uploadProgress={uploadProgress}
-        uploadCount={uploadCount}
-        dragOver={dragOver}
-        error={error}
-        expireDays={expireDays}
-        onExpireChange={setExpireDays}
-        fileInputRef={fileInputRef}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => handleDrop(e, refreshList)}
-        onFileChange={handleFileChange}
-      />
+      {/* Upload zone — S3 multipart when B2 is enabled, otherwise legacy XHR */}
+      {process.env.NEXT_PUBLIC_S3_UPLOAD_ENABLED === 'true' ? (
+        <S3UploadZone token={token} onUploadComplete={refreshList} />
+      ) : (
+        <UploadZone
+          uploading={uploading}
+          uploadProgress={uploadProgress}
+          uploadCount={uploadCount}
+          dragOver={dragOver}
+          error={error}
+          expireDays={expireDays}
+          onExpireChange={setExpireDays}
+          fileInputRef={fileInputRef}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => handleDrop(e, refreshList)}
+          onFileChange={handleFileChange}
+        />
+      )}
 
       {/* Content area */}
       <div className="w-full max-w-4xl xl:max-w-6xl mx-auto px-4 pb-16 space-y-4">
