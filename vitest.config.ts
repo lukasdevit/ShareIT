@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Project root is src/ so include patterns start from there
+    include: ["src/tests/**/*.test.ts"],
+
     // Use a separate DB for tests so we don't clobber dev data
     env: {
       DB_PATH: "/tmp/shareit-test.db",
@@ -18,5 +21,12 @@ export default defineConfig({
     testTimeout: 15_000,
     // SQLite doesn't handle parallel writes — run test files one at a time
     fileParallelism: false,
+
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.ts"],
+      exclude: ["src/tests/**", "src/**/*.d.ts"],
+    },
   },
 });

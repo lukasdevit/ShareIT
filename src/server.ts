@@ -4,10 +4,14 @@ import { seedAdmin, cleanupExpiredFiles, backupDatabase } from "./db/index.js";
 import type { StorageProvider } from "./services/storage/types.js";
 import { LocalStorage } from "./services/storage/local.js";
 import { B2Storage } from "./services/storage/b2.js";
+import { writeLog } from "./services/logService.js";
 
 const app = await buildApp({ logger: true });
 
 await app.listen({ port: PORT, host: "0.0.0.0" });
+
+writeLog({ time: new Date().toISOString(), level: 30, levelName: "info", msg: `Server listening on port ${PORT}` });
+
 await seedAdmin(app.log);
 
 // Run DB backup immediately and every N hours (configurable via BACKUP_SCHEDULE_HOURS)
@@ -24,8 +28,8 @@ function runBackup() {
 runBackup();
 setInterval(runBackup, BACKUP_INTERVAL);
 
+writeLog({ time: new Date().toISOString(), level: 30, levelName: "info", msg: "Scheduled backup task initialized" });
+
 // Clean up expired files every hour
 setInterval(() => { cleanupExpiredFiles(app.log).catch(() => {}); }, 60 * 60 * 1000);
 cleanupExpiredFiles(app.log).catch(() => {});
-
-app.log.info(`Server listening on port ${PORT}`);

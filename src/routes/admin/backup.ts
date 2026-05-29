@@ -7,10 +7,11 @@ import { LocalStorage } from "../../services/storage/local.js";
 import { B2Storage } from "../../services/storage/b2.js";
 import type { StorageProvider } from "../../services/storage/types.js";
 import { B2_ENABLED } from "../../config/index.js";
+import { recordAction } from "./actions.js";
 
 export async function adminBackupRoutes(app: FastifyInstance) {
   // Trigger a backup now
-  app.post("/admin/backup/run", async (_request, reply) => {
+  app.post("/admin/backup/run", async (request, reply) => {
     const destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; keep?: number }[] = [
       { provider: new LocalStorage(), keyPrefix: "backups", label: "local", keep: 7 },
     ];
@@ -19,6 +20,11 @@ export async function adminBackupRoutes(app: FastifyInstance) {
     }
 
     const result = await backupDatabase(app.log, ...destinations);
+    if (request.user?.username) {
+      await recordAction(request.user!.username, "backup-run", "Manual backup triggered", {
+        ok: result.ok, results: result.results,
+      });
+    }
     return reply.send({ ok: result.ok, results: result.results });
   });
 

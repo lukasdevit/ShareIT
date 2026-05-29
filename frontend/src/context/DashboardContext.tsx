@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 
 export type DashboardPanel = "files" | "settings" | "admin";
 export type FilesViewMode = "all" | "images" | "files";
-export type AdminTab = "users" | "database" | "storage" | "ssl" | "analytics" | "backups";
+export type AdminTab = "users" | "database" | "storage" | "ssl" | "analytics" | "backups" | "logs" | "integrity" | "actions";
 
 interface DashboardState {
   activePanel: DashboardPanel;

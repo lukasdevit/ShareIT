@@ -10,8 +10,8 @@ services:
     volumes:
       - ./src:/app/src
       - ./package.json:/app/package.json
-      - db_data:/app/data
-      - uploads:/app/uploads
+      - dev_db_data:/app/data
+      - dev_uploads:/app/uploads
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -39,5 +39,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  db_data:
-  uploads:
+  dev_db_data:
+  dev_uploads:

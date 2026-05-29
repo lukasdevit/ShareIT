@@ -114,6 +114,9 @@ function AdminDashboard() {
     { key: "ssl", label: "SSL", icon: "🔒" },
     { key: "analytics", label: "Analytics", icon: "📊" },
     { key: "backups", label: "Backups", icon: "🗄️" },
+    { key: "logs", label: "Logs", icon: "📋" },
+    { key: "integrity", label: "Integrity", icon: "🔍" },
+    { key: "actions", label: "Actions", icon: "🕓" },
   ] as const;
 
   useEffect(() => {
