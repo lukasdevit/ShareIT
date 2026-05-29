@@ -5,7 +5,8 @@
   "description": "Custom file viewer and uploader.",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest",
+    "test:run": "vitest run",
     "test:watch": "vitest",
     "test:admin": "vitest run src/tests/admin",
     "test:integration": "vitest run src/tests/integration",
