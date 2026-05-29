@@ -1,38 +1,17 @@
 import { Readable } from 'stream';
 import {
-  S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import {
-  B2_ENDPOINT,
-  B2_REGION,
-  B2_KEY_ID,
-  B2_APP_KEY,
-  B2_BUCKET,
-} from '../../config/index.js';
+import { B2_BUCKET } from '../../config/index.js';
+import { getS3Client } from './s3-client.js';
 import type { StorageProvider } from './types.js';
 
 export class B2Storage implements StorageProvider {
-  private s3: S3Client;
-
-  constructor() {
-    const endpoint = B2_ENDPOINT.startsWith('http')
-      ? B2_ENDPOINT
-      : `https://${B2_ENDPOINT}`;
-    this.s3 = new S3Client({
-      endpoint,
-      region: B2_REGION,
-      credentials: {
-        accessKeyId: B2_KEY_ID!,
-        secretAccessKey: B2_APP_KEY!,
-      },
-      forcePathStyle: true,
-    });
-  }
+  private s3 = getS3Client();
 
   async save(key: string, stream: NodeJS.ReadableStream): Promise<number> {
     const upload = new Upload({

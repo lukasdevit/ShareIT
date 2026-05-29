@@ -80,6 +80,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         total_bytes: row?.total_bytes ?? 0,
         total_files: row?.total_files ?? 0,
         registrations_open: overrides.registrations_open !== 'false',
+        s3_upload_enabled: overrides.s3_upload_enabled === 'true',
       });
     }
   );
@@ -103,6 +104,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         'b2_prefix',
         'backend',
         'registrations_open',
+        's3_upload_enabled',
       ];
       const updates: [string, string][] = [];
 

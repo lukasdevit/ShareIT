@@ -14,6 +14,7 @@ import {
   CORS_ORIGIN,
 } from './config/index.js';
 import { uploadRoutes } from './routes/upload.js';
+import { s3UploadRoutes } from './routes/upload/s3.js';
 import { filesRoutes } from './routes/files.js';
 import { sharexRoutes } from './routes/sharex.js';
 import { authRoutes } from './routes/auth.js';
@@ -125,6 +126,7 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   await app.register(uploadRoutes);
+  await app.register(s3UploadRoutes);
   await app.register(filesRoutes);
   await app.register(sharexRoutes);
   await app.register(authRoutes);

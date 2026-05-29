@@ -39,6 +39,8 @@ export function UserManager({ apiFetch }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [newStorageLimit, setNewStorageLimit] = useState(0);
+  const [registrationsOpen, setRegistrationsOpen] = useState(true);
+  const [togglingReg, setTogglingReg] = useState(false);
 
   async function fetchUsers(p = 1, s = '') {
     setLoading(true);
@@ -61,7 +63,44 @@ export function UserManager({ apiFetch }: Props) {
 
   useEffect(() => {
     fetchUsers(1, search);
+    fetchRegistrationsStatus();
   }, []);
+
+  async function fetchRegistrationsStatus() {
+    try {
+      const r = await apiFetch('/admin/storage');
+      if (r.ok) {
+        const d = await r.json();
+        setRegistrationsOpen(d.registrations_open !== false);
+      }
+    } catch {
+      /* keep default */
+    }
+  }
+
+  async function toggleRegistrations() {
+    setTogglingReg(true);
+    try {
+      const r = await apiFetch('/admin/storage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registrations_open: String(!registrationsOpen),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setRegistrationsOpen(!registrationsOpen);
+      toast(
+        `Registrations ${!registrationsOpen ? 'opened' : 'closed'}`,
+        'ok'
+      );
+    } catch (err) {
+      toast((err as Error).message, 'err');
+    } finally {
+      setTogglingReg(false);
+    }
+  }
 
   function openEdit(u: User) {
     setEditId(u.id);
@@ -175,7 +214,32 @@ export function UserManager({ apiFetch }: Props) {
         <MetricCard label="Storage Used" value={formatSize(totalUsed)} />
         <MetricCard label="Files" value={totalFiles} />
       </MetricGrid>
-
+      {/* Registrations toggle */}
+      <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+        <div>
+          <span className="text-sm font-medium text-zinc-200">
+            User Registrations
+          </span>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Allow new users to sign up
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={togglingReg}
+          aria-label={
+            registrationsOpen
+              ? 'Disable user registrations'
+              : 'Enable user registrations'
+          }
+          onClick={toggleRegistrations}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${registrationsOpen ? 'bg-green-600' : 'bg-zinc-600'} ${togglingReg ? 'opacity-50' : ''}`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${registrationsOpen ? 'translate-x-6' : 'translate-x-1'}`}
+          />
+        </button>
+      </div>
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ User Manager</h2>
         <div className="flex gap-2">

@@ -23,6 +23,7 @@ interface StorageData {
   total_files: number;
   total_bytes: number;
   registrations_open: boolean;
+  s3_upload_enabled: boolean;
 }
 
 export function StorageConfig({ apiFetch }: Props) {
@@ -56,7 +57,7 @@ export function StorageConfig({ apiFetch }: Props) {
       b2_region: data?.b2_region || '',
       b2_bucket: data?.b2_bucket || '',
       b2_prefix: data?.b2_prefix || '',
-      registrations_open: String(data?.registrations_open !== false),
+      s3_upload_enabled: String(data?.s3_upload_enabled === true),
     });
     setEditing(true);
   }
@@ -186,30 +187,30 @@ export function StorageConfig({ apiFetch }: Props) {
           <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
             <div>
               <span className="text-sm font-medium text-zinc-200">
-                User Registrations
+                S3 Multipart Upload
               </span>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Allow new users to sign up
+                Direct-to-storage chunked uploads (requires B2)
               </p>
             </div>
             <button
               type="button"
               aria-label={
-                form.registrations_open === 'true'
-                  ? 'Disable user registrations'
-                  : 'Enable user registrations'
+                form.s3_upload_enabled === 'true'
+                  ? 'Disable S3 upload'
+                  : 'Enable S3 upload'
               }
               onClick={() =>
                 setForm({
                   ...form,
-                  registrations_open:
-                    form.registrations_open === 'true' ? 'false' : 'true',
+                  s3_upload_enabled:
+                    form.s3_upload_enabled === 'true' ? 'false' : 'true',
                 })
               }
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.registrations_open === 'true' ? 'bg-green-600' : 'bg-zinc-600'}`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.s3_upload_enabled === 'true' ? 'bg-green-600' : 'bg-zinc-600'}`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.registrations_open === 'true' ? 'translate-x-6' : 'translate-x-1'}`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.s3_upload_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'}`}
               />
             </button>
           </div>
@@ -230,15 +231,26 @@ export function StorageConfig({ apiFetch }: Props) {
               value={formatSize(data.default_storage_limit)}
             />
           </div>
+          {data.backend === 'b2' && <B2Details data={data} />}
           <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
-            <span className="text-xs text-zinc-500">User Registrations</span>
+            <div>
+              <span className="text-sm font-medium text-zinc-200">
+                S3 Multipart Upload
+              </span>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Direct-to-storage chunked uploads
+              </p>
+            </div>
             <span
-              className={`badge text-xs ${data.registrations_open !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}
+              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${
+                data.s3_upload_enabled
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-zinc-700/50 text-zinc-500'
+              }`}
             >
-              {data.registrations_open !== false ? '✅ Open' : '⛔ Closed'}
+              {data.s3_upload_enabled ? '✅ Enabled' : '⏻ Disabled'}
             </span>
           </div>
-          {data.backend === 'b2' && <B2Details data={data} />}
           {data.backend === 'local' && (data.disk_total || 0) > 0 && (
             <DiskBar data={data} />
           )}
