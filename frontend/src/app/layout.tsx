@@ -1,26 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "ShareIT",
-  description: "Upload & share files instantly",
+  title: 'ShareIT',
+  description: 'Upload & share files instantly',
   icons: {
-    icon: "/logo.svg",
+    icon: '/logo.svg',
   },
 };
 
-import { Providers } from "./Providers";
+import { Providers } from './Providers';
 
 export default function RootLayout({
   children,

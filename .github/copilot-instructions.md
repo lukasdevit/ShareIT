@@ -104,18 +104,18 @@
 - Template: `.env.example` with inline docs for every var
 - All config lives in `src/config/index.ts` — the single source of truth
 
-
 ## Error Handling
+
 - Route handlers must not throw expected errors (404, validation, etc.)
 - Service layer must not return HTTP responses
 - Service layer may throw errors with optional `statusCode`
 
 ```ts
 // Route
-if (!file) return reply.code(404).send({ error: "File not found" });
+if (!file) return reply.code(404).send({ error: 'File not found' });
 
 // Service
-throw Object.assign(new Error("Unsupported MIME type"), { statusCode: 415 });
+throw Object.assign(new Error('Unsupported MIME type'), { statusCode: 415 });
 ```
 
 - Global `setErrorHandler` in `src/app.ts` handles unexpected errors
@@ -157,6 +157,7 @@ throw Object.assign(new Error("Unsupported MIME type"), { statusCode: 415 });
 - All tests must pass before changes are considered complete
 
 ## Formatting & Linting
+
 - Prettier handles all formatting — do not manually format code
 - ESLint handles code quality — fix all errors before committing
 - Never override Prettier or ESLint rules without a comment explaining why

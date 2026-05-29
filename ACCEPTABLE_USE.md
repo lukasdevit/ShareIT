@@ -5,6 +5,7 @@ This is my personal server. I share it with friends and the community because it
 ## The obvious stuff
 
 Don't upload:
+
 - Anything illegal (CSAM, doxxing material, stolen data, etc.)
 - Malware, viruses, or things designed to break other people's computers
 - Content you don't own or have permission to share
@@ -21,6 +22,7 @@ I'm not actively monitoring uploads, but if something gets reported or I stumble
 ## Storage is not infinite
 
 I reserve the right to:
+
 - Set file size limits
 - Block certain file extensions
 - Delete files that haven't been accessed in a long time

@@ -13,10 +13,10 @@ services:
       - dev_db_data:/app/data
       - dev_uploads:/app/uploads
     ports:
-      - "3000:3000"
+      - '3000:3000'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -35,7 +35,7 @@ services:
       - ./frontend/public:/app/public
       - ./frontend/next.config.ts:/app/next.config.ts
     ports:
-      - "3001:3001"
+      - '3001:3001'
     restart: unless-stopped
 
 volumes:

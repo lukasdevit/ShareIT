@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { formatSize } from "../lib/utils";
-import { useToast } from "./Toast";
-import { MetricCard } from "./MetricCard";
-import type { StorageInfo } from "../lib/types";
+import { useState, useEffect } from 'react';
+import { formatSize } from '@/lib/utils';
+import { useToast } from '@/components/ui/Toast';
+import { MetricCard } from '@/components/ui/MetricCard';
+import type { StorageInfo } from '@/types';
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
@@ -13,13 +13,13 @@ interface Props {
 
 export function SettingsPage({ apiFetch, onBack }: Props) {
   const { toast } = useToast();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [storageLoading, setStorageLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch("/auth/storage")
+    apiFetch('/auth/storage')
       .then(async (r) => {
         if (r.ok) setStorage(await r.json());
       })
@@ -29,48 +29,64 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const r = await apiFetch("/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const r = await apiFetch('/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      toast("Password changed successfully", "ok");
-      setCurrentPassword("");
-      setNewPassword("");
+      toast('Password changed successfully', 'ok');
+      setCurrentPassword('');
+      setNewPassword('');
     } catch (err) {
-      toast((err as Error).message, "err");
+      toast((err as Error).message, 'err');
     }
   }
 
   async function downloadShareXConfig() {
-    const r = await apiFetch("/sharex/config");
+    const r = await apiFetch('/sharex/config');
     const b = await r.blob();
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
-    a.download = "ShareIT.sxcu";
+    a.download = 'ShareIT.sxcu';
     a.click();
   }
 
-  const usagePercent = storage ? Math.min(100, (storage.used / storage.limit) * 100) : 0;
+  const usagePercent = storage
+    ? Math.min(100, (storage.used / storage.limit) * 100)
+    : 0;
 
   return (
     <div className="space-y-8">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-zinc-500 mt-1">Manage your account, storage, and integrations.</p>
+        <p className="text-sm text-zinc-500 mt-1">
+          Manage your account, storage, and integrations.
+        </p>
       </div>
 
       {/* Metric cards */}
       <div className="grid grid-cols-3 gap-3">
-        <MetricCard label="Storage Used" value={storage ? formatSize(storage.used) : "—"} />
-        <MetricCard label="Storage Limit" value={storage ? formatSize(storage.limit) : "—"} />
+        <MetricCard
+          label="Storage Used"
+          value={storage ? formatSize(storage.used) : '—'}
+        />
+        <MetricCard
+          label="Storage Limit"
+          value={storage ? formatSize(storage.limit) : '—'}
+        />
         <MetricCard
           label="Usage"
-          value={storage ? `${usagePercent.toFixed(0)}%` : "—"}
-          sub={usagePercent > 90 ? "⚠️ Almost full" : usagePercent > 70 ? "Running low" : undefined}
+          value={storage ? `${usagePercent.toFixed(0)}%` : '—'}
+          sub={
+            usagePercent > 90
+              ? '⚠️ Almost full'
+              : usagePercent > 70
+                ? 'Running low'
+                : undefined
+          }
         />
       </div>
 
@@ -86,7 +102,12 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${usagePercent}%`,
-                  background: usagePercent > 90 ? "#ef4444" : usagePercent > 70 ? "#f59e0b" : "#3b82f6",
+                  background:
+                    usagePercent > 90
+                      ? '#ef4444'
+                      : usagePercent > 70
+                        ? '#f59e0b'
+                        : '#3b82f6',
                 }}
               />
             </div>
@@ -102,10 +123,12 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
 
       {/* ShareX */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-        <h2 className="text-base font-semibold text-zinc-200">ShareX Integration</h2>
+        <h2 className="text-base font-semibold text-zinc-200">
+          ShareX Integration
+        </h2>
         <p className="text-sm text-zinc-400">
-          Download your personalized ShareX config file. Import it into ShareX under
-          Destinations → Custom uploader settings.
+          Download your personalized ShareX config file. Import it into ShareX
+          under Destinations → Custom uploader settings.
         </p>
         <button
           type="button"
@@ -118,10 +141,17 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
 
       {/* Change Password */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-        <h2 className="text-base font-semibold text-zinc-200">Change Password</h2>
+        <h2 className="text-base font-semibold text-zinc-200">
+          Change Password
+        </h2>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
-            <label htmlFor="current-password" className="block text-sm text-zinc-400 mb-1">Current Password</label>
+            <label
+              htmlFor="current-password"
+              className="block text-sm text-zinc-400 mb-1"
+            >
+              Current Password
+            </label>
             <input
               id="current-password"
               type="password"
@@ -132,7 +162,12 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
             />
           </div>
           <div>
-            <label htmlFor="new-password" className="block text-sm text-zinc-400 mb-1">New Password</label>
+            <label
+              htmlFor="new-password"
+              className="block text-sm text-zinc-400 mb-1"
+            >
+              New Password
+            </label>
             <input
               id="new-password"
               type="password"

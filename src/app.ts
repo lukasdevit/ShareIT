@@ -1,21 +1,27 @@
-import fs from "fs";
+import fs from 'fs';
 
-import Fastify from "fastify";
-import multipart from "@fastify/multipart";
-import rateLimit from "@fastify/rate-limit";
-import helmet from "@fastify/helmet";
-import cors from "@fastify/cors";
+import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import helmet from '@fastify/helmet';
+import cors from '@fastify/cors';
 
-import { UPLOAD_DIR, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, LOG_PRETTY, CORS_ORIGIN } from "./config/index.js";
-import { uploadRoutes } from "./routes/upload.js";
-import { filesRoutes } from "./routes/files.js";
-import { sharexRoutes } from "./routes/sharex.js";
-import { authRoutes } from "./routes/auth.js";
-import { adminRoutes } from "./routes/admin.js";
-import { initScanner } from "./services/scanService.js";
-import { startDemoCleanup } from "./services/demoCleanup.js";
-import { runMigrations } from "./db/index.js";
-import { writeLog } from "./services/logService.js";
+import {
+  UPLOAD_DIR,
+  RATE_LIMIT_MAX,
+  RATE_LIMIT_WINDOW_MS,
+  LOG_PRETTY,
+  CORS_ORIGIN,
+} from './config/index.js';
+import { uploadRoutes } from './routes/upload.js';
+import { filesRoutes } from './routes/files.js';
+import { sharexRoutes } from './routes/sharex.js';
+import { authRoutes } from './routes/auth.js';
+import { adminRoutes } from './routes/admin.js';
+import { initScanner } from './services/scanService.js';
+import { startDemoCleanup } from './services/demoCleanup.js';
+import { runMigrations } from './db/index.js';
+import { writeLog } from './services/logService.js';
 
 const startTime = Date.now();
 
@@ -29,8 +35,8 @@ export async function buildApp(opts: AppOptions = {}) {
       ? LOG_PRETTY
         ? {
             transport: {
-              target: "pino-pretty",
-              options: { colorize: true, translateTime: "HH:MM:ss" },
+              target: 'pino-pretty',
+              options: { colorize: true, translateTime: 'HH:MM:ss' },
             },
           }
         : true
@@ -41,15 +47,20 @@ export async function buildApp(opts: AppOptions = {}) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   }
 
-  await app.register(multipart, { limits: { fileSize: 1 * 1024 * 1024 * 1024 } });
+  await app.register(multipart, {
+    limits: { fileSize: 1 * 1024 * 1024 * 1024 },
+  });
 
-  await app.register(rateLimit, { max: RATE_LIMIT_MAX, timeWindow: RATE_LIMIT_WINDOW_MS });
+  await app.register(rateLimit, {
+    max: RATE_LIMIT_MAX,
+    timeWindow: RATE_LIMIT_WINDOW_MS,
+  });
 
   await app.register(helmet, {
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
       directives: {
-        "img-src": ["'self'", "data:", "blob:", "*"],
+        'img-src': ["'self'", 'data:', 'blob:', '*'],
       },
     },
     xContentTypeOptions: false,
@@ -57,15 +68,19 @@ export async function buildApp(opts: AppOptions = {}) {
 
   await app.register(cors, {
     origin: CORS_ORIGIN,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Global error handler — catches schema validation + unhandled errors
   app.setErrorHandler((err, _request, reply) => {
-    const error = err as { validation?: unknown; statusCode?: number; message?: string };
+    const error = err as {
+      validation?: unknown;
+      statusCode?: number;
+      message?: string;
+    };
     if (error.validation) {
       return reply.code(400).send({
-        error: "Bad Request",
+        error: 'Bad Request',
         message: error.message,
       });
     }
@@ -74,29 +89,32 @@ export async function buildApp(opts: AppOptions = {}) {
       writeLog({
         time: new Date().toISOString(),
         level: 50,
-        levelName: "error",
-        msg: error.message ?? "Unknown error",
+        levelName: 'error',
+        msg: error.message ?? 'Unknown error',
         err: error,
       });
     }
-    return reply.code(statusCode).send({ error: error.message ?? "Internal server error" });
+    return reply
+      .code(statusCode)
+      .send({ error: error.message ?? 'Internal server error' });
   });
 
   // Capture request/response logs for admin log viewer
-  app.addHook("onRequest", async (request) => {
+  app.addHook('onRequest', async (request) => {
     (request as unknown as Record<string, unknown>)._logStart = Date.now();
   });
-  app.addHook("onResponse", async (request, reply) => {
+  app.addHook('onResponse', async (request, reply) => {
     // Don't log the log-viewer polling itself
-    if (request.url.startsWith("/admin/logs")) return;
+    if (request.url.startsWith('/admin/logs')) return;
 
-    const start = (request as unknown as Record<string, unknown>)._logStart as number;
+    const start = (request as unknown as Record<string, unknown>)
+      ._logStart as number;
     const responseTime = start ? Date.now() - start : undefined;
     writeLog({
       time: new Date().toISOString(),
       level: reply.statusCode >= 400 ? 40 : 30,
-      levelName: reply.statusCode >= 400 ? "warn" : "info",
-      msg: "request completed",
+      levelName: reply.statusCode >= 400 ? 'warn' : 'info',
+      msg: 'request completed',
       reqId: request.id,
       user: request.user?.username,
       method: request.method,
@@ -113,9 +131,9 @@ export async function buildApp(opts: AppOptions = {}) {
   await app.register(adminRoutes);
 
   // Health check
-  app.get("/health", async (_request, reply) => {
+  app.get('/health', async (_request, reply) => {
     return reply.send({
-      status: "ok",
+      status: 'ok',
       uptime: Math.floor((Date.now() - startTime) / 1000),
       timestamp: new Date().toISOString(),
     });

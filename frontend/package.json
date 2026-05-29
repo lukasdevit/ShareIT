@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
@@ -20,12 +22,16 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^10",
     "eslint-config-next": "16.2.6",
     "react-doctor": "^0.2.10",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^4.1.7"
   }
 }

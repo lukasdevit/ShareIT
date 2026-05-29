@@ -1,7 +1,7 @@
-import type { FastifyBaseLogger } from "fastify";
-import { dbAll, dbRun } from "../db/index.js";
-import { deleteFromStorage } from "../utils/index.js";
-import { DEMO_CLEANUP_INTERVAL_MS, DEMO_MAX_AGE_MS } from "../config/index.js";
+import type { FastifyBaseLogger } from 'fastify';
+import { dbAll, dbRun } from '../db/index.js';
+import { deleteFromStorage } from '../utils/index.js';
+import { DEMO_CLEANUP_INTERVAL_MS, DEMO_MAX_AGE_MS } from '../config/index.js';
 
 /**
  * Periodic cleanup of stale demo users and their files.
@@ -19,7 +19,7 @@ export function startDemoCleanup(log: FastifyBaseLogger): void {
         [cutoff]
       );
     } catch (err) {
-      log.warn({ err }, "Failed to query stale demo users");
+      log.warn({ err }, 'Failed to query stale demo users');
       return;
     }
 
@@ -42,7 +42,7 @@ export function startDemoCleanup(log: FastifyBaseLogger): void {
         await dbRun(`DELETE FROM users WHERE id = ?`, [u.id]);
         cleaned++;
       } catch (err) {
-        log.warn({ err, userId: u.id }, "Failed to clean up demo user");
+        log.warn({ err, userId: u.id }, 'Failed to clean up demo user');
       }
     }
 

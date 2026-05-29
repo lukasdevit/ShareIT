@@ -1,41 +1,41 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       backend-deps:
-        patterns: ["*"]
+        patterns: ['*']
 
-  - package-ecosystem: "npm"
-    directory: "/frontend"
+  - package-ecosystem: 'npm'
+    directory: '/frontend'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       frontend-deps:
-        patterns: ["*"]
+        patterns: ['*']
 
-  - package-ecosystem: "docker"
-    directory: "/"
+  - package-ecosystem: 'docker'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       docker-deps:
-        patterns: ["*"]
+        patterns: ['*']
 
-  - package-ecosystem: "docker"
-    directory: "/frontend"
+  - package-ecosystem: 'docker'
+    directory: '/frontend'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       docker-frontend-deps:
-        patterns: ["*"]
+        patterns: ['*']
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       actions-deps:
-        patterns: ["*"]
+        patterns: ['*']
