@@ -14,7 +14,7 @@ env:
 
 jobs:
   test:
-    name: Run tests
+    name: test
     runs-on: ubuntu-latest
 
     steps:
@@ -27,15 +27,6 @@ jobs:
 
       - run: npm ci
       - run: npm run test:run
-
-  # Kept for backwards compatibility with old required status checks
-  testExpected:
-    name: testExpected
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "All tests passed"
-
 
   release:
     name: Semantic release
