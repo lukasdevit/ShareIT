@@ -6,7 +6,7 @@ import { dbAll, backupDatabase } from '../../db/index.js';
 import { LocalStorage } from '../../services/storage/local.js';
 import { B2Storage } from '../../services/storage/b2.js';
 import type { StorageProvider } from '../../services/storage/types.js';
-import { B2_ENABLED } from '../../config/index.js';
+import { isB2Enabled } from '../../config/index.js';
 import { recordAction } from './actions.js';
 
 export async function adminBackupRoutes(app: FastifyInstance) {
@@ -25,7 +25,7 @@ export async function adminBackupRoutes(app: FastifyInstance) {
         keep: 7,
       },
     ];
-    if (B2_ENABLED) {
+    if (await isB2Enabled()) {
       destinations.push({
         provider: new B2Storage(),
         keyPrefix: 'backups/db',

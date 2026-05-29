@@ -11,12 +11,15 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
-import { getS3Client } from '../../services/storage/s3-client.js';
+import { getS3Client, getBucket } from '../../services/storage/s3-client.js';
 import { sanitizeFilename, validateFile } from '../../services/fileService.js';
-import { B2_BUCKET } from '../../config/index.js';
+import { buildStorageKey } from '../../services/storage/index.js';
 import { dbRun } from '../../db/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
+
+// Server-side presigned URL storage — never exposed to browser
+const proxyTokens = new Map<string, string>();
 
 export async function s3UploadRoutes(app: FastifyInstance) {
   /**
@@ -45,11 +48,13 @@ export async function s3UploadRoutes(app: FastifyInstance) {
 
       const id = nanoid(10);
       const ext = path.extname(originalName);
-      const key = `share/${request.user!.id}/${id}${ext}`;
+      const filename = `${id}${ext}`;
+      const key = await buildStorageKey(request.user!.id, filename);
 
-      const s3 = getS3Client();
+      const s3 = await getS3Client();
+      const bucket = await getBucket();
       const createCmd = new CreateMultipartUploadCommand({
-        Bucket: B2_BUCKET,
+        Bucket: bucket,
         Key: key,
         ContentType: body.mimeType,
       });
@@ -60,56 +65,109 @@ export async function s3UploadRoutes(app: FastifyInstance) {
         data: {
           uploadId: UploadId,
           key,
-          filename: `${id}${ext}`,
+          filename: filename,
         },
       });
     }
   );
 
   /**
-   * GET /upload/s3/multipart/:key/:uploadId/:partNumber
+   * POST /upload/s3/multipart/sign-part
    * Returns a presigned URL for uploading a single part.
+   * Uses POST body to avoid URL-encoding issues with keys containing slashes.
    */
-  app.get(
-    '/upload/s3/multipart/:key/:uploadId/:partNumber',
+  app.post(
+    '/upload/s3/multipart/sign-part',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const { key, uploadId, partNumber } = request.params as {
+      const { key, uploadId, partNumber } = request.body as {
         key: string;
         uploadId: string;
-        partNumber: string;
+        partNumber: number;
       };
 
-      const s3 = getS3Client();
+      if (!key || !uploadId || !partNumber) {
+        return reply.code(400).send({ error: 'key, uploadId, and partNumber required' });
+      }
+
+      const s3 = await getS3Client();
+      const bucket = await getBucket();
       const cmd = new UploadPartCommand({
-        Bucket: B2_BUCKET,
+        Bucket: bucket,
         Key: key,
         UploadId: uploadId,
-        PartNumber: parseInt(partNumber, 10),
+        PartNumber: partNumber,
       });
 
       const url = await getSignedUrl(s3, cmd, {
         expiresIn: PRESIGN_EXPIRY_SECONDS,
       });
 
-      return reply.send({ data: { url } });
+      // Store presigned URL server-side — never expose it to the browser
+      const token = nanoid(32);
+      proxyTokens.set(token, url);
+      // Auto-expire after presigned URL expires
+      setTimeout(() => proxyTokens.delete(token), PRESIGN_EXPIRY_SECONDS * 1000);
+
+      const base = process.env.BASE_URL || 'http://localhost:3000';
+      return reply.send({
+        data: {
+          url: `${base}/upload/s3/part-proxy/${token}`,
+        },
+      });
     }
   );
 
   /**
-   * POST /upload/s3/multipart/:key/:uploadId/complete
+   * PUT /upload/s3/part-proxy/:token
+   * Proxies part upload to B2. Token maps to a server-side presigned URL.
+   * No auth needed — the presigned URL IS the authorization.
+   */
+  app.put(
+    '/upload/s3/part-proxy/:token',
+    async (request, reply) => {
+      const { token } = request.params as { token: string };
+      const presignedUrl = proxyTokens.get(token);
+      if (!presignedUrl) {
+        return reply.code(404).send({ error: 'Token not found or expired' });
+      }
+
+      const body = request.body as Buffer;
+      if (!body || body.length === 0) {
+        return reply.code(400).send({ error: 'no body' });
+      }
+
+      try {
+        const upstream = await fetch(presignedUrl, {
+          method: 'PUT',
+          body,
+        });
+        if (!upstream.ok) {
+          const text = await upstream.text();
+          return reply.code(upstream.status).send(text);
+        }
+        // Return ETag so Uppy can use it for completion
+        const etag = upstream.headers.get('etag') || '';
+        return reply.header('ETag', etag).code(200).send('');
+      } catch (err) {
+        return reply.code(502).send({ error: `Proxy failed: ${(err as Error).message}` });
+      }
+    }
+  );
+
+  /**
+   * POST /upload/s3/multipart/:uploadId/complete
    * Complete the multipart upload and create the DB record.
+   * Key is passed in body to avoid slash-in-path routing issues.
    */
   app.post(
-    '/upload/s3/multipart/:key/:uploadId/complete',
+    '/upload/s3/multipart/:uploadId/complete',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const { key, uploadId } = request.params as {
-        key: string;
-        uploadId: string;
-      };
+      const { uploadId } = request.params as { uploadId: string };
 
       const body = request.body as {
+        key: string;
         parts: { PartNumber: number; ETag: string }[];
         originalName: string;
         mimeType: string;
@@ -117,14 +175,15 @@ export async function s3UploadRoutes(app: FastifyInstance) {
         expiresInDays?: number;
       };
 
-      if (!body.parts || !Array.isArray(body.parts)) {
-        return reply.code(400).send({ error: 'parts array required' });
+      if (!body.key || !body.parts || !Array.isArray(body.parts)) {
+        return reply.code(400).send({ error: 'key and parts array required' });
       }
 
-      const s3 = getS3Client();
+      const s3 = await getS3Client();
+      const bucket = await getBucket();
       const cmd = new CompleteMultipartUploadCommand({
-        Bucket: B2_BUCKET,
-        Key: key,
+        Bucket: bucket,
+        Key: body.key,
         UploadId: uploadId,
         MultipartUpload: {
           Parts: body.parts.map((p) => ({
@@ -143,7 +202,7 @@ export async function s3UploadRoutes(app: FastifyInstance) {
       }
 
       // Create DB record
-      const filename = path.basename(key);
+      const filename = path.basename(body.key);
       const expiresAt = body.expiresInDays
         ? new Date(
             Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000
@@ -155,7 +214,7 @@ export async function s3UploadRoutes(app: FastifyInstance) {
         [
           filename,
           sanitizeFilename(body.originalName || filename),
-          key,
+          body.key,
           body.size || 0,
           body.mimeType || 'application/octet-stream',
           request.user!.id,
@@ -168,28 +227,27 @@ export async function s3UploadRoutes(app: FastifyInstance) {
       return reply.send({
         data: {
           url: `${process.env.BASE_URL || 'http://localhost:3000'}/file/${filename}`,
-          key,
+          key: body.key,
         },
       });
     }
   );
 
   /**
-   * DELETE /upload/s3/multipart/:key/:uploadId
-   * Abort an in-progress multipart upload.
+   * DELETE /upload/s3/multipart/:uploadId
+   * Abort an in-progress multipart upload. Key in body.
    */
   app.delete(
-    '/upload/s3/multipart/:key/:uploadId',
+    '/upload/s3/multipart/:uploadId',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const { key, uploadId } = request.params as {
-        key: string;
-        uploadId: string;
-      };
+      const { uploadId } = request.params as { uploadId: string };
+      const { key } = request.body as { key: string };   
 
-      const s3 = getS3Client();
+      const s3 = await getS3Client();
+      const bucket = await getBucket();
       const cmd = new AbortMultipartUploadCommand({
-        Bucket: B2_BUCKET,
+        Bucket: bucket,
         Key: key,
         UploadId: uploadId,
       });

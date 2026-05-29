@@ -52,6 +52,14 @@ export async function buildApp(opts: AppOptions = {}) {
     limits: { fileSize: 1 * 1024 * 1024 * 1024 },
   });
 
+  // Accept raw binary body for S3 part-proxy route
+  app.addContentTypeParser('*', (_req, payload, done) => {
+    const chunks: Buffer[] = [];
+    payload.on('data', (chunk: Buffer) => chunks.push(chunk));
+    payload.on('end', () => done(null, Buffer.concat(chunks)));
+    payload.on('error', (err: Error) => done(err));
+  });
+
   await app.register(rateLimit, {
     max: RATE_LIMIT_MAX,
     timeWindow: RATE_LIMIT_WINDOW_MS,
