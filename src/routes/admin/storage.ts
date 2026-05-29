@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 import { UPLOAD_DIR, B2_ENABLED, B2_ENDPOINT, B2_REGION, B2_BUCKET, B2_PREFIX, DEFAULT_STORAGE_LIMIT, DOMAIN } from "../../config/index.js";
+import { recordAction } from "./actions.js";
 
 const STORAGE_RATE_LIMIT = 60;       // requests per window
 const STORAGE_RATE_WINDOW_MS = 60_000;
@@ -59,6 +60,9 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 
     for (const [k, v] of updates) {
       await dbRun(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [k, v]);
+    }
+    if (request.user?.username) {
+      await recordAction(request.user!.username, "storage-config", `Updated: ${updates.map(([k]) => k).join(", ")}`, { updates: Object.fromEntries(updates) });
     }
     return reply.send({ ok: true, updated: updates.map(([k]) => k) });
   });

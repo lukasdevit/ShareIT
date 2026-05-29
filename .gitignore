@@ -4,4 +4,5 @@ uploads/*
 *.db
 *.db-shm
 *.db-wal
-caddy/certs/
+caddy/certs/coverage/
+coverage/*

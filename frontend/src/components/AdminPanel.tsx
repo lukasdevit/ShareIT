@@ -8,10 +8,13 @@ import { StorageConfig } from "./StorageConfig";
 import { SslConfig } from "./SslConfig";
 import { Analytics } from "./Analytics";
 import { BackupPanel } from "./BackupPanel";
+import { LogViewer } from "./LogViewer";
+import { IntegrityCheck } from "./IntegrityCheck";
+import { AdminActions } from "./AdminActions";
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
-  tab: "users" | "database" | "storage" | "ssl" | "analytics" | "backups";
+  tab: "users" | "database" | "storage" | "ssl" | "analytics" | "backups" | "logs" | "integrity" | "actions";
 }
 
 export function AdminPanel({ apiFetch, tab }: Props) {
@@ -34,6 +37,9 @@ export function AdminPanel({ apiFetch, tab }: Props) {
         {tab === "ssl" && <SslConfig apiFetch={apiFetch} />}
         {tab === "analytics" && <Analytics apiFetch={apiFetch} />}
         {tab === "backups" && <BackupPanel apiFetch={apiFetch} />}
+        {tab === "logs" && <LogViewer apiFetch={apiFetch} />}
+        {tab === "integrity" && <IntegrityCheck apiFetch={apiFetch} />}
+        {tab === "actions" && <AdminActions apiFetch={apiFetch} />}
       </div>
     </ToastProvider>
   );
@@ -46,6 +52,9 @@ const TAB_LABELS: Record<string, string> = {
   ssl: "SSL / HTTPS",
   analytics: "Analytics",
   backups: "Backups",
+  logs: "Logs",
+  integrity: "Integrity",
+  actions: "Actions",
 };
 
 const TAB_DESCRIPTIONS: Record<string, string> = {
@@ -55,4 +64,7 @@ const TAB_DESCRIPTIONS: Record<string, string> = {
   ssl: "Monitor SSL certificate status and HTTPS configuration.",
   analytics: "View upload trends, top users, and file type distribution.",
   backups: "Run and download database backups, view backup history.",
+  logs: "View live server logs, filter by level, and download log files.",
+  integrity: "Check database entries against files on disk for consistency.",
+  actions: "View and undo recent admin operations in the integrity panel.",
 };

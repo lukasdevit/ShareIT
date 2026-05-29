@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
 import { parsePagination, deleteFromStorage } from "../../utils/index.js";
 import { DEFAULT_STORAGE_LIMIT } from "../../config/index.js";
+import { recordAction } from "./actions.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -46,6 +47,11 @@ export async function adminUserRoutes(app: FastifyInstance) {
         `INSERT INTO users (username, password_hash, created_at, is_admin, storage_limit) VALUES (?, ?, ?, ?, ?)`,
         [username, hash, new Date().toISOString(), is_admin ? 1 : 0, limit]
       );
+      if (request.user?.username) {
+        await recordAction(request.user!.username, "user-create", `Created user: ${username}`, {
+          userId: result.lastID, username, isAdmin: !!is_admin,
+        });
+      }
       return reply.send({ id: result.lastID, username, is_admin: !!is_admin, storage_limit: limit });
     } catch (err) {
       if ((err as Error).message.includes("UNIQUE")) {
@@ -96,6 +102,13 @@ export async function adminUserRoutes(app: FastifyInstance) {
     values.push(id);
     const result = await dbRun(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, values);
     if (result.changes === 0) return reply.code(404).send({ error: "User not found" });
+    if (request.user?.username) {
+      const changed: Record<string, unknown> = {};
+      if (storage_limit !== undefined) changed.storage_limit = storage_limit;
+      if (is_admin !== undefined) changed.is_admin = is_admin;
+      if (new_password !== undefined) changed.password_changed = true;
+      await recordAction(request.user!.username, "user-edit", `Edited user #${id}`, { userId: Number(id), changes: changed });
+    }
     return reply.send({ ok: true });
   });
 
@@ -120,6 +133,9 @@ export async function adminUserRoutes(app: FastifyInstance) {
     await dbRun(`DELETE FROM files WHERE user_id = ?`, [userId]);
     const result = await dbRun(`DELETE FROM users WHERE id = ?`, [userId]);
     if (result.changes === 0) return reply.code(404).send({ error: "User not found" });
+    if (request.user?.username) {
+      await recordAction(request.user!.username, "user-delete", `Deleted user #${userId}`, { userId, filesDeleted: files.length });
+    }
     return reply.send({ ok: true, files_deleted: files.length });
   });
 }

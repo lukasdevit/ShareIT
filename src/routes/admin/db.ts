@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { dbAll, dbGet, dbRun } from "../../db/index.js";
+import { recordAction } from "./actions.js";
 
 /** Allowed table names — prevents injection via table name parameter */
 const ALLOWED_TABLES = new Set(["users", "files", "settings", "backup_logs"]);
@@ -80,9 +81,19 @@ export async function adminDbRoutes(app: FastifyInstance) {
       }
     }
 
+    // Save row data for undo before deleting
+    const row = await dbGet<Record<string, unknown>>(
+      `SELECT * FROM "${name}" WHERE "${pkColumn}" = ?`, [pkValue]
+    );
+
     const result = await dbRun(
       `DELETE FROM "${name}" WHERE "${pkColumn}" = ?`, [pkValue]
     );
+    if (request.user?.username && row) {
+      await recordAction(request.user!.username, "db-delete", `Deleted from ${name} where ${pkColumn}=${pkValue}`, {
+        table: name, pkColumn, pkValue, row,
+      });
+    }
     return reply.send({ ok: true, changes: result.changes });
   });
 }
