@@ -4,14 +4,10 @@ import path from 'path';
 import { dbAll, dbGet, dbRun } from '../../db/index.js';
 import {
   UPLOAD_DIR,
-  B2_ENDPOINT,
-  B2_REGION,
-  B2_BUCKET,
-  B2_PREFIX,
   DEFAULT_STORAGE_LIMIT,
   DOMAIN,
 } from '../../config/index.js';
-import { isB2Enabled, getB2KeyId, getB2AppKey, clearConfigCache } from '../../config/index.js';
+import { getStorageBackend, getStorageSetting, clearConfigCache } from '../../config/index.js';
 import { recordAction } from './actions.js';
 
 const STORAGE_RATE_LIMIT = 60; // requests per window
@@ -51,19 +47,20 @@ export async function adminStorageRoutes(app: FastifyInstance) {
       );
 
       const config: Record<string, unknown> = {
-        backend: overrides.backend || (await isB2Enabled() ? 'b2' : 'local'),
+        backend: overrides.backend || (await getStorageBackend()),
         default_storage_limit: DEFAULT_STORAGE_LIMIT,
         total_storage_limit:
           parseInt(overrides.total_storage_limit || '0', 10) || 0,
       };
 
-      if (config.backend === 'b2') {
-        config.b2_endpoint = overrides.b2_endpoint || B2_ENDPOINT;
-        config.b2_region = overrides.b2_region || B2_REGION;
-        config.b2_bucket = overrides.b2_bucket || B2_BUCKET;
-        config.b2_prefix = overrides.b2_prefix || B2_PREFIX;
-        config.b2_has_key_id = !!(overrides.b2_key_id || await getB2KeyId());
-        config.b2_has_app_key = !!(overrides.b2_app_key || await getB2AppKey());
+      if (config.backend !== 'local') {
+        const backend = config.backend as string;
+        config[`${backend}_endpoint`] = overrides[`${backend}_endpoint`] || await getStorageSetting('endpoint') || '';
+        config[`${backend}_region`] = overrides[`${backend}_region`] || await getStorageSetting('region') || '';
+        config[`${backend}_bucket`] = overrides[`${backend}_bucket`] || await getStorageSetting('bucket') || '';
+        config[`${backend}_prefix`] = overrides[`${backend}_prefix`] || await getStorageSetting('prefix') || '';
+        config[`${backend}_has_key_id`] = !!(overrides[`${backend}_key_id`] || await getStorageSetting('key_id'));
+        config[`${backend}_has_app_key`] = !!(overrides[`${backend}_app_key`] || await getStorageSetting('app_key'));
       } else {
         try {
           const stats = fs.statfsSync(UPLOAD_DIR);
@@ -91,11 +88,12 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 
   app.get('/admin/storage/secrets', async (_request, reply) => {
     const overrides = await getOverrides();
-    const keyId = overrides.b2_key_id || await getB2KeyId();
-    const appKey = overrides.b2_app_key || await getB2AppKey();
+    const backend = await getStorageBackend();
+    const keyId = overrides[`${backend}_key_id`] || await getStorageSetting('key_id');
+    const appKey = overrides[`${backend}_app_key`] || await getStorageSetting('app_key');
     return reply.send({
-      b2_key_id: keyId || '',
-      b2_app_key: appKey || '',
+      [`${backend}_key_id`]: keyId || '',
+      [`${backend}_app_key`]: appKey || '',
     });
   });
 

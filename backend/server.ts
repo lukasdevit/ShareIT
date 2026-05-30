@@ -1,9 +1,9 @@
 import { buildApp } from './app.js';
-import { PORT, isB2Enabled, getBackupScheduleHours } from './config/index.js';
+import { PORT, getStorageBackend, getBackupScheduleHours } from './config/index.js';
 import { seedAdmin, cleanupExpiredFiles, backupDatabase } from './db/index.js';
 import type { StorageProvider } from './services/storage/types.js';
 import { LocalStorage } from './services/storage/local.js';
-import { B2Storage } from './services/storage/b2.js';
+import { B2Storage } from './services/storage/b2/index.js';
 import { writeLog } from './services/logService.js';
 
 const app = await buildApp({ logger: true });
@@ -28,7 +28,14 @@ async function runBackup() {
     keep?: number;
   }[] = [];
 
-  if (await isB2Enabled()) {
+  if ((await getStorageBackend()) === 'b2') {
+    destinations.push({
+      provider: new B2Storage(),
+      keyPrefix: 'backups/db',
+      label: 'b2',
+      keep: 7,
+    });
+  } else {
     destinations.push({
       provider: new B2Storage(),
       keyPrefix: 'backups/db',

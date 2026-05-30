@@ -1,23 +1,35 @@
-import { S3Client, PutBucketCorsCommand } from '@aws-sdk/client-s3';
-import {
-  getB2Endpoint,
-  getB2Region,
-  getB2Bucket,
-  getB2KeyId,
-  getB2AppKey,
-} from '../../config/index.js';
+import { S3Client, PutBucketCorsCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
+import { getStorageSetting } from '../../../config/index.js';
+
+// B2 defaults — only used when no DB/env override
+const DEFAULTS = {
+  endpoint: 'https://s3.eu-central-003.backblazeb2.com',
+  region: 'eu-central-003',
+  bucket: 'my-bucket-name',
+  prefix: 'shareit/storage/',
+} as const;
 
 let _s3Client: S3Client | null = null;
 
 export async function getS3Client(): Promise<S3Client> {
   if (!_s3Client) {
     const [endpoint, region, keyId, appKey] = await Promise.all([
-      getB2Endpoint(), getB2Region(), getB2KeyId(), getB2AppKey()
+      getStorageSetting('endpoint'),
+      getStorageSetting('region'),
+      getStorageSetting('key_id'),
+      getStorageSetting('app_key'),
     ]);
-    const url = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
-    _s3Client = new S3Client({
-      endpoint: url,
-      region,
+
+    if (!keyId || !appKey) {
+      throw new Error('Storage credentials not configured — key_id and app_key required');
+    }
+
+    const resolvedEndpoint = endpoint || DEFAULTS.endpoint;
+    const url = resolvedEndpoint.startsWith('http')
+      ? resolvedEndpoint
+      : `https://${resolvedEndpoint}`;
+
+    const config: S3ClientConfig = {
       credentials: {
         accessKeyId: keyId,
         secretAccessKey: appKey,
@@ -25,7 +37,11 @@ export async function getS3Client(): Promise<S3Client> {
       forcePathStyle: true,
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
-    });
+    };
+    if (region) config.region = region;
+    config.endpoint = url;
+
+    _s3Client = new S3Client(config);
   }
   return _s3Client;
 }
@@ -33,7 +49,9 @@ export async function getS3Client(): Promise<S3Client> {
 /** Get the bucket name, respecting admin panel override */
 let _cachedBucket: string | null = null;
 export async function getBucket(): Promise<string> {
-  if (!_cachedBucket) _cachedBucket = await getB2Bucket();
+  if (!_cachedBucket) {
+    _cachedBucket = await getStorageSetting('bucket') || DEFAULTS.bucket;
+  }
   return _cachedBucket;
 }
 

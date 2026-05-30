@@ -1,7 +1,4 @@
 import NodeClam from 'clamscan';
-import fs from 'fs';
-import path from 'path';
-import { UPLOAD_DIR } from '../config/index.js';
 
 let scanner: NodeClam | null = null;
 

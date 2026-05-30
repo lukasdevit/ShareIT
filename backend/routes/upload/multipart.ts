@@ -11,7 +11,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
-import { getS3Client, getBucket } from '../../services/storage/s3-client.js';
+import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
 import { sanitizeFilename, validateFile } from '../../services/fileService.js';
 import { buildStorageKey } from '../../services/storage/index.js';
 import { dbRun, dbGet } from '../../db/index.js';
@@ -22,13 +22,13 @@ const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
 // Server-side presigned URL storage — never exposed to browser
 const proxyTokens = new Map<string, string>();
 
-export async function s3UploadRoutes(app: FastifyInstance) {
+export async function multipartUploadRoutes(app: FastifyInstance) {
   /**
-   * POST /upload/s3/multipart
+   * POST /upload/multipart/init
    * Initiate a multipart upload. Returns uploadId and key.
    */
   app.post(
-    '/upload/s3/multipart',
+    '/upload/multipart/init',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const body = request.body as {
@@ -86,12 +86,12 @@ export async function s3UploadRoutes(app: FastifyInstance) {
   );
 
   /**
-   * POST /upload/s3/multipart/sign-part
+   * POST /upload/multipart/sign-part
    * Returns a presigned URL for uploading a single part.
    * Uses POST body to avoid URL-encoding issues with keys containing slashes.
    */
   app.post(
-    '/upload/s3/multipart/sign-part',
+    '/upload/multipart/sign-part',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { key, uploadId, partNumber } = request.body as {
@@ -126,19 +126,19 @@ export async function s3UploadRoutes(app: FastifyInstance) {
       const base = process.env.BASE_URL || 'http://localhost:3000';
       return reply.send({
         data: {
-          url: `${base}/upload/s3/part-proxy/${token}`,
+          url: `${base}/upload/multipart/part-proxy/${token}`,
         },
       });
     }
   );
 
   /**
-   * PUT /upload/s3/part-proxy/:token
+   * PUT /upload/multipart/part-proxy/:token
    * Proxies part upload to B2. Token maps to a server-side presigned URL.
    * No auth needed — the presigned URL IS the authorization.
    */
   app.put(
-    '/upload/s3/part-proxy/:token',
+    '/upload/multipart/part-proxy/:token',
     async (request, reply) => {
       const { token } = request.params as { token: string };
       const presignedUrl = proxyTokens.get(token);
@@ -154,7 +154,7 @@ export async function s3UploadRoutes(app: FastifyInstance) {
       try {
         const upstream = await fetch(presignedUrl, {
           method: 'PUT',
-          body,
+          body: new Uint8Array(body),
         });
         if (!upstream.ok) {
           const text = await upstream.text();
@@ -170,12 +170,12 @@ export async function s3UploadRoutes(app: FastifyInstance) {
   );
 
   /**
-   * POST /upload/s3/multipart/:uploadId/complete
+   * POST /upload/multipart/:uploadId/complete
    * Complete the multipart upload and create the DB record.
    * Key is passed in body to avoid slash-in-path routing issues.
    */
   app.post(
-    '/upload/s3/multipart/:uploadId/complete',
+    '/upload/multipart/:uploadId/complete',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { uploadId } = request.params as { uploadId: string };
@@ -248,11 +248,11 @@ export async function s3UploadRoutes(app: FastifyInstance) {
   );
 
   /**
-   * DELETE /upload/s3/multipart/:uploadId
+   * DELETE /upload/multipart/:uploadId
    * Abort an in-progress multipart upload. Key in body.
    */
   app.delete(
-    '/upload/s3/multipart/:uploadId',
+    '/upload/multipart/:uploadId',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { uploadId } = request.params as { uploadId: string };

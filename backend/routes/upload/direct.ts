@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '../middleware/index.js';
-import { handleUpload } from '../services/fileService.js';
-import { dbGet } from '../db/index.js';
-import { DEMO_STORAGE_LIMIT } from '../config/index.js';
+import { requireAuth } from '../../middleware/index.js';
+import { handleUpload } from '../../services/fileService.js';
+import { dbGet } from '../../db/index.js';
+import { DEMO_STORAGE_LIMIT } from '../../config/index.js';
 
 export async function uploadRoutes(app: FastifyInstance) {
   app.post('/upload', { preHandler: [requireAuth] }, async (request, reply) => {

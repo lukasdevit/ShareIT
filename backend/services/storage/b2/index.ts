@@ -6,8 +6,8 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { getS3Client, getBucket } from './s3-client.js';
-import type { StorageProvider } from './types.js';
+import { getS3Client, getBucket } from './client.js';
+import type { StorageProvider } from '../types.js';
 
 export class B2Storage implements StorageProvider {
   private s3Promise: ReturnType<typeof getS3Client> | null = null;

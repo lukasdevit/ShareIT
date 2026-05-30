@@ -10,7 +10,7 @@ import {
   verifyToken,
 } from '../middleware/index.js';
 import { LocalStorage } from '../services/storage/local.js';
-import { B2Storage } from '../services/storage/b2.js';
+import { B2Storage } from '../services/storage/b2/index.js';
 import { deleteFromStorage } from '../utils/index.js';
 
 const FILE_SERVE_RATE = 300; // requests per window

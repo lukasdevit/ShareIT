@@ -77,36 +77,31 @@ function dbOrEnv(key: string, envFallback: string, db: Record<string, string>): 
   return db[key] || envFallback;
 }
 
-export async function isB2Enabled(): Promise<boolean> {
+// ── Storage backend (generic, scalable) ──
+
+export type StorageBackend = 'local' | 'b2' | 's3';
+
+export async function getStorageBackend(): Promise<StorageBackend> {
   const db = await loadDbSettings();
-  return db.backend === 'b2';
+  const backend = db.backend || 'local';
+  if (backend === 'local' || backend === 'b2' || backend === 's3') return backend;
+  return 'local';
 }
 
-export async function getB2Endpoint(): Promise<string> {
-  return dbOrEnv('b2_endpoint', process.env.B2_ENDPOINT || '	https://s3.eu-central-003.backblazeb2.com', await loadDbSettings());
-}
-export async function getB2Region(): Promise<string> {
-  return dbOrEnv('b2_region', process.env.B2_REGION || 'eu-central-003', await loadDbSettings());
-}
-export async function getB2Bucket(): Promise<string> {
-  return dbOrEnv('b2_bucket', process.env.B2_BUCKET || 'my-bucket-name', await loadDbSettings());
-}
-export async function getB2Prefix(): Promise<string> {
-  return dbOrEnv('b2_prefix', process.env.B2_PREFIX || 'shareit/storage/', await loadDbSettings());
-}
-export async function getB2KeyId(): Promise<string> {
-  return dbOrEnv('b2_key_id', process.env.B2_KEY_ID || 'keyid', await loadDbSettings());
-}
-export async function getB2AppKey(): Promise<string> {
-  return dbOrEnv('b2_app_key', process.env.B2_APP_KEY || 'appkey', await loadDbSettings());
+/** Read a setting for the active storage backend, e.g. getStorageSetting('endpoint') → reads b2_endpoint */
+export async function getStorageSetting(key: string): Promise<string> {
+  const backend = await getStorageBackend();
+  const db = await loadDbSettings();
+  const dbKey = `${backend}_${key}`;
+  const envKey = dbKey.toUpperCase();
+  return dbOrEnv(dbKey, process.env[envKey] || '', db);
 }
 
-// Direct env access for display/fallback
-// B2_ENABLED env var is deprecated — use admin panel backend setting instead
-export const B2_ENDPOINT = process.env.B2_ENDPOINT || '';
-export const B2_REGION = process.env.B2_REGION || 'us-west-004';
-export const B2_BUCKET = process.env.B2_BUCKET || '';
-export const B2_PREFIX = process.env.B2_PREFIX || 'shareit/storage/';
+export async function getStoragePrefix(): Promise<string> {
+  const backend = await getStorageBackend();
+  if (backend === 'local') return '';
+  return (await getStorageSetting('prefix')) || 'shareit/storage/';
+}
 
 // ── Database ──
 export const DB_PATH =

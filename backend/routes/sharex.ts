@@ -1,18 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth, getTokenFromHeader } from '../middleware/index.js';
-import { handleUpload } from '../services/fileService.js';
 import { BASE_URL } from '../config/index.js';
 
 export async function sharexRoutes(app: FastifyInstance) {
-  app.post(
-    '/sharex/upload',
-    { preHandler: [requireAuth] },
-    async (request, reply) => {
-      const file = await request.file();
-      if (!file) return reply.code(400).send({ error: 'No file was uploaded' });
-      return reply.send(await handleUpload(file, request.user!.id));
-    }
-  );
+  // ShareX uploads go through the unified /upload endpoint (same as web frontend).
+  // Cloudflare free plan caps single requests at 100 MB — for larger files use the web frontend.
 
   app.get(
     '/sharex/config',
@@ -25,7 +17,7 @@ export async function sharexRoutes(app: FastifyInstance) {
         Name: `ShareIT - ${username}`,
         DestinationType: 'ImageUploader,FileUploader',
         RequestMethod: 'POST',
-        RequestURL: `${BASE_URL}/sharex/upload`,
+        RequestURL: `${BASE_URL}/upload`,
         FileFormName: 'file',
         Body: 'MultipartFormData',
         Headers: { Authorization: `Bearer ${token}` },
