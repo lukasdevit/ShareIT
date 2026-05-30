@@ -11,6 +11,9 @@ import {
   LOCKOUT_MINUTES,
   DEFAULT_STORAGE_LIMIT,
   DEMO_STORAGE_LIMIT,
+  DEMO_GLOBAL_RATE_LIMIT,
+  DEMO_IP_RATE_LIMIT,
+  DEMO_RATE_WINDOW_MS,
 } from '../config/index.js';
 import { requireAuth, signToken } from '../middleware/index.js';
 import { deleteFromStorage } from '../utils/index.js';
@@ -338,10 +341,31 @@ export async function authRoutes(app: FastifyInstance) {
       ...(isTest
         ? {}
         : {
-            config: { rateLimit: { max: 10, timeWindow: AUTH_RATE_WINDOW_MS } },
+            config: {
+              rateLimit: {
+                max: DEMO_IP_RATE_LIMIT,
+                timeWindow: DEMO_RATE_WINDOW_MS,
+              },
+            },
           }),
     },
-    async (_request, reply) => {
+    async (request, reply) => {
+      // ── Global rate limit: max DEMO_GLOBAL_RATE_LIMIT demo users per minute ──
+      if (!isTest) {
+        const cutoff = new Date(
+          Date.now() - DEMO_RATE_WINDOW_MS
+        ).toISOString();
+        const globalCount = await dbGet<{ cnt: number }>(
+          `SELECT COUNT(*) as cnt FROM users WHERE is_demo = 1 AND created_at > ?`,
+          [cutoff]
+        );
+        if (globalCount && globalCount.cnt >= DEMO_GLOBAL_RATE_LIMIT) {
+          return reply
+            .code(429)
+            .send({ error: 'Too many demo accounts created. Try again shortly.' });
+        }
+      }
+
       const adj =
         DEMO_ADJECTIVES[Math.floor(Math.random() * DEMO_ADJECTIVES.length)]!;
       const noun = DEMO_NOUNS[Math.floor(Math.random() * DEMO_NOUNS.length)]!;

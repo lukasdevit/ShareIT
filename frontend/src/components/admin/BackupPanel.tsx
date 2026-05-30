@@ -80,6 +80,8 @@ function BackupOverview({
     results: { label: string; ok: boolean; error?: string }[];
   } | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [scheduleHours, setScheduleHours] = useState('6');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
 
   const fetchHistory = useCallback(() => {
     setLoading(true);
@@ -92,6 +94,11 @@ function BackupOverview({
 
   useEffect(() => {
     fetchHistory();
+    // Fetch current backup schedule
+    apiFetch('/admin/backup/schedule')
+      .then((r) => r.json())
+      .then((d) => setScheduleHours(String(d.backup_schedule_hours ?? 6)))
+      .catch(() => {});
   }, [fetchHistory]);
 
   async function runBackupNow() {
@@ -126,6 +133,23 @@ function BackupOverview({
       /* */
     }
     setDownloading(false);
+  }
+
+  async function saveSchedule() {
+    setScheduleSaving(true);
+    try {
+      const r = await apiFetch('/admin/backup/schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_schedule_hours: parseInt(scheduleHours, 10) }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      toast('Backup schedule updated', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'err');
+    } finally {
+      setScheduleSaving(false);
+    }
   }
 
   const lastOk = logs.find((l) => l.status === 'ok');
@@ -182,6 +206,31 @@ function BackupOverview({
           ))}
         </div>
       )}
+
+      {/* Backup schedule config */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+        <label htmlFor="backup-schedule" className="text-xs text-zinc-400 whitespace-nowrap">
+          ⏱ Schedule (hours)
+        </label>
+        <input
+          id="backup-schedule"
+          type="number"
+          min="1"
+          max="168"
+          value={scheduleHours}
+          onChange={(e) => setScheduleHours(e.target.value)}
+          className="w-20 px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+        />
+        <button
+          type="button"
+          onClick={saveSchedule}
+          disabled={scheduleSaving}
+          className="btn-green text-xs"
+        >
+          {scheduleSaving ? 'Saving…' : 'Save'}
+        </button>
+        <span className="text-xs text-zinc-600">1–168 hours</span>
+      </div>
 
       <div className="flex gap-4 text-xs text-zinc-500">
         {lastOk && (

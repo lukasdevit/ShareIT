@@ -1,4 +1,6 @@
 import fs from 'fs';
+import { Writable } from 'stream';
+import pino from 'pino';
 
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
@@ -30,19 +32,55 @@ export interface AppOptions {
   logger?: boolean;
 }
 
-export async function buildApp(opts: AppOptions = {}) {
-  const app = Fastify({
-    logger: opts.logger
-      ? LOG_PRETTY
-        ? {
-            transport: {
-              target: 'pino-pretty',
-              options: { colorize: true, translateTime: 'HH:MM:ss' },
-            },
-          }
-        : true
-      : false,
+/** Writable stream that pipes pino JSON lines into the admin log ring buffer. */
+function createAdminLogStream(): Writable {
+  return new Writable({
+    write(chunk: unknown, _encoding, callback) {
+      try {
+        const entry = JSON.parse(
+          typeof chunk === 'string' ? chunk : (chunk as Buffer).toString()
+        ) as Record<string, unknown>;
+        const level = (entry.level as number) ?? 30;
+        const LEVEL_LABELS: Record<number, string> = {
+          10: 'trace', 20: 'debug', 30: 'info',
+          40: 'warn', 50: 'error', 60: 'fatal',
+        };
+        writeLog({
+          time: (entry.time as string) || new Date().toISOString(),
+          level,
+          levelName: LEVEL_LABELS[level] || 'info',
+          msg: (entry.msg as string) || '',
+          err: entry.err,
+        });
+      } catch {
+        /* malformed JSON line — skip */
+      }
+      callback();
+    },
   });
+}
+
+export async function buildApp(opts: AppOptions = {}) {
+  const app = Fastify({ logger: opts.logger ? {} : false });
+
+  // Replace Fastify's default pino logger with a multistream that also
+  // writes to the admin panel ring buffer (in addition to stdout/pretty).
+  if (opts.logger) {
+    const streams: { stream: Writable; level?: number }[] = [
+      { stream: createAdminLogStream() },
+    ];
+    if (LOG_PRETTY) {
+      streams.unshift({
+        stream: pino.transport({
+          target: 'pino-pretty',
+          options: { colorize: true, translateTime: 'HH:MM:ss' },
+        }),
+      });
+    } else {
+      streams.unshift({ stream: process.stdout as unknown as Writable });
+    }
+    app.log = pino({}, pino.multistream(streams));
+  }
 
   if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -152,11 +190,12 @@ export async function buildApp(opts: AppOptions = {}) {
   // Run DB schema migrations (must complete before any queries)
   await runMigrations();
 
+  // Start periodic demo user cleanup BEFORE scanner init — scanner may hang
+  // if ClamAV socket is unreachable, and cleanup must not be blocked.
+  startDemoCleanup(app.log);
+
   // Note: scanner init is skipped in tests automatically (ClamAV not available)
   await initScanner();
-
-  // Start periodic demo user cleanup
-  startDemoCleanup(app.log);
 
   return app;
 }

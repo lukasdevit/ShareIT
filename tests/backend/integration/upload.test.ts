@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest from 'supertest';
+import path from 'path';
+import fs from 'fs';
 import { buildApp } from '../../../src/app.js';
-import { closeDb } from '../../../src/db/index.js';
+import { closeDb, dbRun } from '../../../src/db/index.js';
 import type { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
@@ -53,5 +55,39 @@ describe('GET /sharex/config', () => {
     expect(res.body).toHaveProperty('Name');
     expect(res.body).toHaveProperty('DestinationType');
     expect(res.body.RequestURL).toContain('/sharex/upload');
+  });
+});
+
+describe('Global storage limit (507)', () => {
+  let token: string;
+
+  beforeAll(async () => {
+    const r = await request
+      .post('/auth/register')
+      .send({ username: 'storagelimiter', password: 'testpass123' });
+    token = r.body.token;
+
+    // Set global storage limit to 1 byte (effectively blocks all uploads)
+    await dbRun(
+      `INSERT INTO settings (key, value) VALUES ('total_storage_limit', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    );
+  });
+
+  afterAll(async () => {
+    await dbRun(`DELETE FROM settings WHERE key = 'total_storage_limit'`);
+  });
+
+  it('rejects upload when global storage limit is exceeded', async () => {
+    const tmpFile = path.join('/tmp', 'shareit-test-small.txt');
+    fs.writeFileSync(tmpFile, Buffer.alloc(100));
+
+    const res = await request
+      .post('/upload')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', tmpFile)
+      .expect(507);
+
+    expect(res.body.error).toContain('Server storage limit');
+    fs.unlinkSync(tmpFile);
   });
 });

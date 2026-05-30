@@ -5,7 +5,8 @@ import { pipeline } from 'stream/promises';
 
 import { nanoid } from 'nanoid';
 import { dbGet, dbRun } from '../db/index.js';
-import { ALLOWED_MIME_TYPES, BASE_URL, isB2Enabled } from '../config/index.js';
+import { BASE_URL, isB2Enabled, getTotalStorageLimit } from '../config/index.js';
+import {ALLOWED_MIME_TYPES} from '../config/allowed-files.js';
 import { scanFile } from './scanService.js';
 import { getStorage, buildStorageKey } from './storage/index.js';
 import { formatBytes } from '../utils/index.js';
@@ -39,7 +40,24 @@ export async function saveFile(
   await pipeline(fileStream, fs.createWriteStream(tmpPath));
   const stats = fs.statSync(tmpPath);
 
-  // Check storage quota
+  // Check global app-wide storage limit
+  const totalLimit = await getTotalStorageLimit();
+  if (totalLimit > 0) {
+    const row = await dbGet<{ total: number }>(
+      `SELECT COALESCE(SUM(size), 0) AS total FROM files`
+    );
+    if ((row?.total ?? 0) + stats.size > totalLimit) {
+      fs.unlinkSync(tmpPath);
+      throw Object.assign(
+        new Error(
+          `Server storage limit reached. Contact the administrator.`
+        ),
+        { statusCode: 507 }
+      );
+    }
+  }
+
+  // Check per-user storage quota
   if (userId) {
     const quota = await getUserQuota(userId);
     if (quota.used + stats.size > quota.limit) {

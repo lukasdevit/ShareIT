@@ -388,3 +388,53 @@ describe('GET /health', () => {
     expect(res.body).toHaveProperty('timestamp');
   });
 });
+
+describe('POST /auth/demo', () => {
+  it('creates a demo account and returns token', async () => {
+    const res = await request
+      .post('/auth/demo')
+      .expect(200);
+
+    expect(res.body).toHaveProperty('token');
+    expect(res.body.user).toHaveProperty('username');
+    expect(res.body.user.isDemo).toBe(true);
+    expect(res.body.user.isAdmin).toBe(false);
+  });
+
+  it('creates unique demo usernames each time', async () => {
+    const a = await request.post('/auth/demo').expect(200);
+    const b = await request.post('/auth/demo').expect(200);
+
+    expect(a.body.user.username).not.toBe(b.body.user.username);
+  });
+});
+
+describe('POST /auth/demo-session', () => {
+  let demoToken: string;
+
+  beforeAll(async () => {
+    const r = await request.post('/auth/demo').expect(200);
+    demoToken = r.body.token;
+  });
+
+  it('ends demo session and deletes the user', async () => {
+    const res = await request
+      .post('/auth/demo-session')
+      .set('Authorization', `Bearer ${demoToken}`)
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+  });
+
+  it('rejects ending session for non-demo user', async () => {
+    const reg = await request
+      .post('/auth/register')
+      .send({ username: 'notademo', password: 'testpass123' });
+    const regularToken = reg.body.token;
+
+    await request
+      .post('/auth/demo-session')
+      .set('Authorization', `Bearer ${regularToken}`)
+      .expect(403);
+  });
+});

@@ -87,3 +87,70 @@ describe('DELETE /admin/backup/delete', () => {
       .expect(404);
   });
 });
+
+describe('GET /admin/backup/schedule', () => {
+  it('returns backup schedule hours', async () => {
+    const res = await request
+      .get('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty('backup_schedule_hours');
+    expect(typeof res.body.backup_schedule_hours).toBe('number');
+    expect(res.body.backup_schedule_hours).toBeGreaterThanOrEqual(1);
+  });
+
+  it('rejects non-admin', async () => {
+    await request
+      .get('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+  });
+});
+
+describe('PATCH /admin/backup/schedule', () => {
+  it('updates backup schedule hours', async () => {
+    const res = await request
+      .patch('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ backup_schedule_hours: 12 })
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+    expect(res.body.backup_schedule_hours).toBe(12);
+  });
+
+  it('rejects invalid value (too low)', async () => {
+    await request
+      .patch('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ backup_schedule_hours: 0 })
+      .expect(400);
+  });
+
+  it('rejects invalid value (too high)', async () => {
+    await request
+      .patch('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ backup_schedule_hours: 1000 })
+      .expect(400);
+  });
+
+  it('rejects non-admin', async () => {
+    await request
+      .patch('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ backup_schedule_hours: 12 })
+      .expect(403);
+  });
+
+  it('restores default schedule', async () => {
+    const res = await request
+      .patch('/admin/backup/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ backup_schedule_hours: 6 })
+      .expect(200);
+
+    expect(res.body.backup_schedule_hours).toBe(6);
+  });
+});
