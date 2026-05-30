@@ -130,7 +130,7 @@ export function FilesPanel() {
         {/* Tabs + Search */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
-            {(['all', 'images', 'audio', 'video', 'files'] as FilesViewMode[]).map(m => (
+            {(['all', 'images', 'audio', 'video', 'file'] as FilesViewMode[]).map(m => (
               <button
                 type="button" key={m}
                 onClick={() => setFilesViewMode(m)}
