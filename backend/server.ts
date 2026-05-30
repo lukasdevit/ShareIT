@@ -26,19 +26,21 @@ async function runBackup() {
     keyPrefix?: string;
     label?: string;
     keep?: number;
-  }[] = [
-    {
-      provider: new LocalStorage(),
-      keyPrefix: 'backups',
-      label: 'local',
-      keep: 7,
-    },
-  ];
+  }[] = [];
+
   if (await isB2Enabled()) {
     destinations.push({
       provider: new B2Storage(),
       keyPrefix: 'backups/db',
       label: 'b2',
+      keep: 7,
+    });
+  } else {
+    destinations.push({
+      provider: new LocalStorage(),
+      keyPrefix: 'backups',
+      label: 'local',
+      keep: 7,
     });
   }
   await backupDatabase(app.log, ...destinations);
