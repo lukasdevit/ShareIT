@@ -2,21 +2,20 @@
   "name": "shareit",
   "type": "module",
   "version": "1.0.0",
-  "description": "Custom file viewer and uploader.",
-  "main": "index.js",
+  "description": "Self-hosted file sharing app — upload, share, manage.",
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
-    "test:watch": "vitest",
-    "test:admin": "vitest run tests/backend/admin",
-    "test:integration": "vitest run tests/backend/integration",
     "test:frontend": "cd frontend && npm run test",
     "test:coverage": "vitest run --coverage",
     "release": "semantic-release",
-    "dev": "B2_ENABLED=false tsx watch --env-file=.env backend/server.ts",
-    "dev:all": "B2_ENABLED=false concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\"",
+    "dev": "tsx watch --env-file=.env backend/server.ts",
+    "dev:all": "concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\"",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "repository": {
     "type": "git",

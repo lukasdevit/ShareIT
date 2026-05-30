@@ -13,8 +13,8 @@ Think of it as your personal Imgur or Dropbox — but you own the data.
 
 ## What can it do?
 
-- **Drag & drop to upload** — throw files at it, it just works. Multiple at once, even big ones (up to 1 GB per file).
-- **ShareX ready** — one click to generate a ShareX config, then screenshot and upload without thinking about it.
+- **Drag & drop to upload** — small files go in one request, big files are automatically split into chunks. The only limit is your storage quota.
+- **ShareX ready** — one click to generate a ShareX config, then screenshot and upload. Files up to ~100 MB work via ShareX; bigger files use the web app's chunked upload.
 - **Public or private files** — keep stuff to yourself or share a link with anyone.
 - **Auto-expiring uploads** — set files to disappear after a few days if you want.
 - **Image gallery & file previews** — browse images in a lightbox, preview markdown and text files right in the browser.
@@ -44,14 +44,21 @@ cp .env.example .env   # fill in your secrets
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-That's it. The frontend will be at [localhost:3001](http://localhost:3001), the API at [localhost:3000](http://localhost:3000). Dev mode gives you hot reload on both.
+The frontend will be at [localhost:3001](http://localhost:3001), API at [localhost:3000](http://localhost:3000). Hot reload on both.
 
-For production, just use `docker compose up -d` instead, and make sure to:
-- Change the default admin password
-- Drop your TLS certs into `caddy/certs/`
-- Review the rate limits and backup schedule in `.env`
+**Local dev without Docker:**
+```bash
+npm run dev          # backend only (localhost:3000)
+npm run dev:all      # backend + frontend
+npm test             # all tests
+```
 
-Push to `main` and CI/CD takes over — tests run, a release gets tagged, and it deploys automatically.
+**Production:** `docker compose up -d`. Before deploying:
+- Change the default admin password in `.env`
+- Set `DOMAIN` to your real domain for HTTPS via Caddy
+- Configure storage backend via Admin Panel → Storage (local or B2)
+
+Push to `main` and CI/CD runs tests, tags a release, and deploys.
 
 ---
 

@@ -24,6 +24,7 @@ services:
     build:
       context: ./frontend
       args:
+        # Empty = use relative URLs (same domain, Caddy proxies /api/* to backend)
         NEXT_PUBLIC_API_URL: ''
     restart: unless-stopped
     deploy:
