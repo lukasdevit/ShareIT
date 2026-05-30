@@ -14,7 +14,8 @@ import { requireAuth } from '../../middleware/index.js';
 import { getS3Client, getBucket } from '../../services/storage/s3-client.js';
 import { sanitizeFilename, validateFile } from '../../services/fileService.js';
 import { buildStorageKey } from '../../services/storage/index.js';
-import { dbRun } from '../../db/index.js';
+import { dbRun, dbGet } from '../../db/index.js';
+import { getTotalStorageLimit } from '../../config/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
 
@@ -44,6 +45,19 @@ export async function s3UploadRoutes(app: FastifyInstance) {
       const validationError = validateFile(body.mimeType, originalName);
       if (validationError) {
         return reply.code(415).send({ error: validationError });
+      }
+
+      // Check global app-wide storage limit
+      const totalLimit = await getTotalStorageLimit();
+      if (totalLimit > 0) {
+        const row = await dbGet<{ total: number }>(
+          `SELECT COALESCE(SUM(size), 0) AS total FROM files`
+        );
+        if ((row?.total ?? 0) >= totalLimit) {
+          return reply
+            .code(507)
+            .send({ error: 'Server storage limit reached. Contact the administrator.' });
+        }
       }
 
       const id = nanoid(10);

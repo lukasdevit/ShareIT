@@ -31,67 +31,24 @@ export const AUTH_RATE_WINDOW_MS = 60_000;
 
 // ── Login lockout ──
 export const MAX_FAILED_LOGINS = 5;
-export const LOCKOUT_MINUTES = 15;
+export const LOCKOUT_MINUTES = 1;
 
 // ── Storage ──
-export const DEFAULT_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB
+export const DEFAULT_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB per user
+export async function getTotalStorageLimit(): Promise<number> {
+  const db = await loadDbSettings();
+  const raw = db['total_storage_limit'] || '0';
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0; // 0 = unlimited
+}
 
 // ── Demo users ──
 export const DEMO_STORAGE_LIMIT = 100 * 1024 * 1024; // 100 MB
 export const DEMO_CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 export const DEMO_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
-
-// ── File serving ──
-export const FILE_CACHE_MAX_AGE = 31536000; // 1 year
-
-// ── Allowed upload MIME types ──
-export const ALLOWED_MIME_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'image/bmp',
-  'image/tiff',
-  'application/pdf',
-  'application/json',
-  'text/plain',
-  'text/csv',
-  'text/markdown',
-  'text/html',
-  'text/css',
-  'text/xml',
-  'application/xml',
-  'text/javascript',
-  'application/javascript',
-  'text/typescript',
-  'text/x-python',
-  'text/x-java',
-  'text/x-c',
-  'text/x-c++',
-  'text/x-shellscript',
-  'text/x-yaml',
-  'application/x-yaml',
-  'application/x-tar',
-  'application/zip',
-  'application/gzip',
-  'application/x-7z-compressed',
-  'application/x-rar-compressed',
-  'application/octet-stream',
-  'application/x-msdownload',
-  'application/x-msdos-program',
-  'audio/mpeg',
-  'audio/ogg',
-  'audio/wav',
-  'audio/webm',
-  'video/mp4',
-  'video/webm',
-  'video/ogg',
-  'font/ttf',
-  'font/otf',
-  'font/woff',
-  'font/woff2',
-];
+export const DEMO_GLOBAL_RATE_LIMIT = 10; // max demo creations per minute (global)
+export const DEMO_IP_RATE_LIMIT = 2; // max demo creations per minute per IP
+export const DEMO_RATE_WINDOW_MS = 60_000; // 1 minute
 
 // Lazy-loaded from DB (admin panel overrides)
 let _dbSettings: Record<string, string> | null = null;
@@ -156,7 +113,11 @@ export const DB_PATH =
   process.env.DB_PATH || path.join(process.cwd(), 'database.db');
 
 // ── DB Backups ──
-export const BACKUP_SCHEDULE_HOURS =
-  parseInt(process.env.BACKUP_SCHEDULE_HOURS || '6', 10) || 6;
+export async function getBackupScheduleHours(): Promise<number> {
+  const db = await loadDbSettings();
+  const raw = db['backup_schedule_hours'] || '6';
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 6;
+}
 export const BACKUP_RETRY_MAX = 3;
 export const BACKUP_RETRY_BASE_MS = 1000;

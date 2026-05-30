@@ -53,6 +53,8 @@ export async function adminStorageRoutes(app: FastifyInstance) {
       const config: Record<string, unknown> = {
         backend: overrides.backend || (await isB2Enabled() ? 'b2' : 'local'),
         default_storage_limit: DEFAULT_STORAGE_LIMIT,
+        total_storage_limit:
+          parseInt(overrides.total_storage_limit || '0', 10) || 0,
       };
 
       if (config.backend === 'b2') {
@@ -119,6 +121,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         'backend',
         'registrations_open',
         's3_upload_enabled',
+        'total_storage_limit',
       ];
       const updates: [string, string][] = [];
 

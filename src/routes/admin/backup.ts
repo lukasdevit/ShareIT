@@ -2,11 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 
-import { dbAll, backupDatabase } from '../../db/index.js';
+import { dbAll, dbGet, dbRun, backupDatabase } from '../../db/index.js';
 import { LocalStorage } from '../../services/storage/local.js';
 import { B2Storage } from '../../services/storage/b2.js';
 import type { StorageProvider } from '../../services/storage/types.js';
-import { isB2Enabled } from '../../config/index.js';
+import { isB2Enabled, clearConfigCache } from '../../config/index.js';
 import { recordAction } from './actions.js';
 
 export async function adminBackupRoutes(app: FastifyInstance) {
@@ -87,5 +87,44 @@ export async function adminBackupRoutes(app: FastifyInstance) {
     }>(`SELECT * FROM backup_logs ORDER BY id DESC LIMIT 50`);
 
     return reply.send({ backups: rows });
+  });
+
+  // Get backup schedule config
+  app.get('/admin/backup/schedule', async (_request, reply) => {
+    const row = await dbGet<{ value: string }>(
+      `SELECT value FROM settings WHERE key = 'backup_schedule_hours'`
+    );
+    const hours = parseInt(row?.value || '6', 10) || 6;
+    return reply.send({ backup_schedule_hours: hours });
+  });
+
+  // Update backup schedule config
+  app.patch('/admin/backup/schedule', async (request, reply) => {
+    const { backup_schedule_hours } = request.body as {
+      backup_schedule_hours?: number;
+    };
+    if (
+      typeof backup_schedule_hours !== 'number' ||
+      backup_schedule_hours < 1 ||
+      backup_schedule_hours > 168
+    ) {
+      return reply
+        .code(400)
+        .send({ error: 'backup_schedule_hours must be a number between 1 and 168' });
+    }
+    await dbRun(
+      `INSERT INTO settings (key, value) VALUES ('backup_schedule_hours', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [String(backup_schedule_hours)]
+    );
+    clearConfigCache();
+    if (request.user?.username) {
+      await recordAction(
+        request.user!.username,
+        'backup-schedule',
+        `Updated backup schedule to ${backup_schedule_hours}h`,
+        { backup_schedule_hours }
+      );
+    }
+    return reply.send({ ok: true, backup_schedule_hours });
   });
 }

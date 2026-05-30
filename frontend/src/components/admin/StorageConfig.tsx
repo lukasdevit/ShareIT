@@ -12,6 +12,7 @@ interface Props {
 interface StorageData {
   backend: string;
   default_storage_limit: number;
+  total_storage_limit: number;
   b2_endpoint?: string;
   b2_region?: string;
   b2_bucket?: string;
@@ -67,6 +68,7 @@ export function StorageConfig({ apiFetch }: Props) {
         setData(d);
         setForm((prev) => ({
           backend: d.backend || 'local',
+          total_storage_limit: String(d.total_storage_limit ?? 0),
           b2_endpoint: d.b2_endpoint || '',
           b2_region: d.b2_region || '',
           b2_bucket: d.b2_bucket || '',
@@ -197,6 +199,23 @@ export function StorageConfig({ apiFetch }: Props) {
               </div>
             </div>
           )}
+          <div>
+            <label htmlFor="total-storage-limit" className="block text-xs text-zinc-500 mb-1">
+              Total App Storage Limit (bytes, 0 = unlimited)
+            </label>
+            <input
+              id="total-storage-limit"
+              type="number"
+              min="0"
+              value={form.total_storage_limit || '0'}
+              onChange={(e) => setForm({ ...form, total_storage_limit: e.target.value })}
+              className="w-full sm:w-64 px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500 font-mono"
+            />
+            <p className="text-xs text-zinc-600 mt-1">
+              0 = unlimited. Current usage shown in the metrics above.
+            </p>
+          </div>
+
           <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
             <div>
               <span className="text-sm font-medium text-zinc-200">
