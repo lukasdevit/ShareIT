@@ -1,4 +1,4 @@
-import { getStorageBackend, getStoragePrefix } from '../../config/index.js';
+import { getStorageBackend, getStoragePath } from '../../config/index.js';
 import { LocalStorage } from './local.js';
 import { B2Storage } from './b2/index.js';
 import type { StorageProvider } from './types.js';
@@ -13,16 +13,26 @@ const PROVIDERS: Record<string, () => StorageProvider> = {
   // s3: () => new S3Storage(),  // future
 };
 
+/** Resolve a fresh StorageProvider for a given backend name. */
+export function resolveProvider(backend: string): StorageProvider {
+  const factory = PROVIDERS[backend];
+  if (!factory) throw new Error(`Unknown storage backend: ${backend}`);
+  return factory();
+}
+
 // ── Singleton ──
 
 let _storage: StorageProvider;
 
 export async function getStorage(): Promise<StorageProvider> {
   if (!_storage) {
-    const backend = await getStorageBackend();
-    const factory = PROVIDERS[backend];
-    if (!factory) throw new Error(`Unknown storage backend: ${backend}`);
-    _storage = factory();
+    const [backend, configuredPath] = await Promise.all([
+      getStorageBackend(),
+      getStoragePath(),
+    ]);
+    _storage = configuredPath && backend === 'local'
+      ? new LocalStorage(configuredPath)
+      : PROVIDERS[backend]?.() ?? (() => { throw new Error(`Unknown storage backend: ${backend}`); })();
     console.warn(`Storage: ${backend}`);
   }
   return _storage;
@@ -31,7 +41,7 @@ export async function getStorage(): Promise<StorageProvider> {
 // ── Helper ──
 
 export async function buildStorageKey(userId: number, filename: string): Promise<string> {
-  const prefix = await getStoragePrefix();
+  const prefix = await getStoragePath();
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');

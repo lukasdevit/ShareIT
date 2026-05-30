@@ -3,8 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { backupDatabase } from '../../db/index.js';
-import { LocalStorage } from '../../services/storage/local.js';
-import { B2Storage } from '../../services/storage/b2/index.js';
+import { resolveProvider } from '../../services/storage/index.js';
 import type { StorageProvider } from '../../services/storage/types.js';
 import { getStorageBackend, clearConfigCache } from '../../config/index.js';
 import { recordAction } from '../../services/actionLogService.js';
@@ -14,26 +13,15 @@ import { listBackupHistory } from '../../repositories/backupRepository.js';
 export async function adminBackupRoutes(app: FastifyInstance) {
   // Trigger a backup now
   app.post('/admin/backup/run', async (request, reply) => {
-    const destinations: {
-      provider: StorageProvider;
-      keyPrefix?: string;
-      label?: string;
-      keep?: number;
-    }[] = [
+    const backend = await getStorageBackend();
+    const destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; keep?: number }[] = [
       {
-        provider: new LocalStorage(),
+        provider: resolveProvider(backend),
         keyPrefix: 'backups',
-        label: 'local',
+        label: backend,
         keep: 7,
       },
     ];
-    if ((await getStorageBackend()) === 'b2') {
-      destinations.push({
-        provider: new B2Storage(),
-        keyPrefix: 'backups/db',
-        label: 'b2',
-      });
-    }
 
     const result = await backupDatabase(app.log, ...destinations);
     if (request.user?.username) {

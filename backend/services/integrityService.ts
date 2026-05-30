@@ -1,8 +1,8 @@
-import fs from 'fs';
 import path from 'path';
-import { UPLOAD_DIR, getStorageBackend } from '../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../config/index.js';
+import { LocalStorage } from './storage/local.js';
 import { B2Storage } from './storage/b2/index.js';
-import { deleteFromStorage } from '../utils/index.js';
+import type { StorageProvider } from './storage/types.js';
 import { recordAction } from './actionLogService.js';
 import {
   insertCheck,
@@ -15,59 +15,26 @@ import {
   findOrphanedIssue,
 } from '../repositories/integrityRepository.js';
 import { insertFile, updateFilePathAndUser } from '../repositories/fileRepository.js';
+import {
+  scanDirectory,
+  toRelativePath,
+  extractUserIdFromPath,
+  getMimeType,
+  cleanEmptyDirs,
+  statFile,
+  moveFile,
+} from './fileSystemAdapter.js';
 
-// ── Disk scanning helpers ──
+// ── Storage providers ──
 
-export function getAllDiskFiles(
-  dir: string,
-  baseDir: string,
-  files: Map<string, string>
-): void {
-  if (!fs.existsSync(dir)) return;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      getAllDiskFiles(full, baseDir, files);
-    } else {
-      files.set(path.relative(baseDir, full), full);
-    }
-  }
-}
+const local: StorageProvider = new LocalStorage();
+// B2 is lazily created only when needed (avoids import overhead when B2 not configured)
 
-export function resolvePath(p: string): string {
-  return p.startsWith(UPLOAD_DIR) ? path.relative(UPLOAD_DIR, p) : p;
-}
-
-export function extractUserIdFromPath(diskPath: string): number | null {
-  const parts = diskPath.replace(/^share[\\/]/, '').split(path.sep);
-  const first = parts[0];
-  if (first && /^\d+$/.test(first)) return parseInt(first, 10);
-  return null;
-}
-
-export function getMimeType(filepath: string): string {
-  const ext = path.extname(filepath).toLowerCase();
-  const map: Record<string, string> = {
-    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
-    '.pdf': 'application/pdf', '.json': 'application/json', '.txt': 'text/plain',
-    '.csv': 'text/csv', '.md': 'text/markdown', '.html': 'text/html',
-    '.css': 'text/css', '.xml': 'text/xml', '.js': 'application/javascript',
-    '.ts': 'text/typescript', '.zip': 'application/zip', '.gz': 'application/gzip',
-    '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
-    '.ogg': 'audio/ogg', '.wav': 'audio/wav',
-  };
-  return map[ext] || 'application/octet-stream';
-}
-
-function cleanEmptyDirs(absPath: string): void {
-  let dir = path.dirname(absPath);
-  while (dir !== UPLOAD_DIR && dir !== path.join(UPLOAD_DIR, 'share')) {
-    try {
-      if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
-      else break;
-    } catch { break; }
-    dir = path.dirname(dir);
+function getB2Provider(): StorageProvider | null {
+  try {
+    return new B2Storage();
+  } catch {
+    return null;
   }
 }
 
@@ -82,45 +49,46 @@ export async function runIntegrityCheck(
   const b2DbFiles = dbFiles.filter((f) => f.storage_backend === 'b2');
 
   const dbByPath = new Map<string, (typeof dbFiles)[0]>();
-  for (const f of localDbFiles) dbByPath.set(resolvePath(f.path), f);
+  for (const f of localDbFiles) dbByPath.set(toRelativePath(f.path), f);
 
+  // Scan disk
   const diskFiles = new Map<string, string>();
   const scanDir = userId
-    ? path.join(UPLOAD_DIR, 'share', String(userId))
-    : path.join(UPLOAD_DIR, 'share');
-  if (fs.existsSync(scanDir)) getAllDiskFiles(scanDir, UPLOAD_DIR, diskFiles);
+    ? path.join(DEFAULT_UPLOAD_DIR, 'share', String(userId))
+    : path.join(DEFAULT_UPLOAD_DIR, 'share');
+  scanDirectory(scanDir, DEFAULT_UPLOAD_DIR, diskFiles);
 
   const insertRows: (string | number | null)[][] = [];
 
-  // Check local files against disk
+  // Compare local DB entries against local disk
   for (const [relPath, dbFile] of dbByPath) {
-    const absPath = path.join(UPLOAD_DIR, relPath);
-    if (!fs.existsSync(absPath)) {
+    const absPath = path.join(DEFAULT_UPLOAD_DIR, relPath);
+    const stat = statFile(absPath);
+    if (!stat) {
       insertRows.push(['missing-file', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, null, dbFile.size, null]);
-    } else {
-      const diskSize = fs.statSync(absPath).size;
-      if (diskSize !== dbFile.size) {
-        insertRows.push(['size-mismatch', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, relPath, dbFile.size, diskSize]);
-      }
+    } else if (stat.size !== dbFile.size) {
+      insertRows.push(['size-mismatch', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, relPath, dbFile.size, stat.size]);
     }
   }
 
-  // Check B2 files
-  if ((await getStorageBackend()) === 'b2' && b2DbFiles.length > 0) {
-    const b2 = new B2Storage();
-    for (const dbFile of b2DbFiles) {
-      try {
-        const b2Size = await b2.size(dbFile.path);
-        if (b2Size !== dbFile.size) {
-          insertRows.push(['size-mismatch', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, dbFile.path, dbFile.size, b2Size]);
+  // Compare B2 DB entries against B2 storage
+  if (b2DbFiles.length > 0) {
+    const b2 = getB2Provider();
+    if (b2) {
+      for (const dbFile of b2DbFiles) {
+        try {
+          const b2Size = await b2.size(dbFile.path);
+          if (b2Size !== dbFile.size) {
+            insertRows.push(['size-mismatch', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, dbFile.path, dbFile.size, b2Size]);
+          }
+        } catch {
+          insertRows.push(['missing-file', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, null, dbFile.size, null]);
         }
-      } catch {
-        insertRows.push(['missing-file', dbFile.id, dbFile.filename, dbFile.original_name, dbFile.user_id, null, dbFile.size, null]);
       }
     }
   }
 
-  // Find orphaned files on disk
+  // Find orphaned files on disk (not in DB)
   for (const [relPath] of diskFiles) {
     if (!dbByPath.has(relPath)) {
       insertRows.push(['orphaned-file', null, null, null, null, relPath, null, null]);
@@ -157,9 +125,9 @@ export async function resolveSingleIssue(
       await recordAction(username, 'delete-db', `Deleted file row #${issue.file_id}`, row as Record<string, unknown>);
     }
   } else if (action === 'delete-file' && issue.disk_path) {
-    await deleteFromStorage(issue.disk_path);
-    const absPath = path.join(UPLOAD_DIR, issue.disk_path);
-    if (fs.existsSync(absPath)) cleanEmptyDirs(absPath);
+    await local.delete(issue.disk_path).catch(() => {});
+    const absPath = path.join(DEFAULT_UPLOAD_DIR, issue.disk_path);
+    cleanEmptyDirs(absPath);
     if (username) {
       await recordAction(username, 'delete-file', `Deleted file: ${issue.disk_path}`, { diskPath: issue.disk_path });
     }
@@ -183,10 +151,10 @@ export async function importOrphanedFiles(
     const issue = await findOrphanedIssue(checkId, issueId);
     if (!issue || issue.resolved) continue;
 
-    const absPath = path.join(UPLOAD_DIR, issue.disk_path);
-    if (!fs.existsSync(absPath)) continue;
+    const absPath = path.join(DEFAULT_UPLOAD_DIR, issue.disk_path);
+    const stat = statFile(absPath);
+    if (!stat) continue;
 
-    const stat = fs.statSync(absPath);
     const diskName = path.basename(issue.disk_path);
     const ext = path.extname(diskName);
     const base = path.basename(diskName, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
@@ -221,14 +189,13 @@ export async function importOrphanedFiles(
 
 // ── Migration ──
 
-/** Migrate a single file from one user to another on disk + in DB. */
 export async function migrateFile(
   relPath: string,
   toUserId: number,
   username?: string
 ): Promise<string> {
-  const absSrc = path.join(UPLOAD_DIR, relPath);
-  if (!fs.existsSync(absSrc)) throw new Error('File not found');
+  const absSrc = path.join(DEFAULT_UPLOAD_DIR, relPath);
+  if (!statFile(absSrc)) throw new Error('File not found');
 
   const fromUserId = extractUserIdFromPath(relPath);
   if (fromUserId === null) throw new Error('Could not determine source user');
@@ -237,12 +204,9 @@ export async function migrateFile(
   const parts = relPath.split(path.sep);
   parts[0] = String(toUserId);
   const destRel = parts.join(path.sep);
-  const absDest = path.join(UPLOAD_DIR, destRel);
+  const absDest = path.join(DEFAULT_UPLOAD_DIR, destRel);
 
-  const destDir = path.dirname(absDest);
-  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-
-  fs.renameSync(absSrc, absDest);
+  moveFile(absSrc, absDest);
   await updateFilePathAndUser(absSrc, absDest, toUserId);
 
   if (username) {

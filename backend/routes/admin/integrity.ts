@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
-import { UPLOAD_DIR } from '../../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
 import { findIdByUsername } from '../../repositories/userRepository.js';
 import {
   listChecks,
@@ -11,12 +11,12 @@ import {
   listIssues,
 } from '../../repositories/integrityRepository.js';
 import {
-  getMimeType,
   runIntegrityCheck,
   resolveSingleIssue,
   importOrphanedFiles,
   migrateFile,
 } from '../../services/integrityService.js';
+import { getMimeType } from '../../services/fileSystemAdapter.js';
 
 export async function adminIntegrityRoutes(app: FastifyInstance) {
   // List saved checks
@@ -194,8 +194,8 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     const { path: filePath } = request.query as { path?: string };
     if (!filePath) return reply.code(400).send({ error: 'Missing path parameter' });
 
-    const absPath = path.join(UPLOAD_DIR, filePath);
-    if (!absPath.startsWith(UPLOAD_DIR)) return reply.code(403).send({ error: 'Forbidden' });
+    const absPath = path.join(DEFAULT_UPLOAD_DIR, filePath);
+    if (!absPath.startsWith(DEFAULT_UPLOAD_DIR)) return reply.code(403).send({ error: 'Forbidden' });
     if (!fs.existsSync(absPath)) return reply.code(404).send({ error: 'File not found' });
 
     const mime = getMimeType(filePath);
