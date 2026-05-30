@@ -6,9 +6,9 @@ services:
     environment:
       - DB_PATH=/app/data/database.db
       - B2_ENABLED=false
-    command: npx tsx watch src/server.ts
+    command: npx tsx watch backend/server.ts
     volumes:
-      - ./src:/app/src
+      - ./backend:/app/backend
       - ./package.json:/app/package.json
       - dev_db_data:/app/data
       - dev_uploads:/app/uploads

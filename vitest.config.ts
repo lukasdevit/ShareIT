@@ -4,11 +4,11 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'backend'),
     },
   },
   test: {
-    include: ['tests/backend/**/*.test.ts'],
+    include: ['backend/tests/**/*.test.ts'],
 
     // Use a separate DB for tests so we don't clobber dev data
     env: {
@@ -30,8 +30,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/**/*.ts'],
-      exclude: ['tests/**', 'src/**/*.d.ts'],
+      include: ['backend/**/*.ts'],
+      exclude: ['backend/tests/**', 'backend/**/*.d.ts'],
     },
   },
 });

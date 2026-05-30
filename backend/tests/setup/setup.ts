@@ -1,7 +1,7 @@
 import { beforeAll, afterAll } from 'vitest';
 import supertest from 'supertest';
-import { buildApp } from '../../../src/app.js';
-import { closeDb, db } from '../../../src/db/index.js';
+import { buildApp } from '../../app.js';
+import { closeDb, db } from '../../db/index.js';
 import type { FastifyInstance } from 'fastify';
 
 export let app: FastifyInstance;
