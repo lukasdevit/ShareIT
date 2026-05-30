@@ -174,13 +174,13 @@ export async function adminSslRoutes(app: FastifyInstance) {
     }
 
     const managedBy = isLocal
-      ? 'None (localhost)'
+      ? 'Caddy (self-signed, localhost)'
       : sslActive
         ? "Caddy + Let's Encrypt (auto-renewing)"
         : 'Caddy (no certificate detected)';
 
     const note = isLocal
-      ? 'SSL is not available on localhost. Deploy with a real domain to get automatic HTTPS.'
+      ? 'Caddy auto-generates a self-signed certificate for localhost. Browsers will show a security warning — this is normal for local development.'
       : sslActive
         ? 'Caddy automatically obtains and renews SSL certificates. No manual configuration needed.'
         : 'Caddy is configured but no SSL certificate was detected. Check that port 443 is reachable and DNS points to this server.';
@@ -194,6 +194,119 @@ export async function adminSslRoutes(app: FastifyInstance) {
       managed_by: managedBy,
       note,
     });
+  });
+
+  // Upload custom SSL certificate
+  app.post('/admin/ssl/cert', async (request, reply) => {
+    const { cert, key } = (request.body || {}) as {
+      cert?: string;
+      key?: string;
+    };
+    if (!cert || !key) {
+      return reply.code(400).send({ error: 'Both cert and key PEM are required' });
+    }
+    if (!cert.includes('BEGIN CERTIFICATE') || !key.includes('BEGIN')) {
+      return reply
+        .code(400)
+        .send({ error: 'Invalid PEM format. Must include BEGIN/END markers.' });
+    }
+
+    const certsDir = path.join(process.cwd(), 'caddy', 'certs');
+    fs.mkdirSync(certsDir, { recursive: true });
+    fs.writeFileSync(path.join(certsDir, 'cert.pem'), cert.trim() + '\n');
+    fs.writeFileSync(path.join(certsDir, 'key.pem'), key.trim() + '\n');
+    fs.writeFileSync(
+      path.join(certsDir, 'custom.caddy'),
+      `tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem\n`
+    );
+
+    // Reload Caddy config via admin API
+    try {
+      await fetch('http://caddy:2019/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/caddyfile' },
+        body: fs.readFileSync(
+          path.join(process.cwd(), 'Caddyfile'),
+          'utf8'
+        ),
+      });
+    } catch {
+      // Caddy admin API not reachable — cert will apply on next restart
+    }
+
+    if (request.user?.username) {
+      await recordAction(
+        request.user!.username,
+        'ssl-cert-upload',
+        'Custom SSL certificate uploaded'
+      );
+    }
+    return reply.send({ ok: true });
+  });
+
+  // Delete custom SSL certificate
+  app.delete('/admin/ssl/cert', async (request, reply) => {
+    const certsDir = path.join(process.cwd(), 'caddy', 'certs');
+    const snippetPath = path.join(certsDir, 'custom.caddy');
+    const hadCert = fs.existsSync(snippetPath);
+
+    try {
+      if (fs.existsSync(path.join(certsDir, 'cert.pem')))
+        fs.unlinkSync(path.join(certsDir, 'cert.pem'));
+      if (fs.existsSync(path.join(certsDir, 'key.pem')))
+        fs.unlinkSync(path.join(certsDir, 'key.pem'));
+      if (fs.existsSync(snippetPath)) fs.unlinkSync(snippetPath);
+    } catch {
+      return reply.code(500).send({ error: 'Failed to remove cert files' });
+    }
+
+    if (hadCert) {
+      try {
+        await fetch('http://caddy:2019/load', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/caddyfile' },
+          body: fs.readFileSync(
+            path.join(process.cwd(), 'Caddyfile'),
+            'utf8'
+          ),
+        });
+      } catch {
+        /* Caddy reload will apply on restart */
+      }
+    }
+
+    if (request.user?.username) {
+      await recordAction(
+        request.user!.username,
+        'ssl-cert-delete',
+        'Custom SSL certificate removed'
+      );
+    }
+    return reply.send({ ok: true });
+  });
+
+  // Check if custom cert is active
+  app.get('/admin/ssl/cert', async (_request, reply) => {
+    const snippetPath = path.join(process.cwd(), 'caddy', 'certs', 'custom.caddy');
+    const certPath = path.join(process.cwd(), 'caddy', 'certs', 'cert.pem');
+    const hasCustom = fs.existsSync(snippetPath) && fs.existsSync(certPath);
+
+    let expires: string | null = null;
+    if (hasCustom) {
+      try {
+        const { execSync } = await import('child_process');
+        expires = execSync(
+          `openssl x509 -enddate -noout -in "${certPath}" 2>/dev/null`,
+          { encoding: 'utf8', timeout: 3000 }
+        )
+          .trim()
+          .replace('notAfter=', '');
+      } catch {
+        expires = 'Unknown';
+      }
+    }
+
+    return reply.send({ has_custom_cert: hasCustom, cert_expiry: expires });
   });
 }
 
