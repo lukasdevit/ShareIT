@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getS3Client, getBucket } from './client.js';
@@ -99,5 +100,29 @@ export class B2Storage implements StorageProvider {
     } catch {
       return false;
     }
+  }
+
+  async listKeys(prefix: string): Promise<string[]> {
+    const [client, bucket] = await Promise.all([this.s3(), getBucket()]);
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const { Contents, NextContinuationToken } = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        })
+      );
+      if (Contents) {
+        for (const obj of Contents) {
+          if (obj.Key) keys.push(obj.Key);
+        }
+      }
+      continuationToken = NextContinuationToken;
+    } while (continuationToken);
+
+    return keys;
   }
 }

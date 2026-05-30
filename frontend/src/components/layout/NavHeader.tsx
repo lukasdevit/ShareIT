@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useNavigation } from '@/hooks/useNavigation';
+import type { Page } from '@/hooks/useNavigation';
 
 export function NavHeader() {
   const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const { page, navigate } = useNavigation();
 
   if (!user) return null;
 
@@ -14,37 +14,37 @@ export function NavHeader() {
     <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur border-b border-zinc-800">
       <div className="flex items-center justify-between h-12 px-4 lg:px-6 max-w-screen-2xl mx-auto">
         {/* Left */}
-        <Link
-          href="/files"
+        <button
+          onClick={() => navigate('files')}
           className="flex items-center gap-2 text-sm font-semibold text-zinc-200 hover:text-white transition-colors"
         >
           <img src="/logo.svg" alt="ShareIT" className="w-6 h-6" />
           ShareIT
-        </Link>
+        </button>
 
         {/* Right */}
         <div className="flex items-center gap-1">
           <span className="text-xs text-zinc-500 hidden sm:block mr-2">
             {user.username}
           </span>
-          <NavLink
-            href="/files"
-            active={pathname === '/files'}
+          <NavButton
+            active={page === 'files'}
             icon={<CloudIcon />}
             label="Upload"
             highlight
+            onClick={() => navigate('files')}
           />
           {user.isAdmin && (
-            <NavLink
-              href="/admin"
-              active={pathname.startsWith('/admin')}
+            <NavButton
+              active={page === 'admin'}
               label="Admin"
+              onClick={() => navigate('admin')}
             />
           )}
-          <NavLink
-            href="/settings"
-            active={pathname === '/settings'}
+          <NavButton
+            active={page === 'settings'}
             label="Settings"
+            onClick={() => navigate('settings')}
           />
           <button
             type="button"
@@ -59,22 +59,22 @@ export function NavHeader() {
   );
 }
 
-function NavLink({
-  href,
+function NavButton({
   active,
   icon,
   label,
   highlight,
+  onClick,
 }: {
-  href: string;
   active: boolean;
   icon?: React.ReactNode;
   label: string;
   highlight?: boolean;
+  onClick: () => void;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      onClick={onClick}
       className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
         active
           ? 'bg-blue-600 text-white'
@@ -85,7 +85,7 @@ function NavLink({
     >
       {icon}
       {label}
-    </Link>
+    </button>
   );
 }
 

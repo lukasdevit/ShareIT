@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ['backend/tests/setup.ts'],
     include: ['backend/tests/**/*.test.ts'],
 
     // Use a separate DB for tests so we don't clobber dev data

@@ -51,4 +51,27 @@ export class LocalStorage implements StorageProvider {
   async exists(key: string): Promise<boolean> {
     return fs.existsSync(this.resolve(key));
   }
+
+  mtime(key: string): Promise<number> {
+    return Promise.resolve(fs.statSync(this.resolve(key)).mtimeMs);
+  }
+
+  async listKeys(prefix: string): Promise<string[]> {
+    const dir = path.dirname(this.resolve(prefix));
+    if (!fs.existsSync(dir)) return [];
+    const results: string[] = [];
+    const base = this.baseDir;
+    function walk(d: string) {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const full = path.join(d, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else {
+          results.push(path.relative(base, full));
+        }
+      }
+    }
+    walk(dir);
+    return results;
+  }
 }

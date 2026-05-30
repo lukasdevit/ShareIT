@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 const features = [
@@ -27,7 +26,7 @@ const features = [
   },
 ];
 
-export function LandingPage() {
+export function LandingPage({ onLogin }: { onLogin: () => void }) {
   const { demoLogin } = useAuth();
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
@@ -67,12 +66,13 @@ export function LandingPage() {
           >
             {demoLoading ? 'Signing in…' : 'Try Demo'}
           </button>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={onLogin}
             className="px-5 py-2.5 rounded-lg text-sm font-medium border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-zinc-100 transition-colors"
           >
             Sign In
-          </Link>
+          </button>
         </div>
 
         {demoError && <p className="text-sm text-red-400">{demoError}</p>}

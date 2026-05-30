@@ -82,6 +82,7 @@ function BackupOverview({
   const [downloading, setDownloading] = useState(false);
   const [scheduleHours, setScheduleHours] = useState('6');
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [retentionDays, setRetentionDays] = useState('3');
 
   const fetchHistory = useCallback(() => {
     setLoading(true);
@@ -98,6 +99,11 @@ function BackupOverview({
     apiFetch('/admin/backup/schedule')
       .then((r) => r.json())
       .then((d) => setScheduleHours(String(d.backup_schedule_hours ?? 6)))
+      .catch(() => {});
+    // Fetch retention days from storage config
+    apiFetch('/admin/storage')
+      .then((r) => r.json())
+      .then((d) => setRetentionDays(String(d.backup_retention_days ?? 3)))
       .catch(() => {});
   }, [fetchHistory]);
 
@@ -149,6 +155,20 @@ function BackupOverview({
       toast((e as Error).message, 'err');
     } finally {
       setScheduleSaving(false);
+    }
+  }
+
+  async function saveRetention() {
+    try {
+      const r = await apiFetch('/admin/storage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_retention_days: String(retentionDays) }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      toast('Retention policy updated', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'err');
     }
   }
 
@@ -207,29 +227,46 @@ function BackupOverview({
         </div>
       )}
 
-      {/* Backup schedule config */}
-      <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-        <label htmlFor="backup-schedule" className="text-xs text-zinc-400 whitespace-nowrap">
-          ⏱ Schedule (hours)
-        </label>
-        <input
-          id="backup-schedule"
-          type="number"
-          min="1"
-          max="168"
-          value={scheduleHours}
-          onChange={(e) => setScheduleHours(e.target.value)}
-          className="w-20 px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
-        />
+      {/* Backup config: schedule + retention side by side */}
+      <div className="flex items-center gap-6 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+        <div className="flex items-center gap-2">
+          <label htmlFor="backup-schedule" className="text-xs text-zinc-400 whitespace-nowrap">
+            ⏱ Every
+          </label>
+          <input
+            id="backup-schedule"
+            type="number"
+            min="1"
+            max="168"
+            value={scheduleHours}
+            onChange={(e) => setScheduleHours(e.target.value)}
+            className="w-16 px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-xs text-zinc-500">hours</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="backup-retention" className="text-xs text-zinc-400 whitespace-nowrap">
+            🗑 Keep
+          </label>
+          <input
+            id="backup-retention"
+            type="number"
+            min="1"
+            max="365"
+            value={retentionDays}
+            onChange={(e) => setRetentionDays(e.target.value)}
+            className="w-16 px-2 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-xs text-zinc-500">days</span>
+        </div>
         <button
           type="button"
-          onClick={saveSchedule}
+          onClick={() => { saveSchedule(); saveRetention(); }}
           disabled={scheduleSaving}
           className="btn-green text-xs"
         >
           {scheduleSaving ? 'Saving…' : 'Save'}
         </button>
-        <span className="text-xs text-zinc-600">1–168 hours</span>
       </div>
 
       <div className="flex gap-4 text-xs text-zinc-500">

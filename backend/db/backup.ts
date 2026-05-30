@@ -10,6 +10,7 @@ import {
 } from '../config/index.js';
 import { dbRun } from './helpers.js';
 import type { StorageProvider } from '../services/storage/types.js';
+import { rotateBackups } from '../services/storage/backupRotation.js';
 
 interface Logger {
   info: (msg: string) => void;
@@ -120,7 +121,7 @@ export async function backupDatabase(
     provider: StorageProvider;
     keyPrefix?: string;
     label?: string;
-    keep?: number;
+    retentionDays?: number;
   }[]
 ): Promise<{
   ok: boolean;
@@ -143,10 +144,10 @@ export async function backupDatabase(
     )
   );
 
-  // Rotate old backups for destinations with keep count
+  // Rotate old backups for destinations with retentionDays
   for (const d of destinations) {
-    if (d.keep && d.keep > 0) {
-      await rotateBackups(d.provider, d.keyPrefix ?? 'backups/', d.keep, log);
+    if (d.retentionDays && d.retentionDays > 0) {
+      await rotateBackups(d.provider, d.keyPrefix ?? 'backups/', d.retentionDays, log);
     }
   }
 
@@ -168,37 +169,6 @@ export async function backupDatabase(
   }
 
   return { ok: succeeded > 0, results };
-}
-
-/** Delete oldest backups beyond `keep` count on a given storage provider. */
-async function rotateBackups(
-  provider: StorageProvider,
-  keyPrefix: string,
-  keep: number,
-  log?: Logger
-): Promise<void> {
-  const prefix = keyPrefix.replace(/\/$/, '');
-
-  try {
-    // Only rotate if the provider supports listing keys
-    if (!('listKeys' in provider)) return;
-
-    const listable = provider as StorageProvider & {
-      listKeys(prefix: string): Promise<string[]>;
-    };
-    const keys = await listable.listKeys(prefix);
-    const matching = keys
-      .filter((k) => k.startsWith(`${prefix}/database-`) && k.endsWith('.db'))
-      .sort()
-      .reverse();
-
-    for (const old of matching.slice(keep)) {
-      await provider.delete(old);
-      log?.info(`Rotated old backup: ${old}`);
-    }
-  } catch {
-    // Rotation is best-effort; silently skip unsupported providers
-  }
 }
 
 /** Write a backup attempt to the backup_logs table. */

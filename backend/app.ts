@@ -1,4 +1,3 @@
-import fs from 'fs';
 import { Writable } from 'stream';
 import pino, { type StreamEntry } from 'pino';
 
@@ -9,7 +8,6 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 
 import {
-  DEFAULT_UPLOAD_DIR,
   RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS,
   LOG_PRETTY,
@@ -21,9 +19,6 @@ import { filesRoutes } from './routes/files.js';
 import { sharexRoutes } from './routes/sharex.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
-import { initScanner } from './services/scanService.js';
-import { startDemoCleanup } from './services/demoCleanup.js';
-import { runMigrations } from './db/index.js';
 import { writeLog } from './services/logService.js';
 
 const startTime = Date.now();
@@ -78,10 +73,6 @@ export async function buildApp(opts: AppOptions = {}) {
       streams.unshift({ stream: process.stdout as any });
     }
     app.log = pino({}, pino.multistream(streams));
-  }
-
-  if (!fs.existsSync(DEFAULT_UPLOAD_DIR)) {
-    fs.mkdirSync(DEFAULT_UPLOAD_DIR, { recursive: true });
   }
 
   // Global ceiling = max per-user quota (10 GB). Actual per-user limits
@@ -186,16 +177,6 @@ export async function buildApp(opts: AppOptions = {}) {
       timestamp: new Date().toISOString(),
     });
   });
-
-  // Run DB schema migrations (must complete before any queries)
-  await runMigrations();
-
-  // Start periodic demo user cleanup BEFORE scanner init — scanner may hang
-  // if ClamAV socket is unreachable, and cleanup must not be blocked.
-  startDemoCleanup(app.log);
-
-  // Note: scanner init is skipped in tests automatically (ClamAV not available)
-  await initScanner();
 
   return app;
 }

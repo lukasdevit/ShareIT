@@ -5,7 +5,7 @@ import path from 'path';
 import { backupDatabase } from '../../db/index.js';
 import { resolveProvider } from '../../services/storage/index.js';
 import type { StorageProvider } from '../../services/storage/types.js';
-import { getStorageBackend, clearConfigCache } from '../../config/index.js';
+import { getStorageBackend, clearConfigCache, getBackupRetentionDays } from '../../config/index.js';
 import { recordAction } from '../../services/actionLogService.js';
 import { getSetting, upsertSetting } from '../../repositories/settingsRepository.js';
 import { listBackupHistory } from '../../repositories/backupRepository.js';
@@ -14,12 +14,13 @@ export async function adminBackupRoutes(app: FastifyInstance) {
   // Trigger a backup now
   app.post('/admin/backup/run', async (request, reply) => {
     const backend = await getStorageBackend();
-    const destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; keep?: number }[] = [
+    const retentionDays = await getBackupRetentionDays();
+    const destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; retentionDays?: number }[] = [
       {
         provider: resolveProvider(backend),
         keyPrefix: 'backups',
         label: backend,
-        keep: 7,
+        retentionDays,
       },
     ];
 

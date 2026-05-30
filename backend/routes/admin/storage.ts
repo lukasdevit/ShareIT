@@ -65,6 +65,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         total_files: row.total_files,
         registrations_open: overrides.registrations_open !== 'false',
         s3_upload_enabled: overrides.s3_upload_enabled === 'true',
+        backup_retention_days: parseInt(overrides.backup_retention_days || '3', 10) || 3,
       });
     }
   );
@@ -103,6 +104,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         'registrations_open',
         's3_upload_enabled',
         'total_storage_limit',
+        'backup_retention_days',
       ];
       const updates: [string, string][] = [];
 

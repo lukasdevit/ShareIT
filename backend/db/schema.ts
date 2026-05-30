@@ -1,21 +1,10 @@
 import { db } from './connection.js';
 import { DEFAULT_STORAGE_LIMIT } from '../config/index.js';
 
-/**
- * Run all schema migrations — CREATE TABLE IF NOT EXISTS is idempotent.
- * Wrapped in serialize() so ALTER TABLE never runs before CREATE TABLE.
- */
-export function runMigrations(): Promise<void> {
+/** Initialize all database tables. CREATE TABLE IF NOT EXISTS is idempotent. */
+export function initSchema(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ignoreDuplicate = (err: Error | null) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.warn(`Migration warning: ${err.message}`);
-      }
-    };
-
-    db.serialize(() => {
-      // ── files table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS files (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename TEXT NOT NULL,
@@ -31,18 +20,7 @@ export function runMigrations(): Promise<void> {
       )
     `);
 
-      db.run(
-        `ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`,
-        ignoreDuplicate
-      );
-      db.run(`ALTER TABLE files ADD COLUMN expires_at TEXT`, ignoreDuplicate);
-      db.run(
-        `ALTER TABLE files ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'local'`,
-        ignoreDuplicate
-      );
-
-      // ── users table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
@@ -52,39 +30,19 @@ export function runMigrations(): Promise<void> {
         storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT},
         is_admin INTEGER NOT NULL DEFAULT 0,
         failed_logins INTEGER NOT NULL DEFAULT 0,
-        locked_until TEXT
+        locked_until TEXT,
+        is_demo INTEGER NOT NULL DEFAULT 0
       )
     `);
 
-      db.run(`ALTER TABLE users ADD COLUMN email TEXT`, ignoreDuplicate);
-      db.run(
-        `ALTER TABLE users ADD COLUMN storage_limit INTEGER NOT NULL DEFAULT ${DEFAULT_STORAGE_LIMIT}`,
-        ignoreDuplicate
-      );
-      db.run(
-        `ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`,
-        ignoreDuplicate
-      );
-      db.run(
-        `ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0`,
-        ignoreDuplicate
-      );
-      db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`, ignoreDuplicate);
-      db.run(
-        `ALTER TABLE users ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0`,
-        ignoreDuplicate
-      );
-
-      // ── settings table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       )
     `);
 
-      // ── backup_logs table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS backup_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp TEXT NOT NULL,
@@ -95,8 +53,7 @@ export function runMigrations(): Promise<void> {
       )
     `);
 
-      // ── integrity_checks table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS integrity_checks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         check_id TEXT NOT NULL UNIQUE,
@@ -108,8 +65,7 @@ export function runMigrations(): Promise<void> {
       )
     `);
 
-      // ── integrity_issues table ──
-      db.run(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS integrity_issues (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         check_id TEXT NOT NULL,
@@ -127,9 +83,8 @@ export function runMigrations(): Promise<void> {
       )
     `);
 
-      // ── admin_actions table (undoable admin operations log) ──
-      db.run(
-        `
+    db.run(
+      `
       CREATE TABLE IF NOT EXISTS admin_actions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp TEXT NOT NULL,
@@ -140,11 +95,10 @@ export function runMigrations(): Promise<void> {
         undone INTEGER NOT NULL DEFAULT 0
       )
     `,
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+      (err) => {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
   });
 }

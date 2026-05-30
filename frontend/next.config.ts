@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         source: '/file/:filename',
         destination: `${API_URL}/file/:filename`,
       },
+      // Catch-all: redirect any unknown route to root SPA
+      {
+        source: '/:path*{/}?',
+        destination: '/',
+      },
     ];
   },
 };

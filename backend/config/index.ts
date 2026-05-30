@@ -110,5 +110,11 @@ export async function getBackupScheduleHours(): Promise<number> {
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 6;
 }
+export async function getBackupRetentionDays(): Promise<number> {
+  const db = await loadDbSettings();
+  const raw = db['backup_retention_days'] || '3';
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+}
 export const BACKUP_RETRY_MAX = 3;
 export const BACKUP_RETRY_BASE_MS = 1000;
