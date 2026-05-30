@@ -1,7 +1,11 @@
 # Domain from DOMAIN env var. Falls back to "localhost" if unset.
 # Caddy handles TLS automatically: Let's Encrypt for real domains,
 # self-signed for localhost.
+# Custom certs: upload via admin panel → creates /etc/caddy/certs/custom.caddy
 {$DOMAIN:localhost} {
+  # Import custom cert snippet if any files exist (uploaded via admin panel)
+  import /etc/caddy/certs/*.caddy
+
   handle /file/* {
     reverse_proxy api:3000
   }

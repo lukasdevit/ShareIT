@@ -31,6 +31,7 @@ services:
       - DOMAIN=${DOMAIN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/certs:/etc/caddy/certs
       - caddy_data:/data
     restart: unless-stopped
 
