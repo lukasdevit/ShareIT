@@ -6,6 +6,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { formatSize } from '@/lib/utils';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { DeleteButton } from '@/components/ui/DeleteButton';
+import { OpenInNewTab } from '@/components/ui/OpenInNewTab';
 import type { FileInfo } from '@/types';
 
 interface Props {
@@ -44,14 +45,7 @@ export function TextViewer({
             <p className="text-xs text-zinc-500">{formatSize(file.size)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={`/file/${file.filename}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-            >
-              Open in new Tab
-            </a>
+            <OpenInNewTab href={`/file/${file.filename}`} />
             <CopyButton
               filename={file.filename}
               id={file.id}

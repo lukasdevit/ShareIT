@@ -4,6 +4,7 @@ import { formatSize, formatDate } from '@/lib/utils';
 import type { FileInfo } from '@/types';
 import { DeleteButton } from '@/components/ui/DeleteButton';
 import { VisibilityToggle } from '@/components/ui/VisibilityToggle';
+import { OpenInNewTab } from '@/components/ui/OpenInNewTab';
 import { CopyButton } from '@/components/ui/CopyButton';
 
 interface Props {
@@ -155,15 +156,10 @@ export function Lightbox({
               isPublic={!!image.is_public}
               onClick={() => onTogglePublic(image.id, !image.is_public)}
             />
-            <a
+            <OpenInNewTab
               href={`/file/${image.filename}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
               onClick={(e) => e.stopPropagation()}
-            >
-              Open in new Tab
-            </a>
+            />
             <CopyButton
               filename={image.filename}
               id={image.id}

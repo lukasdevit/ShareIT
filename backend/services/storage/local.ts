@@ -22,6 +22,14 @@ export class LocalStorage implements StorageProvider {
     return fs.createReadStream(this.resolve(key));
   }
 
+  async createReadStreamRange(
+    key: string,
+    start?: number,
+    end?: number
+  ): Promise<NodeJS.ReadableStream> {
+    return fs.createReadStream(this.resolve(key), { start, end });
+  }
+
   async size(key: string): Promise<number> {
     return fs.statSync(this.resolve(key)).size;
   }

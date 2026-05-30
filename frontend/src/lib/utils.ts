@@ -20,6 +20,19 @@ function isText(mime: string): boolean {
   );
 }
 
+export function isAudio(mime: string): boolean {
+  return mime.startsWith('audio/');
+}
+
+export function isVideo(mime: string): boolean {
+  return mime.startsWith('video/');
+}
+
+/**
+ * Returns true if the file can be opened in a viewer (text, PDF, video, audio).
+ * Audio uses the bottom bar player, not a modal — but is still "openable"
+ * so the file row is clickable.
+ */
 export function isOpenable(mime: string): boolean {
-  return isText(mime) || mime === 'application/pdf';
+  return isText(mime) || mime === 'application/pdf' || isAudio(mime) || isVideo(mime);
 }

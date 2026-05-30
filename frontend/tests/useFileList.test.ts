@@ -24,26 +24,30 @@ describe('useFileList', () => {
       total: 1,
       totalPages: 1,
     });
+    const audioRes = mockFilePage({ total: 0 });
+    const videoRes = mockFilePage({ total: 0 });
 
     const api = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => fileRes } as Response)
-      .mockResolvedValueOnce({ ok: true, json: async () => imgRes } as Response);
+      .mockResolvedValueOnce({ ok: true, json: async () => imgRes } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => audioRes } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => videoRes } as Response);
 
     const { result } = renderHook(() => useFileList(api, { pageSize: 10 }));
 
     await act(async () => {
-      await result.current.fetchFiles(1, 1, '');
+      await result.current.fetchFiles('all', 1, '');
     });
 
-    expect(api).toHaveBeenCalledTimes(2);
+    expect(api).toHaveBeenCalledTimes(4);
     expect(result.current.files).toHaveLength(1);
     expect(result.current.imageFiles).toHaveLength(1);
     expect(result.current.total).toBe(1);
     expect(result.current.imageTotal).toBe(1);
   });
 
-  it('passes search term to both requests', async () => {
+  it('passes search term to requests', async () => {
     const api = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => mockFilePage() } as Response);
@@ -51,10 +55,11 @@ describe('useFileList', () => {
     const { result } = renderHook(() => useFileList(api));
 
     await act(async () => {
-      await result.current.fetchFiles(1, 1, 'test-query');
+      await result.current.fetchFiles('all', 1, 'test-query');
     });
 
     const calls = api.mock.calls as string[][];
+    expect(calls.length).toBeGreaterThanOrEqual(4);
     expect(calls[0][0]).toContain('search=test-query');
     expect(calls[1][0]).toContain('search=test-query');
   });
@@ -67,7 +72,7 @@ describe('useFileList', () => {
     const { result } = renderHook(() => useFileList(api, { pageSize: 25 }));
 
     await act(async () => {
-      await result.current.fetchFiles();
+      await result.current.fetchFiles('files', 1);
     });
 
     const calls = api.mock.calls as string[][];
@@ -81,7 +86,7 @@ describe('useFileList', () => {
 
     // Should not throw
     await act(async () => {
-      await result.current.fetchFiles();
+      await result.current.fetchFiles('all', 1, '');
     });
 
     expect(result.current.files).toEqual([]);
