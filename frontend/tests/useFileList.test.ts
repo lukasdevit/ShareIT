@@ -72,7 +72,7 @@ describe('useFileList', () => {
     const { result } = renderHook(() => useFileList(api, { pageSize: 25 }));
 
     await act(async () => {
-      await result.current.fetchFiles('files', 1);
+      await result.current.fetchFiles('file', 1);
     });
 
     const calls = api.mock.calls as string[][];

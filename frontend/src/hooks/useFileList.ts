@@ -76,7 +76,9 @@ export function useFileList(
           // Single type fetch
           const params = new URLSearchParams(base);
           params.set('page', String(p));
-          params.set('type', viewMode);
+          // Map viewMode plural forms to API singular forms (images→image)
+          const apiType = viewMode === 'images' ? 'image' : viewMode;
+          params.set('type', apiType);
 
           const res = await api(`/files?${params.toString()}`);
           if (res.ok) {
@@ -88,7 +90,7 @@ export function useFileList(
             setVideoFiles([]); setVideoTotal(0);
 
             if (viewMode === 'file') { setFiles(d.files); setPage(d.page); setTotalPages(d.totalPages); setTotal(d.total); }
-            else if (viewMode === 'image') { setImageFiles(d.files); setImagePage(d.page); setImageTotalPages(d.totalPages); setImageTotal(d.total); }
+            else if (viewMode === 'images') { setImageFiles(d.files); setImagePage(d.page); setImageTotalPages(d.totalPages); setImageTotal(d.total); }
             else if (viewMode === 'audio') { setAudioFiles(d.files); setAudioPage(d.page); setAudioTotalPages(d.totalPages); setAudioTotal(d.total); }
             else if (viewMode === 'video') { setVideoFiles(d.files); setVideoPage(d.page); setVideoTotalPages(d.totalPages); setVideoTotal(d.total); }
           }
