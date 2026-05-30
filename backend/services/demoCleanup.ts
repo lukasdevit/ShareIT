@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
-import { dbAll, dbRun } from '../db/index.js';
+import { findStaleDemoUsers, deleteUser } from '../repositories/userRepository.js';
+import { findFilePathsByUserId, deleteFilesByUserId } from '../repositories/fileRepository.js';
 import { deleteFromStorage } from '../utils/index.js';
 import { DEMO_CLEANUP_INTERVAL_MS, DEMO_MAX_AGE_MS } from '../config/index.js';
 
@@ -11,13 +12,9 @@ export function startDemoCleanup(log: FastifyBaseLogger): void {
   async function cleanup() {
     const cutoff = new Date(Date.now() - DEMO_MAX_AGE_MS).toISOString();
 
-    // Find stale demo users
     let users: { id: number }[];
     try {
-      users = await dbAll<{ id: number }>(
-        `SELECT id FROM users WHERE is_demo = 1 AND created_at < ?`,
-        [cutoff]
-      );
+      users = await findStaleDemoUsers(cutoff);
     } catch (err) {
       log.warn({ err }, 'Failed to query stale demo users');
       return;
@@ -28,18 +25,12 @@ export function startDemoCleanup(log: FastifyBaseLogger): void {
     let cleaned = 0;
     for (const u of users) {
       try {
-        // Delete files from storage
-        const files = await dbAll<{ path: string }>(
-          `SELECT path FROM files WHERE user_id = ?`,
-          [u.id]
-        );
+        const files = await findFilePathsByUserId(u.id);
         for (const f of files) {
           await deleteFromStorage(f.path);
         }
-
-        // Delete from DB
-        await dbRun(`DELETE FROM files WHERE user_id = ?`, [u.id]);
-        await dbRun(`DELETE FROM users WHERE id = ?`, [u.id]);
+        await deleteFilesByUserId(u.id);
+        await deleteUser(u.id);
         cleaned++;
       } catch (err) {
         log.warn({ err, userId: u.id }, 'Failed to clean up demo user');

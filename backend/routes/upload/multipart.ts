@@ -14,7 +14,7 @@ import { requireAuth } from '../../middleware/index.js';
 import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
 import { sanitizeFilename, validateFile, finalizeFile } from '../../services/fileService.js';
 import { buildStorageKey } from '../../services/storage/index.js';
-import { dbGet } from '../../db/index.js';
+import { getTotalUsed } from '../../repositories/fileRepository.js';
 import { getTotalStorageLimit } from '../../config/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
@@ -50,10 +50,8 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
       // Check global app-wide storage limit
       const totalLimit = await getTotalStorageLimit();
       if (totalLimit > 0) {
-        const row = await dbGet<{ total: number }>(
-          `SELECT COALESCE(SUM(size), 0) AS total FROM files`
-        );
-        if ((row?.total ?? 0) >= totalLimit) {
+        const total = await getTotalUsed();
+        if (total >= totalLimit) {
           return reply
             .code(507)
             .send({ error: 'Server storage limit reached. Contact the administrator.' });

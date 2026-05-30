@@ -10,7 +10,7 @@ RUN npx tsx --no-warnings -e "console.log('build check passed')" 2>/dev/null || 
 FROM node:24-alpine
 
 WORKDIR /app
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget sqlite
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/backend ./backend

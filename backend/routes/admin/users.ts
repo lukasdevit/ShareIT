@@ -1,10 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
-import { dbAll, dbGet, dbRun } from '../../db/index.js';
 import { parsePagination, deleteFromStorage } from '../../utils/index.js';
 import { DEFAULT_STORAGE_LIMIT } from '../../config/index.js';
-import { recordAction } from './actions.js';
+import { recordAction } from '../../services/actionLogService.js';
 import { clearConfigCache } from '../../config/index.js';
+import { getSetting, upsertSetting } from '../../repositories/settingsRepository.js';
+import {
+  insertUser,
+  countUsersFiltered,
+  listUsersWithStats,
+  updateUser,
+  unlockUser,
+  deleteUser,
+} from '../../repositories/userRepository.js';
+import {
+  findFilePathsByUserId,
+  deleteFilesByUserId,
+} from '../../repositories/fileRepository.js';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -12,10 +24,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
   // ── Demo registrations config ──
 
   app.get('/admin/users/demo-config', async (_request, reply) => {
-    const row = await dbGet<{ value: string }>(
-      `SELECT value FROM settings WHERE key = 'demo_registrations_open'`
-    );
-    const open = row ? row.value !== 'false' : true;
+    const value = await getSetting('demo_registrations_open');
+    const open = value ? value !== 'false' : true;
     return reply.send({ demo_registrations_open: open });
   });
 
@@ -28,10 +38,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
         .code(400)
         .send({ error: 'demo_registrations_open must be a boolean' });
     }
-    await dbRun(
-      `INSERT INTO settings (key, value) VALUES ('demo_registrations_open', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [String(demo_registrations_open)]
-    );
+    await upsertSetting('demo_registrations_open', String(demo_registrations_open));
     clearConfigCache();
     if (request.user?.username) {
       await recordAction(
@@ -89,24 +96,22 @@ export async function adminUserRoutes(app: FastifyInstance) {
           : DEFAULT_STORAGE_LIMIT;
 
       try {
-        const result = await dbRun(
-          `INSERT INTO users (username, password_hash, created_at, is_admin, storage_limit) VALUES (?, ?, ?, ?, ?)`,
-          [username, hash, new Date().toISOString(), is_admin ? 1 : 0, limit]
-        );
+        const id = await insertUser({
+          username,
+          passwordHash: hash,
+          storageLimit: limit,
+          isAdmin: !!is_admin,
+        });
         if (request.user?.username) {
           await recordAction(
             request.user!.username,
             'user-create',
             `Created user: ${username}`,
-            {
-              userId: result.lastID,
-              username,
-              isAdmin: !!is_admin,
-            }
+            { userId: id, username, isAdmin: !!is_admin }
           );
         }
         return reply.send({
-          id: result.lastID,
+          id,
           username,
           is_admin: !!is_admin,
           storage_limit: limit,
@@ -124,27 +129,12 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const { page, limit, offset, search } = parsePagination(
       request.query as Record<string, string>
     );
-    const filter = search ? `WHERE u.username LIKE ?` : '';
-    const searchParam = search ? `%${search}%` : null;
-    const countParams = searchParam ? [searchParam] : [];
-    const listParams = searchParam
-      ? [searchParam, limit, offset]
-      : [limit, offset];
-
-    const row = await dbGet<{ total: number }>(
-      `SELECT COUNT(*) AS total FROM users u ${filter}`,
-      countParams
-    );
-    const total = row?.total ?? 0;
-    const rows = await dbAll(
-      `SELECT u.id, u.username, u.created_at, u.storage_limit, u.is_admin,
-              COALESCE(SUM(f.size), 0) AS used, COUNT(f.id) AS file_count
-       FROM users u LEFT JOIN files f ON f.user_id = u.id ${filter}
-       GROUP BY u.id ORDER BY u.id LIMIT ? OFFSET ?`,
-      listParams
-    );
+    const [total, users] = await Promise.all([
+      countUsersFiltered(search),
+      listUsersWithStats(limit, offset, search),
+    ]);
     return reply.send({
-      users: rows,
+      users,
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -162,29 +152,19 @@ export async function adminUserRoutes(app: FastifyInstance) {
         new_password?: string;
       };
 
-      const sets: string[] = [];
-      const values: (number | string)[] = [];
+      const passwordHash = new_password
+        ? await bcrypt.hash(new_password, BCRYPT_ROUNDS)
+        : undefined;
 
-      if (storage_limit !== undefined) {
-        sets.push('storage_limit = ?');
-        values.push(storage_limit);
-      }
-      if (is_admin !== undefined) {
-        sets.push('is_admin = ?');
-        values.push(is_admin ? 1 : 0);
-      }
-      if (new_password !== undefined) {
-        sets.push('password_hash = ?');
-        values.push(await bcrypt.hash(new_password, BCRYPT_ROUNDS));
-      }
+      const changes = await updateUser(parseInt(id, 10), {
+        storageLimit: storage_limit,
+        isAdmin: is_admin,
+        passwordHash,
+      });
 
-      values.push(id);
-      const result = await dbRun(
-        `UPDATE users SET ${sets.join(', ')} WHERE id = ?`,
-        values
-      );
-      if (result.changes === 0)
+      if (changes === 0)
         return reply.code(404).send({ error: 'User not found' });
+
       if (request.user?.username) {
         const changed: Record<string, unknown> = {};
         if (storage_limit !== undefined) changed.storage_limit = storage_limit;
@@ -203,11 +183,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
 
   app.post('/admin/users/:id/unlock', async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
-    const result = await dbRun(
-      `UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?`,
-      [userId]
-    );
-    if (result.changes === 0)
+    const changes = await unlockUser(userId);
+    if (changes === 0)
       return reply.code(404).send({ error: 'User not found' });
     return reply.send({ ok: true });
   });
@@ -217,10 +194,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (userId === request.user!.id)
       return reply.code(400).send({ error: 'Cannot delete yourself' });
 
-    const files = await dbAll<{ path: string }>(
-      `SELECT path FROM files WHERE user_id = ?`,
-      [userId]
-    );
+    const files = await findFilePathsByUserId(userId);
     for (const f of files) {
       try {
         await deleteFromStorage(f.path);
@@ -228,9 +202,9 @@ export async function adminUserRoutes(app: FastifyInstance) {
         console.error('Storage delete failed:', (err as Error).message);
       }
     }
-    await dbRun(`DELETE FROM files WHERE user_id = ?`, [userId]);
-    const result = await dbRun(`DELETE FROM users WHERE id = ?`, [userId]);
-    if (result.changes === 0)
+    await deleteFilesByUserId(userId);
+    const changes = await deleteUser(userId);
+    if (changes === 0)
       return reply.code(404).send({ error: 'User not found' });
     if (request.user?.username) {
       await recordAction(

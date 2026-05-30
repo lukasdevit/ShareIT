@@ -4,7 +4,8 @@ import path from 'path';
 import { pipeline } from 'stream/promises';
 
 import { nanoid } from 'nanoid';
-import { dbGet, dbRun } from '../db/index.js';
+import { getTotalUsed, getUsedByUser, insertFile } from '../repositories/fileRepository.js';
+import { getStorageLimit } from '../repositories/userRepository.js';
 import { BASE_URL, getStorageBackend, getTotalStorageLimit } from '../config/index.js';
 import {ALLOWED_MIME_TYPES} from '../config/allowed-files.js';
 import { scanFile } from './scanService.js';
@@ -43,15 +44,11 @@ export async function saveFile(
   // Check global app-wide storage limit
   const totalLimit = await getTotalStorageLimit();
   if (totalLimit > 0) {
-    const row = await dbGet<{ total: number }>(
-      `SELECT COALESCE(SUM(size), 0) AS total FROM files`
-    );
-    if ((row?.total ?? 0) + stats.size > totalLimit) {
+    const total = await getTotalUsed();
+    if (total + stats.size > totalLimit) {
       fs.unlinkSync(tmpPath);
       throw Object.assign(
-        new Error(
-          `Server storage limit reached. Contact the administrator.`
-        ),
+        new Error('Server storage limit reached. Contact the administrator.'),
         { statusCode: 507 }
       );
     }
@@ -118,10 +115,8 @@ export async function finalizeFile(params: {
   // Check global app-wide storage limit
   const totalLimit = await getTotalStorageLimit();
   if (totalLimit > 0 && userId !== undefined) {
-    const row = await dbGet<{ total: number }>(
-      `SELECT COALESCE(SUM(size), 0) AS total FROM files`
-    );
-    if ((row?.total ?? 0) + size > totalLimit) {
+    const total = await getTotalUsed();
+    if (total + size > totalLimit) {
       throw Object.assign(
         new Error('Server storage limit reached. Contact the administrator.'),
         { statusCode: 507 }
@@ -149,20 +144,17 @@ export async function finalizeFile(params: {
   const backend = await getStorageBackend();
 
   try {
-    await dbRun(
-      `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at, expires_at, storage_backend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        filename,
-        originalName,
-        storageKey,
-        size,
-        mimeType,
-        userId ?? null,
-        new Date().toISOString(),
-        expiresAt,
-        backend,
-      ]
-    );
+    await insertFile({
+      filename,
+      originalName,
+      storageKey,
+      size,
+      mimeType,
+      userId: userId ?? null,
+      createdAt: new Date().toISOString(),
+      expiresAt,
+      backend,
+    });
     return storageKey;
   } catch (err) {
     storage.delete(storageKey).catch(() => {});
@@ -213,11 +205,9 @@ export async function handleUpload(
 async function getUserQuota(
   userId: number
 ): Promise<{ used: number; limit: number }> {
-  const row = await dbGet<{ used: number; limit: number }>(
-    `SELECT u.storage_limit AS "limit", COALESCE(SUM(f.size), 0) AS used
-     FROM users u LEFT JOIN files f ON f.user_id = u.id
-     WHERE u.id = ?`,
-    [userId]
-  );
-  return row ?? { used: 0, limit: 0 };
+  const [used, limit] = await Promise.all([
+    getUsedByUser(userId),
+    getStorageLimit(userId),
+  ]);
+  return { used, limit };
 }
