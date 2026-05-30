@@ -28,5 +28,5 @@ export async function deleteFromStorage(storageKey: string): Promise<void> {
     return;
   }
   // Fall back to storage provider (B2, etc.)
-  await getStorage().delete(storageKey);
+  (await getStorage()).delete(storageKey);
 }

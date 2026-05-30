@@ -5,7 +5,7 @@ import { pipeline } from 'stream/promises';
 
 import { nanoid } from 'nanoid';
 import { dbGet, dbRun } from '../db/index.js';
-import { BASE_URL, isB2Enabled, getTotalStorageLimit } from '../config/index.js';
+import { BASE_URL, getStorageBackend, getTotalStorageLimit } from '../config/index.js';
 import {ALLOWED_MIME_TYPES} from '../config/allowed-files.js';
 import { scanFile } from './scanService.js';
 import { getStorage, buildStorageKey } from './storage/index.js';
@@ -99,7 +99,7 @@ export async function saveFile(
     ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
-  const backend = (await isB2Enabled()) ? 'b2' : 'local';
+  const backend = await getStorageBackend();
 
   try {
     await dbRun(

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { Writable } from 'stream';
-import pino from 'pino';
+import pino, { type StreamEntry } from 'pino';
 
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
@@ -15,8 +15,7 @@ import {
   LOG_PRETTY,
   CORS_ORIGIN,
 } from './config/index.js';
-import { uploadRoutes } from './routes/upload.js';
-import { s3UploadRoutes } from './routes/upload/s3.js';
+import { uploadRoutes, multipartUploadRoutes } from './routes/upload/index.js';
 import { filesRoutes } from './routes/files.js';
 import { sharexRoutes } from './routes/sharex.js';
 import { authRoutes } from './routes/auth.js';
@@ -63,10 +62,8 @@ function createAdminLogStream(): Writable {
 export async function buildApp(opts: AppOptions = {}) {
   const app = Fastify({ logger: opts.logger ? {} : false });
 
-  // Replace Fastify's default pino logger with a multistream that also
-  // writes to the admin panel ring buffer (in addition to stdout/pretty).
   if (opts.logger) {
-    const streams: { stream: Writable; level?: number }[] = [
+    const streams: StreamEntry[] = [
       { stream: createAdminLogStream() },
     ];
     if (LOG_PRETTY) {
@@ -77,7 +74,7 @@ export async function buildApp(opts: AppOptions = {}) {
         }),
       });
     } else {
-      streams.unshift({ stream: process.stdout as unknown as Writable });
+      streams.unshift({ stream: process.stdout as any });
     }
     app.log = pino({}, pino.multistream(streams));
   }
@@ -172,7 +169,7 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   await app.register(uploadRoutes);
-  await app.register(s3UploadRoutes);
+  await app.register(multipartUploadRoutes);
   await app.register(filesRoutes);
   await app.register(sharexRoutes);
   await app.register(authRoutes);

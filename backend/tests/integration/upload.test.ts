@@ -28,11 +28,11 @@ describe('POST /upload', () => {
   });
 });
 
-describe('POST /sharex/upload', () => {
-  it('rejects request without auth', async () => {
+describe('POST /sharex/upload (removed — merged into /upload)', () => {
+  it('returns 404 (route no longer exists)', async () => {
     const res = await request.post('/sharex/upload');
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 });
 
@@ -54,7 +54,7 @@ describe('GET /sharex/config', () => {
 
     expect(res.body).toHaveProperty('Name');
     expect(res.body).toHaveProperty('DestinationType');
-    expect(res.body.RequestURL).toContain('/sharex/upload');
+    expect(res.body.RequestURL).toContain('/upload');
   });
 });
 

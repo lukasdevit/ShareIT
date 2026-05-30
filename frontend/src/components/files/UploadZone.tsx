@@ -53,7 +53,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
     uppy.use(AwsS3Multipart, {
       shouldUseMultipart: true,
       createMultipartUpload: async (file: any) => {
-        const res = await fetch(`${API_BASE}/upload/s3/multipart`, {
+        const res = await fetch(`${API_BASE}/upload/multipart/init`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream' }),
@@ -64,7 +64,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
       },
       signPart: async (_file: any, opts: any) => {
         const { uploadId, key, partNumber } = opts;
-        const res = await fetch(`${API_BASE}/upload/s3/multipart/sign-part`, {
+        const res = await fetch(`${API_BASE}/upload/multipart/sign-part`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ key, uploadId, partNumber }),
@@ -77,7 +77,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
       completeMultipartUpload: async (file: any, opts: any) => {
         const { uploadId, key, parts } = opts;
         const res = await fetch(
-          `${API_BASE}/upload/s3/multipart/${encodeURIComponent(uploadId)}/complete`,
+          `${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}/complete`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -97,7 +97,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
       },
       abortMultipartUpload: async (_file: any, opts: any) => {
         const { uploadId, key } = opts;
-        await fetch(`${API_BASE}/upload/s3/multipart/${encodeURIComponent(uploadId)}`, {
+        await fetch(`${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ key }),
