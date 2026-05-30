@@ -2,19 +2,20 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { FileInfo, FilePage } from '@/types';
+import type { FilesViewMode } from '@/features/dashboard/DashboardProvider';
 
 interface UseFileListOptions {
   pageSize?: number;
 }
 
 /**
- * Hook for file listing with independent pagination for files and images.
+ * Hook for file listing with independent pagination per type (images, audio, video, files).
  */
 export function useFileList(
   api: (path: string, options?: RequestInit) => Promise<Response>,
   { pageSize = 50 }: UseFileListOptions = {}
 ) {
-  // Non-image files
+  // Non-image files (text, PDF, archives, etc.)
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -26,42 +27,71 @@ export function useFileList(
   const [imageTotalPages, setImageTotalPages] = useState(0);
   const [imageTotal, setImageTotal] = useState(0);
 
+  // Audio
+  const [audioFiles, setAudioFiles] = useState<FileInfo[]>([]);
+  const [audioPage, setAudioPage] = useState(1);
+  const [audioTotalPages, setAudioTotalPages] = useState(0);
+  const [audioTotal, setAudioTotal] = useState(0);
+
+  // Video
+  const [videoFiles, setVideoFiles] = useState<FileInfo[]>([]);
+  const [videoPage, setVideoPage] = useState(1);
+  const [videoTotalPages, setVideoTotalPages] = useState(0);
+  const [videoTotal, setVideoTotal] = useState(0);
+
   const [search, setSearch] = useState('');
   const searchRef = useRef('');
   searchRef.current = search;
 
   const fetchFiles = useCallback(
-    async (p = 1, imgP = 1, searchTerm = '') => {
+    async (viewMode: FilesViewMode, p = 1, searchTerm = '') => {
       try {
         const base = new URLSearchParams({ limit: String(pageSize) });
         if (searchTerm) base.set('search', searchTerm);
 
-        const fileParams = new URLSearchParams(base);
-        fileParams.set('page', String(p));
-        fileParams.set('type', 'file');
+        if (viewMode === 'all') {
+          // Fetch all types in parallel
+          const build = (type: string, pageNum: number) => {
+            const params = new URLSearchParams(base);
+            params.set('page', String(pageNum));
+            params.set('type', type);
+            return params.toString();
+          };
 
-        const imgParams = new URLSearchParams(base);
-        imgParams.set('page', String(imgP));
-        imgParams.set('type', 'image');
+          const [fileRes, imgRes, audioRes, videoRes] = await Promise.all([
+            api(`/files?${build('file', p)}`),
+            api(`/files?${build('image', p)}`),
+            api(`/files?${build('audio', p)}`),
+            api(`/files?${build('video', p)}`),
+          ]);
 
-        const [fileRes, imgRes] = await Promise.all([
-          api(`/files?${fileParams.toString()}`),
-          api(`/files?${imgParams.toString()}`),
-        ]);
+          const apply = (res: Response, setter: (d: FilePage) => void) => {
+            if (res.ok) res.json().then(setter);
+          };
+          apply(fileRes, (d) => { setFiles(d.files); setPage(d.page); setTotalPages(d.totalPages); setTotal(d.total); });
+          apply(imgRes, (d) => { setImageFiles(d.files); setImagePage(d.page); setImageTotalPages(d.totalPages); setImageTotal(d.total); });
+          apply(audioRes, (d) => { setAudioFiles(d.files); setAudioPage(d.page); setAudioTotalPages(d.totalPages); setAudioTotal(d.total); });
+          apply(videoRes, (d) => { setVideoFiles(d.files); setVideoPage(d.page); setVideoTotalPages(d.totalPages); setVideoTotal(d.total); });
+        } else {
+          // Single type fetch
+          const params = new URLSearchParams(base);
+          params.set('page', String(p));
+          params.set('type', viewMode);
 
-        if (fileRes.ok) {
-          const d: FilePage = await fileRes.json();
-          setFiles(d.files);
-          setPage(d.page);
-          setTotalPages(d.totalPages);
-          setTotal(d.total);
-        }
-        if (imgRes.ok) {
-          const d: FilePage = await imgRes.json();
-          setImageFiles(d.files);
-          setImagePage(d.page);
-          setImageTotalPages(d.totalPages);
-          setImageTotal(d.total);
+          const res = await api(`/files?${params.toString()}`);
+          if (res.ok) {
+            const d: FilePage = await res.json();
+            // Clear all, then set the matching type
+            setFiles([]); setTotal(0);
+            setImageFiles([]); setImageTotal(0);
+            setAudioFiles([]); setAudioTotal(0);
+            setVideoFiles([]); setVideoTotal(0);
+
+            if (viewMode === 'file') { setFiles(d.files); setPage(d.page); setTotalPages(d.totalPages); setTotal(d.total); }
+            else if (viewMode === 'image') { setImageFiles(d.files); setImagePage(d.page); setImageTotalPages(d.totalPages); setImageTotal(d.total); }
+            else if (viewMode === 'audio') { setAudioFiles(d.files); setAudioPage(d.page); setAudioTotalPages(d.totalPages); setAudioTotal(d.total); }
+            else if (viewMode === 'video') { setVideoFiles(d.files); setVideoPage(d.page); setVideoTotalPages(d.totalPages); setVideoTotal(d.total); }
+          }
         }
       } catch {
         // handled by caller
@@ -79,6 +109,14 @@ export function useFileList(
     imagePage,
     imageTotalPages,
     imageTotal,
+    audioFiles,
+    audioPage,
+    audioTotalPages,
+    audioTotal,
+    videoFiles,
+    videoPage,
+    videoTotalPages,
+    videoTotal,
     search,
     searchRef,
     fetchFiles,

@@ -41,6 +41,26 @@ export class B2Storage implements StorageProvider {
     return Body as NodeJS.ReadableStream;
   }
 
+  async createReadStreamRange(
+    key: string,
+    start?: number,
+    end?: number
+  ): Promise<NodeJS.ReadableStream> {
+    const [client, bucket] = await Promise.all([this.s3(), getBucket()]);
+    const range =
+      start !== undefined || end !== undefined
+        ? `bytes=${start ?? ''}-${end ?? ''}`
+        : undefined;
+    const { Body } = await client.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ...(range ? { Range: range } : {}),
+      })
+    );
+    return Body as NodeJS.ReadableStream;
+  }
+
   async size(key: string): Promise<number> {
     const [client, bucket] = await Promise.all([this.s3(), getBucket()]);
     const { ContentLength } = await client.send(

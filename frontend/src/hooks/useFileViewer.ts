@@ -2,10 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { isVideo } from '@/lib/utils';
 import type { FileInfo } from '@/types';
 
 /**
- * Hook for viewing file contents (text files) and managing lightbox state.
+ * Hook for viewing file contents (text, PDF, video) and managing lightbox state.
+ * Audio is handled separately by useAudioPlayer (bottom bar, no modal).
  */
 export function useFileViewer() {
   const { api } = useAuth();
@@ -16,8 +18,9 @@ export function useFileViewer() {
 
   const openViewer = useCallback(async (file: FileInfo) => {
     setViewingFile(file);
-    if (file.mime_type === 'application/pdf') {
-      setFileContent(''); // no fetch needed, iframe handles it
+    // PDF and video don't need content fetched as text
+    if (file.mime_type === 'application/pdf' || isVideo(file.mime_type)) {
+      setFileContent('');
       return;
     }
     setFileContent(null);

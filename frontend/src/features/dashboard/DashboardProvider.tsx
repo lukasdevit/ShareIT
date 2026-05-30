@@ -14,7 +14,7 @@ import type { AdminTab } from '@/config/constants';
 
 // ── Types ──
 
-export type FilesViewMode = 'all' | 'images' | 'files';
+export type FilesViewMode = 'all' | 'images' | 'audio' | 'video' | 'files';
 
 export type { AdminTab };
 

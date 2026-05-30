@@ -61,15 +61,66 @@ export async function filesRoutes(app: FastifyInstance) {
 
         const stream = await resolveReadStream(file.path, file.storage_backend);
         reply.header('Content-Type', file.mime_type);
-        reply.header('Content-Length', file.size);
+        reply.header('Accept-Ranges', 'bytes');
         reply.header('Cache-Control', 'public, max-age=31536000');
         reply.header('Access-Control-Allow-Origin', '*');
+
+        // Handle HTTP Range requests (required for video/audio seeking)
+        const rangeHeader = request.headers.range;
+        if (rangeHeader) {
+          const parsed = parseRange(rangeHeader, file.size);
+          if (parsed) {
+            const { start, end } = parsed;
+            const contentLength = end - start + 1;
+            const rangeStream = await resolveReadStreamRange(
+              file.path,
+              file.storage_backend,
+              start,
+              end
+            );
+            reply
+              .code(206)
+              .header('Content-Range', `bytes ${start}-${end}/${file.size}`)
+              .header('Content-Length', contentLength);
+            return reply.send(rangeStream);
+          }
+        }
+
+        reply.header('Content-Length', file.size);
         return reply.send(stream);
       } catch (err) {
         if (!reply.sent) {
           return reply.code(404).send({ error: 'File missing from storage' });
         }
       }
+    }
+  );
+
+  app.get(
+    '/files/random',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      const userId = request.user?.id;
+      const type = (request.query as { type?: string }).type;
+      const typeClause =
+        type === 'audio' ? `AND mime_type LIKE 'audio/%'`
+        : type === 'video' ? `AND mime_type LIKE 'video/%'`
+        : type === 'image' ? `AND mime_type LIKE 'image/%'`
+        : '';
+
+      const file = await dbGet<{
+        id: number; filename: string; original_name: string;
+        size: number; mime_type: string; created_at: string;
+        is_public: number; expires_at: string | null;
+      }>(
+        `SELECT * FROM files WHERE user_id = ? ${typeClause} ORDER BY RANDOM() LIMIT 1`,
+        [userId]
+      );
+
+      if (!file) return reply.code(404).send({ error: 'No files found' });
+      return reply.send({ data: file });
     }
   );
 
@@ -99,9 +150,13 @@ export async function filesRoutes(app: FastifyInstance) {
       const typeClause =
         type === 'image'
           ? `AND mime_type LIKE 'image/%'`
-          : type === 'file'
-            ? `AND mime_type NOT LIKE 'image/%'`
-            : '';
+          : type === 'audio'
+            ? `AND mime_type LIKE 'audio/%'`
+            : type === 'video'
+              ? `AND mime_type LIKE 'video/%'`
+              : type === 'file'
+                ? `AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'audio/%' AND mime_type NOT LIKE 'video/%'`
+                : '';
 
       // Use two separate complete queries to avoid dynamic SQL construction
       const countSQL = search
@@ -207,4 +262,61 @@ async function resolveReadStream(
   const storage = backend === 'b2' ? new B2Storage() : new LocalStorage();
   if (!(await storage.exists(storageKey))) throw new Error('Missing');
   return storage.createReadStream(storageKey);
+}
+
+async function resolveReadStreamRange(
+  storageKey: string,
+  backend: string,
+  start: number,
+  end: number
+): Promise<NodeJS.ReadableStream> {
+  const storage = backend === 'b2' ? new B2Storage() : new LocalStorage();
+  if (!(await storage.exists(storageKey))) throw new Error('Missing');
+  return storage.createReadStreamRange(storageKey, start, end);
+}
+
+/**
+ * Parse an HTTP Range header. Returns `{ start, end }` or `null` if invalid.
+ * Handles: `bytes=0-1023`, `bytes=1024-`, `bytes=-512`
+ */
+function parseRange(
+  header: string,
+  fileSize: number
+): { start: number; end: number } | null {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return null;
+
+  const rawStart = match[1] ?? '';
+  const rawEnd = match[2] ?? '';
+
+  let start: number;
+  let end: number;
+
+  if (rawStart === '' && rawEnd === '') return null;
+
+  if (rawStart !== '' && rawEnd !== '') {
+    start = parseInt(rawStart, 10);
+    end = parseInt(rawEnd, 10);
+  } else if (rawStart !== '') {
+    // bytes=N- → from N to end
+    start = parseInt(rawStart, 10);
+    end = fileSize - 1;
+  } else {
+    // bytes=-N → last N bytes
+    const suffix = parseInt(rawEnd, 10);
+    start = Math.max(0, fileSize - suffix);
+    end = fileSize - 1;
+  }
+
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    end >= fileSize ||
+    start > end
+  ) {
+    return null;
+  }
+
+  return { start, end };
 }
