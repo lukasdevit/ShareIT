@@ -76,6 +76,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            sg docker -c "DOMAIN=${{ secrets.DOMAIN }} docker compose down"
             sg docker -c "DOMAIN=${{ secrets.DOMAIN }} docker compose up -d --build --remove-orphans"
             sg docker -c "docker image prune -f"
 
