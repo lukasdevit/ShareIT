@@ -1,9 +1,8 @@
 import { buildApp } from './app.js';
-import { PORT, getStorageBackend, getBackupScheduleHours } from './config/index.js';
+import { PORT, getBackupScheduleHours } from './config/index.js';
 import { seedAdmin, cleanupExpiredFiles, backupDatabase } from './db/index.js';
+import { resolveProvider } from './services/storage/index.js';
 import type { StorageProvider } from './services/storage/types.js';
-import { LocalStorage } from './services/storage/local.js';
-import { B2Storage } from './services/storage/b2/index.js';
 import { writeLog } from './services/logService.js';
 
 const app = await buildApp({ logger: true });
@@ -21,28 +20,16 @@ await seedAdmin(app.log);
 
 // Run DB backup immediately and every N hours (configurable via admin panel / env)
 async function runBackup() {
-  const destinations: {
-    provider: StorageProvider;
-    keyPrefix?: string;
-    label?: string;
-    keep?: number;
-  }[] = [];
-
-  if ((await getStorageBackend()) === 'b2') {
-    destinations.push({
-      provider: new B2Storage(),
-      keyPrefix: 'backups/db',
-      label: 'b2',
+  const { getStorageBackend } = await import('./config/index.js');
+  const backend = await getStorageBackend();
+  const destinations: { provider: StorageProvider; keyPrefix?: string; label?: string; keep?: number }[] = [
+    {
+      provider: resolveProvider(backend),
+      keyPrefix: 'backups',
+      label: backend,
       keep: 7,
-    });
-  }
-  // Always include local backup as fallback
-  destinations.push({
-    provider: new LocalStorage(),
-    keyPrefix: 'backups',
-    label: 'local',
-    keep: 7,
-  });
+    },
+  ];
   await backupDatabase(app.log, ...destinations);
 
   // Re-read schedule from DB each cycle so admin panel changes take effect

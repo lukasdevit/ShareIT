@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { UPLOAD_DIR } from '../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../config/index.js';
 
-const LOG_DIR = path.join(UPLOAD_DIR, 'logs');
+const LOG_DIR = path.join(DEFAULT_UPLOAD_DIR, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'app.log');
 const RING_SIZE = 2000;
 

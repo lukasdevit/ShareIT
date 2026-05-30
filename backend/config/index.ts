@@ -10,7 +10,7 @@ function envOrCrash(key: string): string {
 export const PORT = 3000;
 export const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 export const LOG_PRETTY = process.env.LOG_PRETTY === 'true';
-export const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+export const DEFAULT_UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 export const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
 export const DOMAIN = process.env.DOMAIN || 'localhost';
 
@@ -73,14 +73,12 @@ function dbOrEnv(key: string, envFallback: string, db: Record<string, string>): 
   return db[key] || envFallback;
 }
 
-// ── Storage backend (generic, scalable) ──
-
-export type StorageBackend = 'local' | 'b2' | 's3';
+export type StorageBackend = 'local' | 'b2';
 
 export async function getStorageBackend(): Promise<StorageBackend> {
   const db = await loadDbSettings();
   const backend = db.backend || 'local';
-  if (backend === 'local' || backend === 'b2' || backend === 's3') return backend;
+  if (backend === 'local' || backend === 'b2') return backend;
   return 'local';
 }
 
@@ -93,10 +91,12 @@ export async function getStorageSetting(key: string): Promise<string> {
   return dbOrEnv(dbKey, process.env[envKey] || '', db);
 }
 
-export async function getStoragePrefix(): Promise<string> {
+/** DB-backed storage path — local directory when backend is local, key prefix when B2. */
+export async function getStoragePath(): Promise<string> {
+  const db = await loadDbSettings();
+  if (db['storage_path']) return db['storage_path'];
   const backend = await getStorageBackend();
-  if (backend === 'local') return '';
-  return (await getStorageSetting('prefix')) || 'shareit/storage/';
+  return backend === 'local' ? DEFAULT_UPLOAD_DIR : 'shareit/storage/';
 }
 
 // ── Database ──

@@ -9,7 +9,7 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 
 import {
-  UPLOAD_DIR,
+  DEFAULT_UPLOAD_DIR,
   RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS,
   LOG_PRETTY,
@@ -80,8 +80,8 @@ export async function buildApp(opts: AppOptions = {}) {
     app.log = pino({}, pino.multistream(streams));
   }
 
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(DEFAULT_UPLOAD_DIR)) {
+    fs.mkdirSync(DEFAULT_UPLOAD_DIR, { recursive: true });
   }
 
   // Global ceiling = max per-user quota (10 GB). Actual per-user limits

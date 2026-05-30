@@ -1,13 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
-import { UPLOAD_DIR } from '../../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
 import type { StorageProvider } from './types.js';
 
 export class LocalStorage implements StorageProvider {
+  private baseDir: string;
+
+  constructor(baseDir?: string) {
+    this.baseDir = baseDir || DEFAULT_UPLOAD_DIR;
+  }
+
   private resolve(key: string): string {
-    if (path.isAbsolute(key) && key.startsWith(UPLOAD_DIR)) return key;
-    return path.join(UPLOAD_DIR, key);
+    if (path.isAbsolute(key) && key.startsWith(this.baseDir)) return key;
+    return path.join(this.baseDir, key);
   }
 
   async save(key: string, stream: NodeJS.ReadableStream): Promise<number> {

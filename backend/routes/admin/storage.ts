@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import {
-  UPLOAD_DIR,
+  DEFAULT_UPLOAD_DIR,
   DEFAULT_STORAGE_LIMIT,
   DOMAIN,
 } from '../../config/index.js';
@@ -46,7 +46,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         config[`${backend}_has_app_key`] = !!(overrides[`${backend}_app_key`] || await getStorageSetting('app_key'));
       } else {
         try {
-          const stats = fs.statfsSync(UPLOAD_DIR);
+          const stats = fs.statfsSync(DEFAULT_UPLOAD_DIR);
           config.disk_total = stats.blocks * stats.bsize;
           config.disk_free = stats.bfree * stats.bsize;
           config.disk_used =
@@ -93,10 +93,10 @@ export async function adminStorageRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const body = request.body as Record<string, string>;
       const allowed = [
+        'storage_path',
         'b2_endpoint',
         'b2_region',
         'b2_bucket',
-        'b2_prefix',
         'b2_key_id',
         'b2_app_key',
         'backend',

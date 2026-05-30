@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getStorage } from '../services/storage/index.js';
-import { UPLOAD_DIR } from '../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../config/index.js';
 
 /**
  * Delete a file from whichever storage backend it lives on.
@@ -9,7 +9,7 @@ import { UPLOAD_DIR } from '../config/index.js';
  */
 export async function deleteFromStorage(storageKey: string): Promise<void> {
   // Local filesystem — resolve path
-  if (path.isAbsolute(storageKey) && storageKey.startsWith(UPLOAD_DIR)) {
+  if (path.isAbsolute(storageKey) && storageKey.startsWith(DEFAULT_UPLOAD_DIR)) {
     try {
       fs.unlinkSync(storageKey);
     } catch {
@@ -18,7 +18,7 @@ export async function deleteFromStorage(storageKey: string): Promise<void> {
     return;
   }
   // Might be a relative path under uploads/
-  const localPath = path.join(UPLOAD_DIR, storageKey);
+  const localPath = path.join(DEFAULT_UPLOAD_DIR, storageKey);
   if (fs.existsSync(localPath)) {
     try {
       fs.unlinkSync(localPath);
