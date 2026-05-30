@@ -35,21 +35,14 @@ async function runBackup() {
       label: 'b2',
       keep: 7,
     });
-  } else {
-    destinations.push({
-      provider: new B2Storage(),
-      keyPrefix: 'backups/db',
-      label: 'b2',
-      keep: 7,
-    });
-  } else {
-    destinations.push({
-      provider: new LocalStorage(),
-      keyPrefix: 'backups',
-      label: 'local',
-      keep: 7,
-    });
   }
+  // Always include local backup as fallback
+  destinations.push({
+    provider: new LocalStorage(),
+    keyPrefix: 'backups',
+    label: 'local',
+    keep: 7,
+  });
   await backupDatabase(app.log, ...destinations);
 
   // Re-read schedule from DB each cycle so admin panel changes take effect
