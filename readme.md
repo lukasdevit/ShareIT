@@ -1,3 +1,4 @@
+![ShareIT](https://healthchecks.io/b/2/85d9c28f-214f-4e72-8332-c72f1a741e73.svg)
 # ShareIT
 
 A self-hosted file sharing app you can run on your own server. Upload files, share them with a link, and manage everything from a clean ui.
