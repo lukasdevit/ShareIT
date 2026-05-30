@@ -14,6 +14,7 @@ import {
   RATE_LIMIT_WINDOW_MS,
   LOG_PRETTY,
   CORS_ORIGIN,
+  DEFAULT_STORAGE_LIMIT,
 } from './config/index.js';
 import { uploadRoutes, multipartUploadRoutes } from './routes/upload/index.js';
 import { filesRoutes } from './routes/files.js';
@@ -83,8 +84,10 @@ export async function buildApp(opts: AppOptions = {}) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   }
 
+  // Global ceiling = max per-user quota (10 GB). Actual per-user limits
+  // are enforced in saveFile() by checking storage quota at upload time.
   await app.register(multipart, {
-    limits: { fileSize: 1 * 1024 * 1024 * 1024 },
+    limits: { fileSize: DEFAULT_STORAGE_LIMIT },
   });
 
   // Accept raw binary body for S3 part-proxy route
