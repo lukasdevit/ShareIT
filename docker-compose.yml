@@ -9,6 +9,11 @@ services:
       - db_data:/app/data
       - uploads:/app/uploads
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health']
       interval: 30s
@@ -21,6 +26,11 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ''
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
 
   caddy:
     image: caddy:alpine
@@ -34,6 +44,11 @@ services:
       - ./caddy/certs:/etc/caddy/certs
       - caddy_data:/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
 
 volumes:
   db_data:
