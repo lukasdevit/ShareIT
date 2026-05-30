@@ -1,28 +1,18 @@
 import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
-import { dbAll, dbGet, dbRun } from '../../db/index.js';
 import {
   UPLOAD_DIR,
   DEFAULT_STORAGE_LIMIT,
   DOMAIN,
 } from '../../config/index.js';
 import { getStorageBackend, getStorageSetting, clearConfigCache } from '../../config/index.js';
-import { recordAction } from './actions.js';
+import { recordAction } from '../../services/actionLogService.js';
+import { getAllSettings, upsertSetting } from '../../repositories/settingsRepository.js';
+import { getStorageStats } from '../../repositories/storageStatsRepository.js';
 
 const STORAGE_RATE_LIMIT = 60; // requests per window
 const STORAGE_RATE_WINDOW_MS = 60_000;
-
-async function getOverrides(): Promise<Record<string, string>> {
-  const overrides: Record<string, string> = {};
-  const rows = await dbAll<{ key: string; value: string }>(
-    `SELECT key, value FROM settings`
-  );
-  rows.forEach((r) => {
-    overrides[r.key] = r.value;
-  });
-  return overrides;
-}
 
 export async function adminStorageRoutes(app: FastifyInstance) {
   app.get(
@@ -36,15 +26,8 @@ export async function adminStorageRoutes(app: FastifyInstance) {
       },
     },
     async (_request, reply) => {
-      const overrides = await getOverrides();
-      const row = await dbGet<{
-        users: number;
-        total_bytes: number;
-        total_files: number;
-      }>(
-        `SELECT COUNT(DISTINCT users.id) AS users, COALESCE(SUM(size), 0) AS total_bytes, COUNT(files.id) AS total_files
-       FROM users LEFT JOIN files ON files.user_id = users.id`
-      );
+      const overrides = await getAllSettings();
+      const row = await getStorageStats();
 
       const config: Record<string, unknown> = {
         backend: overrides.backend || (await getStorageBackend()),
@@ -77,9 +60,9 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 
       return reply.send({
         ...config,
-        users: row?.users ?? 0,
-        total_bytes: row?.total_bytes ?? 0,
-        total_files: row?.total_files ?? 0,
+        users: row.users,
+        total_bytes: row.total_bytes,
+        total_files: row.total_files,
         registrations_open: overrides.registrations_open !== 'false',
         s3_upload_enabled: overrides.s3_upload_enabled === 'true',
       });
@@ -87,7 +70,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
   );
 
   app.get('/admin/storage/secrets', async (_request, reply) => {
-    const overrides = await getOverrides();
+    const overrides = await getAllSettings();
     const backend = await getStorageBackend();
     const keyId = overrides[`${backend}_key_id`] || await getStorageSetting('key_id');
     const appKey = overrides[`${backend}_app_key`] || await getStorageSetting('app_key');
@@ -131,10 +114,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'No valid fields to update' });
 
       for (const [k, v] of updates) {
-        await dbRun(
-          `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          [k, v]
-        );
+        await upsertSetting(k, v);
       }
       clearConfigCache();
       if (request.user?.username) {

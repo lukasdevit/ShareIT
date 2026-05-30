@@ -1,65 +1,33 @@
 import type { FastifyInstance } from 'fastify';
-import { dbAll, dbGet, dbRun } from '../../db/index.js';
-import { recordAction } from './actions.js';
-
-/** Allowed table names — prevents injection via table name parameter */
-const ALLOWED_TABLES = new Set(['users', 'files', 'settings', 'backup_logs']);
-
-function validateTable(name: string): boolean {
-  return ALLOWED_TABLES.has(name);
-}
+import { recordAction } from '../../services/actionLogService.js';
+import {
+  isValidTable,
+  listTables,
+  browseTable,
+  isAdminUser,
+  countAdmins,
+  findRow,
+  deleteRow,
+} from '../../repositories/dbRepository.js';
 
 export async function adminDbRoutes(app: FastifyInstance) {
-  // List tables with schema info (read-only)
+  // List tables with schema info
   app.get('/admin/db/tables', async (_request, reply) => {
-    const tables = await dbAll<{ name: string }>(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
-    );
-    if (tables.length === 0) return reply.send([]);
-
-    const results = await Promise.all(
-      tables.map(async (table) => {
-        const cols = await dbAll<{
-          name: string;
-          type: string;
-          notnull: number;
-          pk: number;
-        }>(`PRAGMA table_info(${table.name})`);
-        const count = await dbGet<{ count: number }>(
-          `SELECT COUNT(*) AS count FROM "${table.name}"`
-        );
-        return {
-          name: table.name,
-          columns: cols.map((c) => ({
-            name: c.name,
-            type: c.type,
-            notnull: c.notnull,
-            pk: c.pk,
-          })),
-          rowCount: count?.count ?? 0,
-        };
-      })
-    );
-    results.sort((a, b) => a.name.localeCompare(b.name));
+    const results = await listTables();
     return reply.send(results);
   });
 
-  // Browse rows for a specific table (read-only, limited)
+  // Browse rows for a specific table
   app.get('/admin/db/tables/:name/rows', async (request, reply) => {
     const { name } = request.params as { name: string };
-    if (!validateTable(name)) {
+    if (!isValidTable(name)) {
       return reply.code(400).send({ error: 'Invalid table name' });
     }
-
-    const rows = await dbAll<Record<string, unknown>>(
-      `SELECT * FROM "${name}" LIMIT 100`
-    );
-    const firstRow = rows[0];
-    const columns = firstRow ? Object.keys(firstRow) : [];
-    return reply.send({ columns, rows, rowCount: rows.length });
+    const data = await browseTable(name);
+    return reply.send(data);
   });
 
-  // Delete a single row by primary key value
+  // Delete a single row by primary key
   app.delete(
     '/admin/db/tables/:name/rows',
     {
@@ -67,15 +35,13 @@ export async function adminDbRoutes(app: FastifyInstance) {
         body: {
           type: 'object' as const,
           required: ['pkColumn', 'pkValue'],
-          properties: {
-            pkColumn: { type: 'string' },
-          },
+          properties: { pkColumn: { type: 'string' } },
         },
       },
     },
     async (request, reply) => {
       const { name } = request.params as { name: string };
-      if (!validateTable(name)) {
+      if (!isValidTable(name)) {
         return reply.code(400).send({ error: 'Invalid table name' });
       }
 
@@ -86,46 +52,24 @@ export async function adminDbRoutes(app: FastifyInstance) {
 
       // Prevent deleting the last admin
       if (name === 'users') {
-        const user = await dbGet<{ is_admin: number }>(
-          `SELECT is_admin FROM users WHERE "${pkColumn}" = ?`,
-          [pkValue]
-        );
-        if (user?.is_admin) {
-          const adminCount = await dbGet<{ cnt: number }>(
-            `SELECT COUNT(*) AS cnt FROM users WHERE is_admin = 1`
-          );
-          if (adminCount && adminCount.cnt <= 1) {
-            return reply
-              .code(403)
-              .send({ error: 'Cannot delete the last admin user' });
-          }
+        const isAdmin = await isAdminUser(pkColumn, pkValue);
+        if (isAdmin && (await countAdmins()) <= 1) {
+          return reply.code(403).send({ error: 'Cannot delete the last admin user' });
         }
       }
 
-      // Save row data for undo before deleting
-      const row = await dbGet<Record<string, unknown>>(
-        `SELECT * FROM "${name}" WHERE "${pkColumn}" = ?`,
-        [pkValue]
-      );
+      const row = await findRow(name, pkColumn, pkValue);
+      const changes = await deleteRow(name, pkColumn, pkValue);
 
-      const result = await dbRun(
-        `DELETE FROM "${name}" WHERE "${pkColumn}" = ?`,
-        [pkValue]
-      );
       if (request.user?.username && row) {
         await recordAction(
           request.user!.username,
           'db-delete',
           `Deleted from ${name} where ${pkColumn}=${pkValue}`,
-          {
-            table: name,
-            pkColumn,
-            pkValue,
-            row,
-          }
+          { table: name, pkColumn, pkValue, row }
         );
       }
-      return reply.send({ ok: true, changes: result.changes });
+      return reply.send({ ok: true, changes });
     }
   );
 }

@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 import os from 'os';
 
 import { DB_PATH } from '../../config/index.js';
-import { recordAction } from './actions.js';
+import { recordAction } from '../../services/actionLogService.js';
 
 const BACKUPS_DIR = path.join(process.cwd(), 'uploads', 'backups');
 
