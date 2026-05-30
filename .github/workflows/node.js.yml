@@ -3,14 +3,13 @@ name: Tests & Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
 
 permissions:
   contents: read
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
@@ -30,34 +29,9 @@ jobs:
       - run: npm run test:run
       - run: cd frontend && npm run test
 
-  release:
-    name: Semantic release
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-      - run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   deploy:
     name: Deploy to VPS
-    needs: release
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -78,6 +52,3 @@ jobs:
 
             sg docker -c "DOMAIN=${{ secrets.DOMAIN }} docker compose down"
             sg docker -c "DOMAIN=${{ secrets.DOMAIN }} docker compose up -d --build --remove-orphans"
-            sg docker -c "docker image prune -f"
-
-            echo "✅ Deploy complete — https://${{ secrets.DOMAIN }}"
