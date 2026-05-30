@@ -1,7 +1,10 @@
-# Domain from DOMAIN env var. Falls back to "localhost" if unset.
-# Caddy handles TLS automatically: Let's Encrypt for real domains,
-# self-signed for localhost.
-# Custom certs: upload via admin panel → creates /etc/caddy/certs/custom.caddy
+# ═══════════════════════════════════════════════════════════════
+#  ShareIT — Caddy Reverse Proxy
+#  DOMAIN env var must be set to your real domain (e.g. shareit.goletz.dev)
+#  Falls back to "localhost" for local dev.
+# ═══════════════════════════════════════════════════════════════
+
+# ── Primary site — only responds to the actual domain ──
 {$DOMAIN:localhost} {
   # Import custom cert snippet if any files exist (uploaded via admin panel)
   import /etc/caddy/certs/*.caddy
@@ -30,4 +33,11 @@
 
   # Everything else → Next.js frontend (browser gets proper HTML pages)
   reverse_proxy web:3000
+}
+
+# ── Drop all direct IP / unknown-host requests ──
+# Prevents Shodan/Censys from fingerprinting your real IP.
+# Returns nothing — connection is closed, no redirect, no response.
+:80, :443 {
+  respond 444
 }
