@@ -4,10 +4,30 @@ import { handleUpload } from '../../services/fileService.js';
 import { dbGet } from '../../db/index.js';
 import { DEMO_STORAGE_LIMIT } from '../../config/index.js';
 
+// Cloudflare free plan caps uploads at 100 MB — reject slightly below that
+// so the backend can return a friendly JSON error instead of an HTML 413.
+const CLOUDFLARE_UPLOAD_LIMIT = 95 * 1024 * 1024; // 95 MB
+
 export async function uploadRoutes(app: FastifyInstance) {
   app.post('/upload', { preHandler: [requireAuth] }, async (request, reply) => {
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: 'No file was uploaded' });
+
+    // Check Content-Length before processing — gives a clear error for
+    // files that are too large for ShareX/Cloudflare but not yet blocked.
+    const contentLength = parseInt(
+      request.headers['content-length'] || '0',
+      10
+    );
+    if (contentLength > CLOUDFLARE_UPLOAD_LIMIT) {
+      return reply.code(413).send({
+        error:
+          'This file exceeds the 100 MB limit for direct uploads. ' +
+          'Please upload it via the web app at ' +
+          (process.env.BASE_URL || 'https://not.valid.url.avaible') +
+          ' — the web app uses chunked upload without size limits.',
+      });
+    }
 
     const user = request.user!;
 
