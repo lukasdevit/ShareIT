@@ -41,6 +41,8 @@ export function UserManager({ apiFetch }: Props) {
   const [newStorageLimit, setNewStorageLimit] = useState(0);
   const [registrationsOpen, setRegistrationsOpen] = useState(true);
   const [togglingReg, setTogglingReg] = useState(false);
+  const [demoRegOpen, setDemoRegOpen] = useState(true);
+  const [togglingDemoReg, setTogglingDemoReg] = useState(false);
 
   async function fetchUsers(p = 1, s = '') {
     setLoading(true);
@@ -64,6 +66,7 @@ export function UserManager({ apiFetch }: Props) {
   useEffect(() => {
     fetchUsers(1, search);
     fetchRegistrationsStatus();
+    fetchDemoRegStatus();
   }, []);
 
   async function fetchRegistrationsStatus() {
@@ -75,6 +78,37 @@ export function UserManager({ apiFetch }: Props) {
       }
     } catch {
       /* keep default */
+    }
+  }
+
+  async function fetchDemoRegStatus() {
+    try {
+      const r = await apiFetch('/admin/users/demo-config');
+      if (r.ok) {
+        const d = await r.json();
+        setDemoRegOpen(d.demo_registrations_open !== false);
+      }
+    } catch {
+      /* keep default */
+    }
+  }
+
+  async function toggleDemoRegistrations() {
+    setTogglingDemoReg(true);
+    try {
+      const r = await apiFetch('/admin/users/demo-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ demo_registrations_open: !demoRegOpen }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setDemoRegOpen(!demoRegOpen);
+      toast(`Demo accounts ${!demoRegOpen ? 'enabled' : 'disabled'}`, 'ok');
+    } catch (err) {
+      toast((err as Error).message, 'err');
+    } finally {
+      setTogglingDemoReg(false);
     }
   }
 
@@ -214,31 +248,58 @@ export function UserManager({ apiFetch }: Props) {
         <MetricCard label="Storage Used" value={formatSize(totalUsed)} />
         <MetricCard label="Files" value={totalFiles} />
       </MetricGrid>
-      {/* Registrations toggle */}
-      <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-        <div>
-          <span className="text-sm font-medium text-zinc-200">
-            User Registrations
-          </span>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Allow new users to sign up
-          </p>
+      {/* Registrations toggles */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+          <div>
+            <span className="text-sm font-medium text-zinc-200">
+              User Registrations
+            </span>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Allow new users to sign up
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={togglingReg}
+            aria-label={
+              registrationsOpen
+                ? 'Disable user registrations'
+                : 'Enable user registrations'
+            }
+            onClick={toggleRegistrations}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${registrationsOpen ? 'bg-green-600' : 'bg-zinc-600'} ${togglingReg ? 'opacity-50' : ''}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${registrationsOpen ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
         </div>
-        <button
-          type="button"
-          disabled={togglingReg}
-          aria-label={
-            registrationsOpen
-              ? 'Disable user registrations'
-              : 'Enable user registrations'
-          }
-          onClick={toggleRegistrations}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${registrationsOpen ? 'bg-green-600' : 'bg-zinc-600'} ${togglingReg ? 'opacity-50' : ''}`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${registrationsOpen ? 'translate-x-6' : 'translate-x-1'}`}
-          />
-        </button>
+        <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+          <div>
+            <span className="text-sm font-medium text-zinc-200">
+              🎭 Demo Accounts
+            </span>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Allow one-click demo account creation
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={togglingDemoReg}
+            aria-label={
+              demoRegOpen
+                ? 'Disable demo accounts'
+                : 'Enable demo accounts'
+            }
+            onClick={toggleDemoRegistrations}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${demoRegOpen ? 'bg-green-600' : 'bg-zinc-600'} ${togglingDemoReg ? 'opacity-50' : ''}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${demoRegOpen ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
       </div>
       <div className="flex items-center justify-between">
         <h2 className="card-title">🛡️ User Manager</h2>

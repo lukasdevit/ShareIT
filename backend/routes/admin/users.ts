@@ -4,10 +4,47 @@ import { dbAll, dbGet, dbRun } from '../../db/index.js';
 import { parsePagination, deleteFromStorage } from '../../utils/index.js';
 import { DEFAULT_STORAGE_LIMIT } from '../../config/index.js';
 import { recordAction } from './actions.js';
+import { clearConfigCache } from '../../config/index.js';
 
 const BCRYPT_ROUNDS = 10;
 
 export async function adminUserRoutes(app: FastifyInstance) {
+  // ── Demo registrations config ──
+
+  app.get('/admin/users/demo-config', async (_request, reply) => {
+    const row = await dbGet<{ value: string }>(
+      `SELECT value FROM settings WHERE key = 'demo_registrations_open'`
+    );
+    const open = row ? row.value !== 'false' : true;
+    return reply.send({ demo_registrations_open: open });
+  });
+
+  app.patch('/admin/users/demo-config', async (request, reply) => {
+    const { demo_registrations_open } = (request.body || {}) as {
+      demo_registrations_open?: boolean;
+    };
+    if (typeof demo_registrations_open !== 'boolean') {
+      return reply
+        .code(400)
+        .send({ error: 'demo_registrations_open must be a boolean' });
+    }
+    await dbRun(
+      `INSERT INTO settings (key, value) VALUES ('demo_registrations_open', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [String(demo_registrations_open)]
+    );
+    clearConfigCache();
+    if (request.user?.username) {
+      await recordAction(
+        request.user!.username,
+        'demo-config',
+        `Demo registrations ${demo_registrations_open ? 'enabled' : 'disabled'}`,
+        { demo_registrations_open }
+      );
+    }
+    return reply.send({ ok: true, demo_registrations_open });
+  });
+
+  // ── User CRUD ──
   const createUserSchema = {
     body: {
       type: 'object' as const,

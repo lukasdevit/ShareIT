@@ -350,8 +350,18 @@ export async function authRoutes(app: FastifyInstance) {
           }),
     },
     async (request, reply) => {
-      // ── Global rate limit: max DEMO_GLOBAL_RATE_LIMIT demo users per minute ──
+      // ── Demo registrations toggle (admin panel) ──
       if (!isTest) {
+        const demoSettings = await dbGet<{ value: string }>(
+          `SELECT value FROM settings WHERE key = 'demo_registrations_open'`
+        );
+        if (demoSettings && demoSettings.value === 'false') {
+          return reply
+            .code(403)
+            .send({ error: 'Demo accounts are currently disabled' });
+        }
+
+        // ── Global rate limit: max DEMO_GLOBAL_RATE_LIMIT demo users per minute ──
         const cutoff = new Date(
           Date.now() - DEMO_RATE_WINDOW_MS
         ).toISOString();
