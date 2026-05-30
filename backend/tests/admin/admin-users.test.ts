@@ -145,3 +145,61 @@ describe('POST /admin/users/:id/unlock', () => {
     expect(res.body.ok).toBe(true);
   });
 });
+
+describe('GET /admin/users/demo-config', () => {
+  it('returns demo registrations are open by default', async () => {
+    const res = await request
+      .get('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.demo_registrations_open).toBe(true);
+  });
+
+  it('rejects non-admin', async () => {
+    await request
+      .get('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+  });
+});
+
+describe('PATCH /admin/users/demo-config', () => {
+  it('disables demo registrations', async () => {
+    const res = await request
+      .patch('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ demo_registrations_open: false })
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+    expect(res.body.demo_registrations_open).toBe(false);
+  });
+
+  it('re-enables demo registrations', async () => {
+    const res = await request
+      .patch('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ demo_registrations_open: true })
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+    expect(res.body.demo_registrations_open).toBe(true);
+  });
+
+  it('rejects non-boolean value', async () => {
+    await request
+      .patch('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ demo_registrations_open: 'yes' })
+      .expect(400);
+  });
+
+  it('rejects non-admin', async () => {
+    await request
+      .patch('/admin/users/demo-config')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ demo_registrations_open: false })
+      .expect(403);
+  });
+});
