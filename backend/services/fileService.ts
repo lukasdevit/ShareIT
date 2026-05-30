@@ -95,6 +95,53 @@ export async function saveFile(
     }
   }
 
+  const base = { filename, originalName, storageKey, mimeType, size: stats.size };
+  const fileParams: typeof base & { userId?: number; expiresInDays?: number } = { ...base };
+  if (userId !== undefined) fileParams.userId = userId;
+  if (expiresInDays !== undefined) fileParams.expiresInDays = expiresInDays;
+  return finalizeFile(fileParams);
+}
+
+/** Create DB record + quota checks — shared by all upload paths. */
+export async function finalizeFile(params: {
+  filename: string;
+  originalName: string;
+  storageKey: string;
+  mimeType: string;
+  size: number;
+  userId?: number;
+  expiresInDays?: number;
+}): Promise<string> {
+  const { filename, originalName, storageKey, mimeType, size, userId, expiresInDays } = params;
+  const storage = await getStorage();
+
+  // Check global app-wide storage limit
+  const totalLimit = await getTotalStorageLimit();
+  if (totalLimit > 0 && userId !== undefined) {
+    const row = await dbGet<{ total: number }>(
+      `SELECT COALESCE(SUM(size), 0) AS total FROM files`
+    );
+    if ((row?.total ?? 0) + size > totalLimit) {
+      throw Object.assign(
+        new Error('Server storage limit reached. Contact the administrator.'),
+        { statusCode: 507 }
+      );
+    }
+  }
+
+  // Check per-user storage quota
+  if (userId !== undefined) {
+    const quota = await getUserQuota(userId);
+    if (quota.used + size > quota.limit) {
+      throw Object.assign(
+        new Error(
+          `Storage quota exceeded. You've used ${formatBytes(quota.used)} of ${formatBytes(quota.limit)}.`
+        ),
+        { statusCode: 413 }
+      );
+    }
+  }
+
   const expiresAt = expiresInDays
     ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
@@ -108,7 +155,7 @@ export async function saveFile(
         filename,
         originalName,
         storageKey,
-        stats.size,
+        size,
         mimeType,
         userId ?? null,
         new Date().toISOString(),
