@@ -13,7 +13,7 @@
     "test:frontend": "cd frontend && npm run test",
     "test:coverage": "vitest run --coverage",
     "release": "semantic-release",
-    "dev": "B2_ENABLED=false tsx watch --env-file=.env src/server.ts",
+    "dev": "B2_ENABLED=false tsx watch --env-file=.env backend/server.ts",
     "dev:all": "B2_ENABLED=false concurrently -n api,web -c blue,green \"npm run dev\" \"cd frontend && npm run dev\"",
     "format": "prettier . --write",
     "format:check": "prettier . --check"

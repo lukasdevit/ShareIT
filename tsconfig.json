@@ -3,11 +3,11 @@
   "compilerOptions": {
     // File Layout
     "composite": true,
-    "rootDir": "./src",
+    "rootDir": "./backend",
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./backend/*"]
     },
 
     // Environment Settings
@@ -47,5 +47,5 @@
     "skipLibCheck": true,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src"]
+  "include": ["backend"]
 }

@@ -1,11 +1,11 @@
-shareit.goletz.dev, goletz.dev {
-  tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
-
+# Domain from DOMAIN env var. Falls back to "localhost" if unset.
+# Caddy handles TLS automatically: Let's Encrypt for real domains,
+# self-signed for localhost.
+{$DOMAIN:localhost} {
   handle /file/* {
     reverse_proxy api:3000
   }
 
-  # GET /files with query params → API (file listing)
   @filesApi {
     method GET
     path /files
@@ -15,7 +15,6 @@ shareit.goletz.dev, goletz.dev {
     reverse_proxy api:3000
   }
 
-  # POST /files → API (file listing with body, if any)
   @filesApiPost {
     method POST
     path /files

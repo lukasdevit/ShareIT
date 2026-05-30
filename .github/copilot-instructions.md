@@ -93,16 +93,16 @@
 - Sanitize filenames before storage
 - Never trust client-provided paths or extensions
 - File storage must be separate from route handlers
-- Per-request upload limit: **1 GB** (multipart, set in `src/app.ts`)
-- Per-user storage quota: **10 GB** (`DEFAULT_STORAGE_LIMIT` in `src/config/index.ts`)
-- Allowed MIME types defined in `ALLOWED_MIME_TYPES` in `src/config/index.ts`
+- Per-request upload limit: **1 GB** (multipart, set in `backend/app.ts`)
+- Per-user storage quota: **10 GB** (`DEFAULT_STORAGE_LIMIT` in `backend/config/index.ts`)
+- Allowed MIME types defined in `ALLOWED_MIME_TYPES` in `backend/config/index.ts`
 
 ## Environment Variables
 
 - Never access process.env outside of a dedicated config module
 - `.env` at project root, loaded via Node 24 `--env-file=.env` flag (no `dotenv`)
 - Template: `.env.example` with inline docs for every var
-- All config lives in `src/config/index.ts` — the single source of truth
+- All config lives in `backend/config/index.ts` — the single source of truth
 
 ## Error Handling
 
@@ -118,7 +118,7 @@ if (!file) return reply.code(404).send({ error: 'File not found' });
 throw Object.assign(new Error('Unsupported MIME type'), { statusCode: 415 });
 ```
 
-- Global `setErrorHandler` in `src/app.ts` handles unexpected errors
+- Global `setErrorHandler` in `backend/app.ts` handles unexpected errors
 - Standard HTTP codes: 400, 401, 403, 404, 409, 415, 429, 500
 
 ## Logging
