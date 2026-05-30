@@ -12,9 +12,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
 import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
-import { sanitizeFilename, validateFile } from '../../services/fileService.js';
+import { sanitizeFilename, validateFile, finalizeFile } from '../../services/fileService.js';
 import { buildStorageKey } from '../../services/storage/index.js';
-import { dbRun, dbGet } from '../../db/index.js';
+import { dbGet } from '../../db/index.js';
 import { getTotalStorageLimit } from '../../config/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
@@ -215,28 +215,32 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         });
       }
 
-      // Create DB record
+      // Quota check + DB record via shared finalizeFile
       const filename = path.basename(body.key);
-      const expiresAt = body.expiresInDays
-        ? new Date(
-            Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000
-          ).toISOString()
-        : null;
-
-      await dbRun(
-        `INSERT INTO files (filename, original_name, path, size, mime_type, user_id, created_at, expires_at, storage_backend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          filename,
-          sanitizeFilename(body.originalName || filename),
-          body.key,
-          body.size || 0,
-          body.mimeType || 'application/octet-stream',
-          request.user!.id,
-          new Date().toISOString(),
-          expiresAt,
-          'b2',
-        ]
-      );
+      const fileParams: {
+        filename: string;
+        originalName: string;
+        storageKey: string;
+        mimeType: string;
+        size: number;
+        userId: number;
+        expiresInDays?: number;
+      } = {
+        filename,
+        originalName: sanitizeFilename(body.originalName || filename),
+        storageKey: body.key,
+        mimeType: body.mimeType || 'application/octet-stream',
+        size: body.size || 0,
+        userId: request.user!.id,
+      };
+      if (body.expiresInDays !== undefined) fileParams.expiresInDays = body.expiresInDays;
+      try {
+        await finalizeFile(fileParams);
+      } catch (err) {
+        return reply
+          .code((err as { statusCode?: number }).statusCode || 500)
+          .send({ error: (err as Error).message });
+      }
 
       return reply.send({
         data: {
