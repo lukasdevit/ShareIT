@@ -10,6 +10,7 @@ export function apiFetch(
   options?: RequestInit
 ): Promise<Response> {
   const headers: Record<string, string> = {
+    'Accept': 'application/json',
     ...((options?.headers as Record<string, string>) || {}),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
