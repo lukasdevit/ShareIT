@@ -17,6 +17,7 @@ interface LogEntry {
   url?: string;
   statusCode?: number;
   responseTime?: number | undefined;
+  body?: unknown;
   err?: unknown;
 }
 
@@ -43,6 +44,7 @@ function formatLogLine(entry: LogEntry): string {
   if (entry.method && entry.url) line += ` ${entry.method} ${entry.url}`;
   if (entry.statusCode) line += ` status=${entry.statusCode}`;
   if (entry.responseTime !== undefined) line += ` ${entry.responseTime}ms`;
+  if (entry.body) line += ` body=${JSON.stringify(entry.body)}`;
   if (entry.err) {
     const errObj = entry.err as Record<string, unknown>;
     line += ` err=${errObj.message || JSON.stringify(entry.err)}`;

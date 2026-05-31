@@ -148,17 +148,29 @@ export async function buildApp(opts: AppOptions = {}) {
     const start = (request as unknown as Record<string, unknown>)
       ._logStart as number;
     const responseTime = start ? Date.now() - start : undefined;
+
+    // Build a descriptive message that includes what was changed
+    let msg = 'request completed';
+    let body: unknown = undefined;
+    const writeMethods = ['POST', 'PATCH', 'PUT', 'DELETE'];
+    if (writeMethods.includes(request.method) && request.body) {
+      body = redactSensitive(request.body, request.url);
+      const summary = summarizeAction(request.method, request.url, request.body);
+      if (summary) msg = summary;
+    }
+
     writeLog({
       time: new Date().toISOString(),
       level: reply.statusCode >= 400 ? 40 : 30,
       levelName: reply.statusCode >= 400 ? 'warn' : 'info',
-      msg: 'request completed',
+      msg,
       reqId: request.id,
       user: request.user?.username,
       method: request.method,
       url: request.url,
       statusCode: reply.statusCode,
       responseTime,
+      body,
     });
   });
 
@@ -179,4 +191,81 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   return app;
+}
+
+/** Strip password/secret fields from logged bodies. */
+function redactSensitive(body: unknown, _url: string): unknown {
+  if (typeof body !== 'object' || body === null) return body;
+  const clone = { ...body as Record<string, unknown> };
+  const sensitive = ['password', 'new_password', 'currentPassword', 'newPassword',
+    'key', 'cert', 'app_key', 'key_id', 'token'];
+  for (const key of sensitive) {
+    if (key in clone) clone[key] = '***';
+  }
+  return clone;
+}
+
+/** Format key=value pairs, truncating long values. */
+function formatChanges(body: Record<string, unknown>): string {
+  return Object.entries(body)
+    .filter(([, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => {
+      const str = String(v);
+      return `${k}=${str.length > 60 ? str.slice(0, 57) + '...' : str}`;
+    })
+    .join(', ');
+}
+
+/** Build a human-readable summary of what changed. */
+function summarizeAction(method: string, url: string, body: unknown): string | null {
+  const b = body as Record<string, unknown> | undefined;
+  if (!b) return null;
+
+  if (url.startsWith('/admin/storage') && method === 'PATCH') {
+    const changes = formatChanges(b);
+    return changes ? `storage config updated: ${changes}` : null;
+  }
+  if (url.startsWith('/admin/users') && method === 'PATCH') {
+    const filtered = Object.fromEntries(
+      Object.entries(b).filter(([, v]) => v !== undefined)
+    );
+    const changes = formatChanges(filtered);
+    return changes ? `user edited: ${changes}` : null;
+  }
+  if (url.startsWith('/admin/users') && method === 'POST' && !url.includes('unlock')) {
+    return `user created: ${b.username || 'unknown'}`;
+  }
+  if (url.startsWith('/admin/users') && method === 'DELETE') {
+    return `user deleted: id=${url.split('/').pop()}`;
+  }
+  if (url.startsWith('/admin/users') && method === 'POST' && url.includes('unlock')) {
+    return `user unlocked: id=${url.split('/').pop()}`;
+  }
+  if (url.startsWith('/admin/backup') && method === 'POST') {
+    return url.includes('restore')
+      ? `backup restored: ${b.filename || url.split('/').pop()}`
+      : 'backup triggered';
+  }
+  if (url.startsWith('/admin/backup') && method === 'DELETE') {
+    return `backup deleted: ${b.filename || 'unknown'}`;
+  }
+  if (url.startsWith('/admin/backup/schedule') && method === 'PATCH') {
+    return `backup schedule: every ${b.backup_schedule_hours}h`;
+  }
+  if (url.startsWith('/auth/change-password')) {
+    return 'password changed';
+  }
+  if (url.startsWith('/admin/users/demo-config') && method === 'PATCH') {
+    return `demo registrations: ${b.demo_registrations_open ? 'enabled' : 'disabled'}`;
+  }
+  if (url.startsWith('/file/') && method === 'PATCH') {
+    return `file toggled public: ${b.is_public ? 'yes' : 'no'}`;
+  }
+  if (url.startsWith('/file/') && method === 'DELETE') {
+    return 'file deleted';
+  }
+  if (url.startsWith('/upload') && method === 'POST') {
+    return 'file uploaded';
+  }
+  return null;
 }
