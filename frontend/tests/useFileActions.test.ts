@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useFileActions } from '@/hooks/useFileActions';
+import { useFileActions } from '@/hooks/use-file-actions';
 
 function mockApi(response: Partial<Response> = {}) {
   return vi.fn().mockResolvedValue({

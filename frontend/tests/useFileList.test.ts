@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useFileList } from '@/hooks/useFileList';
+import { useFileList } from '@/hooks/use-file-list';
 
 function mockFilePage(overrides = {}) {
   return {
