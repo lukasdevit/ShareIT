@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001 -H 0.0.0.0",
@@ -32,7 +32,7 @@
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^10",
+    "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "react-doctor": "^0.2.11",
     "typescript": "^6",

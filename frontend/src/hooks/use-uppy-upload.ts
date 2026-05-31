@@ -9,7 +9,7 @@ import AwsS3Multipart from '@uppy/aws-s3';
  * Hook that manages Uppy initialization and S3 multipart upload lifecycle.
  * Returns refs and state for use by a dumb upload UI component.
  */
-export function useUppyUpload(s3Enabled: boolean, token: string | null) {
+export function useUppyUpload(s3Enabled: boolean, token: string | null, onUploadComplete?: () => Promise<void>) {
   const uppyRef = useRef<Uppy | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -98,7 +98,7 @@ export function useUppyUpload(s3Enabled: boolean, token: string | null) {
 
     uppy.on('progress', (progress: number) => setUploadProgress(progress));
     uppy.on('upload', () => setUploading(true));
-    uppy.on('complete', () => { setUploading(false); setUploadProgress(0); });
+    uppy.on('complete', () => { setUploading(false); setUploadProgress(0); if (onUploadComplete) onUploadComplete(); });
     uppy.on('error', (_err: Error) => { setUploading(false); });
 
     uppyRef.current = uppy;

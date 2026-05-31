@@ -18,7 +18,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
   const { ref: glowRef, onMouseMove: glowMove, onMouseLeave: glowLeave } = useGlowEffect<HTMLDivElement>();
 
   const { api } = useAuth();
-  const uppy = useUppyUpload(s3Enabled, token);
+  const uppy = useUppyUpload(s3Enabled, token, onUploadComplete);
   const legacy = useFileUpload(api, token);
 
   const uploading = s3Enabled ? uppy.uploading : legacy.uploading;
