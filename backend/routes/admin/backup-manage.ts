@@ -1,9 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import fs from 'fs';
 import { recordAction } from '../../services/action-log-service.js';
 import {
   listBackupFiles,
-  getLatestBackupPath,
   uploadBackupFile,
   deleteBackupFile,
   restoreBackupFile,
@@ -45,14 +43,6 @@ export async function adminBackupManageRoutes(app: FastifyInstance) {
       const e = err as { statusCode?: number; message: string };
       return reply.code(e.statusCode || 500).send({ error: e.message });
     }
-  });
-
-  app.get('/admin/backup/latest', async (_request, reply) => {
-    const latest = getLatestBackupPath();
-    if (!latest) return reply.code(404).send({ error: 'No backups found' });
-    reply.header('Content-Type', 'application/octet-stream');
-    reply.header('Content-Disposition', `attachment; filename="${latest.filename}"`);
-    return reply.send(fs.createReadStream(latest.filepath));
   });
 
   app.post('/admin/backup/restore', {

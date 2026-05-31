@@ -22,6 +22,8 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
   const uploading = s3Enabled ? uppy.uploading : legacy.uploading;
   const uploadProgress = s3Enabled ? uppy.uploadProgress : legacy.uploadProgress;
   const error = s3Enabled ? uppy.error : legacy.error;
+  const expireDays = s3Enabled ? uppy.expireDays : legacy.expireDays;
+  const setExpireDays = s3Enabled ? uppy.setExpireDays : legacy.setExpireDays;
 
   const addFiles = useCallback(
     (files: File[]) => {

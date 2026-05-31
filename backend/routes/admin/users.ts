@@ -87,8 +87,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
         );
         return reply.send(result);
       } catch (err) {
-        const e = err as { statusCode?: number; message: string };
-        return reply.code(e.statusCode || 500).send({ error: e.message });
+        const e = err as { code?: string; message: string };
+        return reply.code(e.code === 'DUPLICATE_USERNAME' ? 409 : 500).send({ error: e.message });
       }
     }
   );
@@ -124,8 +124,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
         );
         return reply.send({ ok: true });
       } catch (err) {
-        const e = err as { statusCode?: number; message: string };
-        return reply.code(e.statusCode || 500).send({ error: e.message });
+        const e = err as { code?: string; message: string };
+        return reply.code(e.code === 'USER_NOT_FOUND' ? 404 : 500).send({ error: e.message });
       }
     }
   );
@@ -136,8 +136,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
       await unlockUserAccount(userId);
       return reply.send({ ok: true });
     } catch (err) {
-      const e = err as { statusCode?: number; message: string };
-      return reply.code(e.statusCode || 500).send({ error: e.message });
+      const e = err as { code?: string; message: string };
+      return reply.code(e.code === 'USER_NOT_FOUND' ? 404 : 500).send({ error: e.message });
     }
   });
 
@@ -147,8 +147,11 @@ export async function adminUserRoutes(app: FastifyInstance) {
       const result = await removeUser(userId, request.user!.id, request.user?.username);
       return reply.send({ ok: true, ...result });
     } catch (err) {
-      const e = err as { statusCode?: number; message: string };
-      return reply.code(e.statusCode || 500).send({ error: e.message });
+      const e = err as { code?: string; message: string };
+      const status = e.code === 'SELF_DELETE' ? 400
+        : e.code === 'USER_NOT_FOUND' ? 404
+        : 500;
+      return reply.code(status).send({ error: e.message });
     }
   });
 }

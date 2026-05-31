@@ -50,7 +50,7 @@ export function getLatestBackupPath(): { filename: string; filepath: string } | 
 }
 
 export async function uploadBackupFile(
-  file-stream: NodeJS.ReadableStream,
+  fileStream: NodeJS.ReadableStream,
   originalFilename: string,
   adminUsername?: string
 ): Promise<BackupFileInfo> {
@@ -66,7 +66,7 @@ export async function uploadBackupFile(
 
   const writeStream = fs.createWriteStream(destPath);
   await new Promise<void>((resolve, reject) => {
-    file-stream.pipe(writeStream);
+    fileStream.pipe(writeStream);
     writeStream.on('finish', resolve);
     writeStream.on('error', reject);
   });

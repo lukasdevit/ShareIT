@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
-import { DEFAULT_STORAGE_LIMIT } from '../../config/index.js';
-import { recordAction } from '../action-log-service.js';
+import { DEFAULT_STORAGE_LIMIT } from './../config/index.js';
+import { recordAction } from './action-log-service.js';
 import {
   insertUser,
   countUsersFiltered,
@@ -8,12 +8,12 @@ import {
   updateUser,
   unlockUser,
   deleteUser,
-} from '../../repositories/user-repository.js';
+} from './../repositories/user-repository.js';
 import {
   findFilePathsByUserId,
   deleteFilesByUserId,
-} from '../../repositories/file-repository.js';
-import { deleteFromStorage } from '../../utils/index.js';
+} from './../repositories/file-repository.js';
+import { getStorage } from './storage/index.js';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -46,7 +46,7 @@ export async function createUser(params: {
     return { id, username: params.username, is_admin: !!params.isAdmin, storage_limit: limit };
   } catch (err) {
     if ((err as Error).message.includes('UNIQUE')) {
-      throw Object.assign(new Error('Username already taken'), { statusCode: 409 });
+      throw Object.assign(new Error('Username already taken'), { code: 'DUPLICATE_USERNAME' });
     }
     throw err;
   }
@@ -83,13 +83,13 @@ export async function editUser(userId: number, changes: {
     : undefined;
 
   const result = await updateUser(userId, {
-    storageLimit: changes.storageLimit,
-    isAdmin: changes.isAdmin,
-    passwordHash,
+    ...(changes.storageLimit !== undefined ? { storageLimit: changes.storageLimit } : {}),
+    ...(changes.isAdmin !== undefined ? { isAdmin: changes.isAdmin } : {}),
+    ...(passwordHash !== undefined ? { passwordHash } : {}),
   });
 
   if (result === 0) {
-    throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    throw Object.assign(new Error('User not found'), { code: 'USER_NOT_FOUND' });
   }
 
   if (adminUsername) {
@@ -109,19 +109,20 @@ export async function editUser(userId: number, changes: {
 export async function unlockUserAccount(userId: number) {
   const changes = await unlockUser(userId);
   if (changes === 0) {
-    throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    throw Object.assign(new Error('User not found'), { code: 'USER_NOT_FOUND' });
   }
 }
 
 export async function removeUser(userId: number, adminId: number, adminUsername?: string) {
   if (userId === adminId) {
-    throw Object.assign(new Error('Cannot delete yourself'), { statusCode: 400 });
+    throw Object.assign(new Error('Cannot delete yourself'), { code: 'SELF_DELETE' });
   }
 
+  const storage = await getStorage();
   const files = await findFilePathsByUserId(userId);
   for (const f of files) {
     try {
-      await deleteFromStorage(f.path);
+      await storage.delete(f.path);
     } catch (err) {
       console.error('Storage delete failed:', (err as Error).message);
     }
@@ -129,7 +130,7 @@ export async function removeUser(userId: number, adminId: number, adminUsername?
   await deleteFilesByUserId(userId);
   const changes = await deleteUser(userId);
   if (changes === 0) {
-    throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    throw Object.assign(new Error('User not found'), { code: 'USER_NOT_FOUND' });
   }
   if (adminUsername) {
     await recordAction(

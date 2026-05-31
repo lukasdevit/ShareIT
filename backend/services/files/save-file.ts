@@ -8,8 +8,8 @@ import { finalizeFile } from './finalize.js';
 import { scanFile } from '../../utils/scan.js';
 import { getStorage, buildStorageKey } from '../storage/index.js';
 
-export async function save-file(
-  file-stream: NodeJS.ReadableStream,
+export async function saveFile(
+  fileStream: NodeJS.ReadableStream,
   filename: string,
   originalName: string,
   mimeType: string,
@@ -25,13 +25,13 @@ export async function save-file(
   const tmpPath = path.join(os.tmpdir(), `shareit-${filename}`);
   let size = 0;
   try {
-    await pipeline(file-stream, fs.createWriteStream(tmpPath));
+    await pipeline(fileStream, fs.createWriteStream(tmpPath));
     const stats = fs.statSync(tmpPath);
     size = stats.size;
 
     // Single quota check — covers both global limit and per-user quota
     await checkStorageQuota(size, userId);
-
+  
     // Virus scan
     const scanResult = await scanFile(tmpPath);
     if (!scanResult.clean) {

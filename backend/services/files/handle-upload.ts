@@ -4,10 +4,10 @@ import { nanoid } from 'nanoid';
 import { BASE_URL } from '../../config/index.js';
 import { sanitizeFilename } from '../../utils/sanitize-filename.js';
 import { validateFile } from '../../utils/validate-file.js';
-import { save-file } from './save-file.js';
+import { saveFile } from './save-file.js';
 
 /** Shared upload handler (used by /upload and /sharex/upload). */
-export async function handle-upload(
+export async function handleUpload(
   file: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
   userId: number,
   expiresInDays?: number
@@ -23,7 +23,7 @@ export async function handle-upload(
   const ext = path.extname(file.filename);
   const filename = `${id}${ext}`;
 
-  await save-file(
+  await saveFile(
     file.file,
     filename,
     originalName,
