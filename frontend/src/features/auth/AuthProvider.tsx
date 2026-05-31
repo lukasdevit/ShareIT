@@ -123,6 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    if (token && user?.isDemo) {
+      // fire-and-forget: delete demo user on server
+      apiFetch(token, '/auth/demo-session', { method: 'POST', keepalive: true }).catch(() => {});
+    }
     setToken(null);
     setUser(null);
     localStorage.removeItem('shareit_token');

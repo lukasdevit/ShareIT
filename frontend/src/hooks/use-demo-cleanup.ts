@@ -4,25 +4,20 @@ import { useEffect } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 /**
- * Hook that cleans up demo sessions when the tab closes.
- * Uses the Page Visibility API to detect tab close.
+ * Registers demo session for server-side cleanup.
+ * Cleanup is handled by the scheduled job (every 30 min, demos older than 1 hour).
+ *
+ * We deliberately do NOT clean up on pagehide/beforeunload because those
+ * events also fire on page refresh — which would delete the demo user
+ * before the refreshed page finishes loading, breaking auth + storage display.
  */
 export function useDemoCleanup() {
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user?.isDemo) return;
-    function onPageHide(e: PageTransitionEvent) {
-      if (e.persisted) return;
-      const t = localStorage.getItem('shareit_token');
-      if (!t) return;
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'}/auth/demo-session`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}` },
-        keepalive: true,
-      }).catch(() => {});
-    }
-    window.addEventListener('pagehide', onPageHide);
-    return () => window.removeEventListener('pagehide', onPageHide);
+    // No-op: server-side scheduled cleanup handles stale demos.
+    // The pagehide approach was removed because it fires on refresh
+    // and deletes the demo user mid-reload.
   }, [user]);
 }
