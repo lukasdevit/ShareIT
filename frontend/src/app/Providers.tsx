@@ -2,7 +2,6 @@
 
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { DashboardProvider } from '@/features/dashboard/DashboardProvider';
-import { NavigationProvider } from '@/hooks/use-navigation';
 import { NavHeader } from '@/components/layout/NavHeader';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ErrorReporter } from '@/components/ui/ErrorReporter';
@@ -12,12 +11,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ErrorBoundary>
       <ErrorReporter />
       <AuthProvider>
-        <NavigationProvider>
-          <DashboardProvider>
-            <NavHeader />
-            {children}
-          </DashboardProvider>
-        </NavigationProvider>
+        <DashboardProvider>
+          <NavHeader />
+          {children}
+        </DashboardProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

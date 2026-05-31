@@ -8,10 +8,9 @@ import { useSettings } from '@/hooks/use-settings';
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
-  onBack: () => void;
 }
 
-export function SettingsPage({ apiFetch, onBack }: Props) {
+export function SettingsPage({ apiFetch }: Props) {
   const { toast } = useToast();
   const {
     currentPassword, setCurrentPassword,
@@ -63,14 +62,17 @@ export function SettingsPage({ apiFetch, onBack }: Props) {
         <MetricCard
           label="Storage Used"
           value={storage ? formatSize(storage.used) : '—'}
+          loading={storageLoading}
         />
         <MetricCard
           label="Storage Limit"
           value={storage ? formatSize(storage.limit) : '—'}
+          loading={storageLoading}
         />
         <MetricCard
           label="Usage"
           value={storage ? `${usagePercent.toFixed(0)}%` : '—'}
+          loading={storageLoading}
           sub={
             usagePercent > 90
               ? '⚠️ Almost full'

@@ -30,6 +30,46 @@ interface StorageData {
   s3_upload_enabled: boolean;
 }
 
+const LABELS: Record<string, string> = {
+  backend: 'Storage backend',
+  total_storage_limit: 'Total storage limit',
+  storage_path: 'Storage path',
+  b2_endpoint: 'B2 endpoint',
+  b2_region: 'B2 region',
+  b2_bucket: 'B2 bucket',
+  b2_prefix: 'B2 prefix',
+  b2_key_id: 'B2 key ID',
+  b2_app_key: 'B2 app key',
+  registrations_open: 'Registrations open',
+  s3_upload_enabled: 'S3 upload',
+  backup_retention_days: 'Backup retention',
+};
+
+function fmtBytes(b: string): string {
+  const n = parseInt(b, 10);
+  if (!n) return b;
+  if (n >= 1073741824) return `${(n / 1073741824).toFixed(1)} GB`;
+  if (n >= 1048576) return `${(n / 1048576).toFixed(0)} MB`;
+  return `${(n / 1024).toFixed(0)} KB`;
+}
+
+/** Build a readable summary of what was saved. */
+function formatSavedMessage(updated: string[], form: Record<string, string>): string {
+  const sensitive = ['b2_key_id', 'b2_app_key'];
+  const items = updated.map((key) => {
+    const label = LABELS[key] || key;
+    if (sensitive.includes(key)) return `${label}: ••••••••`;
+    let value = form[key] || '';
+    if (key === 'total_storage_limit' && value) value = fmtBytes(value);
+    if (key === 'backend' && value === 'b2') value = 'Backblaze B2';
+    if (key === 'registrations_open' || key === 's3_upload_enabled') {
+      value = value === 'true' ? 'on' : 'off';
+    }
+    return value ? `${label} → ${value}` : label;
+  });
+  return `Storage updated:\n${items.join('\n')}`;
+}
+
 export function StorageConfig({ apiFetch }: Props) {
   const { toast } = useToast();
   const [data, setData] = useState<StorageData | null>(null);
@@ -96,7 +136,7 @@ export function StorageConfig({ apiFetch }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      const savedMsg = `Saved: ${d.updated.join(', ')}`;
+      const savedMsg = formatSavedMessage(d.updated, form);
       toast(savedMsg, 'ok');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

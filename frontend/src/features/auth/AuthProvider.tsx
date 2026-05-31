@@ -17,6 +17,7 @@ import { apiFetch } from '@/lib/api-client';
 export interface AuthState {
   token: string | null;
   user: UserInfo | null;
+  loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
   demoLogin: () => Promise<void>;
@@ -32,20 +33,32 @@ const AuthCtx = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Load token from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('shareit_token');
-    if (saved) setToken(saved);
+    if (saved) {
+      setToken(saved);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   // Validate token and fetch user
   useEffect(() => {
     if (!token) {
       setUser(null);
+      setLoading(false);
+      return;
+    }
+    // Skip re-validation if user already set (just logged in/registered)
+    if (user) {
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     apiFetch(token, '/auth/me').then(async (r) => {
       if (cancelled) return;
       if (r.ok) setUser((await r.json()).user);
@@ -53,6 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('shareit_token');
         setToken(null);
       }
+    }).catch(() => {
+      localStorage.removeItem('shareit_token');
+      setToken(null);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
     });
     return () => {
       cancelled = true;
@@ -120,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       token,
       user,
+      loading,
       login,
       register,
       demoLogin,
@@ -127,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       api,
     }),
-    [token, user, api]
+    [token, user, loading, api]
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

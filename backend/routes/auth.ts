@@ -162,7 +162,12 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.get(
     '/auth/storage',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: {
+        rateLimit: { max: 30, timeWindow: 60_000 },
+      },
+    },
     async (request, reply) => {
       const user = request.user!;
       const info = await getUserStorageInfo(user.id);

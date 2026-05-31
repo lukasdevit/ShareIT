@@ -1,19 +1,18 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { FileInfo } from '@/types';
 
-/**
- * Hook for fetching storage info and playing a random audio file.
- */
 export function useStorageAndRandomAudio(playAudio: (file: FileInfo) => void) {
   const { api } = useAuth();
+  const apiRef = useRef(api);
+  apiRef.current = api;
   const [storage, setStorage] = useState<{ used: number; limit: number; s3_upload_enabled?: boolean } | null>(null);
 
   useEffect(() => {
-    api('/auth/storage').then(r => r.json()).then(setStorage).catch(() => {});
-  }, [api]);
+    apiRef.current('/auth/storage').then(r => r.json()).then(setStorage).catch(() => {});
+  }, []);
 
   const playRandomAudio = useCallback(async () => {
     try {

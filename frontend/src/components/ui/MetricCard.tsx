@@ -6,13 +6,18 @@ interface Props {
   label: string;
   value: string | number;
   sub?: string;
+  loading?: boolean;
 }
 
-export function MetricCard({ label, value, sub }: Props) {
+export function MetricCard({ label, value, sub, loading }: Props) {
   return (
     <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
       <span className="text-xs text-zinc-500">{label}</span>
-      <p className="text-xl font-semibold text-zinc-100 mt-0.5">{value}</p>
+      {loading ? (
+        <div className="h-7 w-16 bg-zinc-800 rounded animate-pulse mt-0.5" />
+      ) : (
+        <p className="text-xl font-semibold text-zinc-100 mt-0.5">{value}</p>
+      )}
       {sub && <p className="text-xs text-zinc-600 mt-0.5">{sub}</p>}
     </div>
   );
