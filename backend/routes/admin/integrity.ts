@@ -15,8 +15,8 @@ import {
   resolveSingleIssue,
   importOrphanedFiles,
   migrateFile,
-} from '../../services/integrityService.js';
-import { getMimeType } from '../../services/fileSystemAdapter.js';
+} from '../../services/files/integrity.js';
+import { getMimeType } from '../../services/files/adapter.js';
 
 export async function adminIntegrityRoutes(app: FastifyInstance) {
   // List saved checks

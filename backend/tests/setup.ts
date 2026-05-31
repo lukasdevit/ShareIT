@@ -7,6 +7,6 @@ vi.mock('../services/cleanup/cleanupJobs.js', () => ({
 vi.mock('../services/storage/backupRotation.js', () => ({
   rotateBackups: vi.fn(),
 }));
-vi.mock('../services/scanService.js', () => ({ initScanner: vi.fn() }));
+vi.mock('../utils/scan.js', () => ({ initScanner: vi.fn() }));
 
 await initSchema();

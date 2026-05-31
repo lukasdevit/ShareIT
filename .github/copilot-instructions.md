@@ -1,10 +1,14 @@
-# Copilot Instructions for ShareIT
+# Copilot / AI Instructions for ShareIT
+
+**Version:** 1.2  
+**Date:** 31.05.2026
 
 ## Project Context
 
-* Full-stack file hosting app
-* Backend: Fastify + TypeScript + SQLite
-* Frontend: Next.js + React + Tailwind CSS
+Full-stack self-hosted file sharing application (ShareX compatible).  
+
+**Backend:** Fastify + TypeScript + SQLite  
+**Frontend:** Next.js 15 (App Router) + React + Tailwind + TypeScript
 
 ---
 
@@ -14,27 +18,28 @@
 
 ```text
 backend/
-  config/         Environment config and constants
-  db/             Database setup, schema, migrations
-  middleware/     Auth and request middleware
-  routes/         HTTP handlers only
-  services/       Business logic
-  repositories/   Database queries
-  storage/        Storage providers (local, B2)
-  utils/          Shared helpers
+  config/           # env, constants, limits
+  db/               # schema, migrations, connection
+  middleware/       # auth, error, logging
+  routes/           # only HTTP layer (thin)
+  services/         # business logic — most changes happen here
+  repositories/     # raw database queries
+  utils/            # pure functions, helpers
   tests/
 ```
 
 ### Frontend
 
 ```text
-frontend/src/
-  app/            Next.js routes/pages
-  components/     Reusable UI components
-  hooks/          Custom React hooks
-  lib/            API client and utilities
-  features/       Feature-specific logic
-  types/          Shared types
+frontend/
+  src/
+    app/              # Next.js routes & layouts
+    components/       # reusable UI
+    features/         # feature slices (upload, admin, auth…)
+    hooks/            # custom hooks
+    lib/              # api client, utils
+    types/            # shared TypeScript types
+  tests/
 ```
 
 ---
@@ -44,105 +49,77 @@ frontend/src/
 ### Backend
 
 ```text
-Request
-  ↓
-Route
-  ↓
-Service
-  ↓
-Repository
-  ↓
-Database
+Request → Route → Service → Repository → Database/Storage
 ```
 
-Rules:
-
-* Routes handle HTTP only.
-* Services contain business logic.
-* Repositories contain database queries.
-* Never access the database directly from routes.
-* Never put business logic in routes.
+- **Routes** — request validation, service call, HTTP response only.
+- **Services** — all business logic (quota, upload flow, cleanup, validation).
+- **Repositories** — database queries exclusively.
+- Middleware may read from repositories but must not contain business logic.
+- Never call the database directly from a route or middleware.
 
 ### Frontend
 
 ```text
-Page
-  ↓
-Component
-  ↓
-Hook
-  ↓
-API Client
-  ↓
-Backend API
+Page → Component → Hook → API Client → Backend
 ```
 
-Rules:
-
-* Pages compose components.
-* Components render UI.
-* Hooks manage client-side state and data fetching.
-* API calls go through shared API utilities.
-* Keep components small and focused.
+- Server Components by default.
+- `"use client"` only when truly needed (interactions, state).
+- Components should be small and UI-focused.
+- Logic belongs in hooks or the backend.
 
 ---
 
-## Architecture Rules
+## Naming Convention
 
-* Follow existing patterns before creating new ones.
-* Reuse existing components, hooks, services, and utilities.
-* Avoid duplicate implementations.
-* Prefer simple solutions.
-* Keep files focused and easy to read.
+Always follow `Naming-Convention.md` — it is the single source of truth for all naming rules in this project.
 
 ---
 
-## TypeScript
+## Key Architecture Rules
 
-* TypeScript strict mode.
-* Avoid `any`.
-* Prefer explicit types.
-* Backend uses ESM imports with `.js` extensions.
+- **Keep files small and focused** — one file, one responsibility. Split files above ~300 lines.
+- **Reuse existing code** when it clearly matches the same responsibility. Do not create abstractions unless duplication is real and repeated.
+- Services orchestrate. Repositories access data. Never cross those boundaries.
+- All file operations must use the `storage/` abstraction. Services must not directly use filesystem or storage providers (S3, B2).
 
----
+### TypeScript
 
-## Next.js
-
-* Use Server Components by default.
-* Add `"use client"` only when required.
-* Keep business logic in the backend.
-* Do not move backend logic into Next.js routes.
+- Strict mode.
+- Avoid `any` — prefer explicit types.
 
 ---
 
 ## Database
 
-* Use parameterized queries only.
-* Never build SQL with string interpolation.
-* Database access belongs in repositories.
+- Use parameterized queries only.
+- Never build SQL with string interpolation.
+- Database access belongs in repositories.
 
 ---
 
 ## Security
 
-* Validate all input at route boundaries.
-* Never trust client input.
-* Validate file metadata server-side.
-* Sanitize filenames before storage.
+- Validate all input on the server.
+- Validate file metadata server-side.
+- Sanitize filenames before storage.
+- Check quota before writing a file.
+- Never trust client input.
 
 ---
 
 ## Error Handling
 
-* Services may throw errors.
-* Routes convert errors into HTTP responses.
-* Services must not return HTTP responses.
+- Services throw domain errors (StorageQuotaError, AppError, etc.).
+- Routes catch errors and return the appropriate HTTP status.
+- Services never return HTTP status codes or responses.
 
 ---
 
 ## Testing
 
-* New features should include tests.
-* Backend changes → backend tests.
-* Frontend changes → frontend tests.
-* All tests should pass before completion.
+- New features should include tests.
+- Backend changes → backend tests.
+- Frontend changes → frontend tests.
+- All tests must pass before marking task as done.

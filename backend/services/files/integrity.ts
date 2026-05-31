@@ -1,9 +1,9 @@
 import path from 'path';
-import { DEFAULT_UPLOAD_DIR } from '../config/index.js';
-import { LocalStorage } from './storage/local.js';
-import { B2Storage } from './storage/b2/index.js';
-import type { StorageProvider } from './storage/types.js';
-import { recordAction } from './actionLogService.js';
+import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
+import { LocalStorage } from '../storage/local.js';
+import { B2Storage } from '../storage/b2/index.js';
+import type { StorageProvider } from '../storage/types.js';
+import { recordAction } from '../actionLogService.js';
 import {
   insertCheck,
   insertIssues,
@@ -13,8 +13,8 @@ import {
   getFileRow,
   deleteFileRow,
   findOrphanedIssue,
-} from '../repositories/integrityRepository.js';
-import { insertFile, updateFilePathAndUser } from '../repositories/fileRepository.js';
+} from '../../repositories/integrityRepository.js';
+import { insertFile, updateFilePathAndUser } from '../../repositories/fileRepository.js';
 import {
   scanDirectory,
   toRelativePath,
@@ -23,7 +23,7 @@ import {
   cleanEmptyDirs,
   statFile,
   moveFile,
-} from './fileSystemAdapter.js';
+} from './adapter.js';
 
 // ── Storage providers ──
 

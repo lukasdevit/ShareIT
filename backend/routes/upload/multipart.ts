@@ -12,7 +12,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
 import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
-import { sanitizeFilename, validateFile, finalizeFile } from '../../services/fileService.js';
+import { sanitizeFilename, validateFile, checkStorageQuota, finalizeFile } from '../../services/files/index.js';
 import { buildStorageKey } from '../../services/storage/index.js';
 import { getTotalUsed } from '../../repositories/fileRepository.js';
 import { getTotalStorageLimit } from '../../config/index.js';
@@ -213,8 +213,18 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         });
       }
 
-      // Quota check + DB record via shared finalizeFile
+      // Quota check before DB insert
       const filename = path.basename(body.key);
+      const size = body.size || 0;
+      try {
+        await checkStorageQuota(size, request.user!.id);
+      } catch (err) {
+        return reply
+          .code((err as { statusCode?: number }).statusCode || 500)
+          .send({ error: (err as Error).message });
+      }
+
+      // DB record via shared finalizeFile
       const fileParams: {
         filename: string;
         originalName: string;
@@ -228,7 +238,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         originalName: sanitizeFilename(body.originalName || filename),
         storageKey: body.key,
         mimeType: body.mimeType || 'application/octet-stream',
-        size: body.size || 0,
+        size,
         userId: request.user!.id,
       };
       if (body.expiresInDays !== undefined) fileParams.expiresInDays = body.expiresInDays;

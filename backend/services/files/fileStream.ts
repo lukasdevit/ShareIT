@@ -1,4 +1,4 @@
-import { resolveProvider } from './storage/index.js';
+import { resolveProvider } from '../storage/index.js';
 
 /**
  * Resolve a readable stream for a file from the appropriate storage backend.

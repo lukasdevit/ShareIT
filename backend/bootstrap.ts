@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { getBackupScheduleHours, getBackupRetentionDays } from './config/index.js';
 import { initSchema, seedAdmin, backupDatabase } from './db/index.js';
 import { resolveProvider } from './services/storage/index.js';
-import { initScanner } from './services/scanService.js';
+import { initScanner } from './utils/scan.js';
 import { startCleanupJobs } from './services/cleanup/cleanupJobs.js';
 
 export async function bootstrap(app: FastifyInstance) {

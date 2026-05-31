@@ -19,7 +19,7 @@ import {
 import {
   resolveReadStream,
   resolveReadStreamRange,
-} from '../services/fileStreamService.js';
+} from '../services/files/fileStream.js';
 
 const FILE_SERVE_RATE = 300;
 const FILE_LIST_RATE = 120;

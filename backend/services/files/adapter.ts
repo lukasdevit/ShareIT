@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { DEFAULT_UPLOAD_DIR } from '../config/index.js';
+import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
 
 /** Recursively collect all file paths under a directory, relative to baseDir. */
 export function scanDirectory(
