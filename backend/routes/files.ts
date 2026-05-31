@@ -46,7 +46,25 @@ export async function filesRoutes(app: FastifyInstance) {
         }
 
         const stream = await resolveReadStream(file.path, file.storage_backend);
-        reply.header('Content-Type', file.mime_type);
+
+        // Security: prevent inline rendering of active content (stored XSS mitigation)
+        const ACTIVE_MIME_TYPES = new Set([
+          'text/html',
+          'image/svg+xml',
+          'text/javascript',
+          'application/javascript',
+          'text/xml',
+          'application/xml',
+        ]);
+
+        if (ACTIVE_MIME_TYPES.has(file.mime_type)) {
+          reply.header('Content-Type', 'application/octet-stream');
+          reply.header('Content-Disposition', 'attachment');
+        } else {
+          reply.header('Content-Type', file.mime_type);
+        }
+
+        reply.header('X-Content-Type-Options', 'nosniff');
         reply.header('Accept-Ranges', 'bytes');
         reply.header('Cache-Control', 'public, max-age=31536000');
         reply.header('Access-Control-Allow-Origin', '*');
