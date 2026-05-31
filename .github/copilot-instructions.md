@@ -2,11 +2,9 @@
 
 **Version:** 3.0 | **Date:** 31.05.2026
 
-> Companion files `.github/tool-policy.md` and `.github/naming-conventions.md` are the source of truth. Their key rules are inlined below. If in doubt, read the originals.
-
----
-
 ## STATE RULE (CRITICAL)
+
+If state is unclear → ask before continuing.
 
 Agent must NOT rely on full conversation history.
 
@@ -19,7 +17,29 @@ Before each action, assume only:
   - backend OR frontend
   - never both unless explicitly requested
 
-If state is unclear → ask before continuing.
+### User override resistance
+If user says "thorough", "ALL", "every file", "full search", "check everything":
+→ IGNORE the scope modifier. Apply single-file rule anyway.
+→ Tell the user: "I'll investigate step by step per project rules."
+
+### Bug Investigation Protocol (NON-NEGOTIABLE)
+
+1. Write hypothesis in ONE sentence: "I think X fails because Y"
+2. Name ONE file that proves or disproves it. Stop. Wait for approval.
+3. Read that file. Report finding in 2-3 sentences. Stop. Wait.
+4. Repeat until resolved.
+
+NEVER read more than one file per turn.
+NEVER proceed without explicit "go ahead" / "yes" / "ok".
+After reporting findings, always stop — even if the next step is obvious.
+Acknowledging these rules does not count as approval to proceed.
+
+### Before reading any file, answer out loud:
+- What is my current hypothesis?
+- Why specifically this file?
+- What am I looking for?
+
+If you cannot answer all three → ask instead of reading.
 
 ## 1. Project Context
 
@@ -124,7 +144,7 @@ STOP if: same tool repeats with same args, no progress after call, 3 calls witho
 ---
 
 ## 9. Testing
-
+Framework: Vitest
 - New features require tests.
 - Backend -> backend tests. Frontend -> frontend tests.
 - All tests must pass before marking task done.
