@@ -1,6 +1,9 @@
 import { S3Client, PutBucketCorsCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
 import { getStorageSetting } from '../../../config/index.js';
 
+/** Admin-configurable setting keys for this provider (prefixed). */
+export const B2_SETTING_KEYS = ['b2_endpoint', 'b2_region', 'b2_bucket', 'b2_key_id', 'b2_app_key'] as const;
+
 // B2 defaults — only used when no DB/env override
 const DEFAULTS = {
   endpoint: 'https://s3.eu-central-003.backblazeb2.com',

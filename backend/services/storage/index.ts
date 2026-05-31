@@ -1,22 +1,22 @@
+// Side-effect imports: each provider self-registers via registerProvider()
+import './b2/index.js';
+import './r2/index.js';
+
 import { getStorageBackend, getStoragePath } from '../../config/index.js';
 import { LocalStorage } from './local.js';
-import { B2Storage } from './b2/index.js';
+import { registerProvider, resolveProvider, allSettingKeys, allProviders } from './providers.js';
 import type { StorageProvider } from './types.js';
+import type { S3Client } from '@aws-sdk/client-s3';
 
 export type { StorageProvider } from './types.js';
 
-const PROVIDERS: Record<string, () => StorageProvider> = {
-  local: () => new LocalStorage(),
-  b2: () => new B2Storage(),
-  // s3: () => new S3Storage(),  // future
-};
+// Local storage is always available
+registerProvider('local', () => new LocalStorage(), [], '💻 Local filesystem');
 
-/** Resolve a fresh StorageProvider for a given backend name. */
-export function resolveProvider(backend: string): StorageProvider {
-  const factory = PROVIDERS[backend];
-  if (!factory) throw new Error(`Unknown storage backend: ${backend}`);
-  return factory();
-}
+/** All admin-configurable setting keys, aggregated from every registered provider. */
+export const STORAGE_SETTING_KEYS = allSettingKeys();
+
+export { resolveProvider, allProviders };
 
 let _storage: StorageProvider;
 
@@ -28,7 +28,7 @@ export async function getStorage(): Promise<StorageProvider> {
     ]);
     _storage = configuredPath && backend === 'local'
       ? new LocalStorage(configuredPath)
-      : PROVIDERS[backend]?.() ?? (() => { throw new Error(`Unknown storage backend: ${backend}`); })();
+      : resolveProvider(backend);
     console.warn(`Storage: ${backend}`);
   }
   return _storage;
@@ -42,4 +42,18 @@ export async function buildStorageKey(userId: number, filename: string): Promise
   const dd = String(now.getDate()).padStart(2, '0');
   const base = `share/${userId}/${yyyy}/${mm}/${dd}/${filename}`;
   return prefix ? `${prefix.replace(/\/$/, '')}/${base}` : base;
+}
+
+/** Resolve the S3 client for the currently configured cloud backend (B2 or R2). */
+export async function getCurrentS3Client(): Promise<{ client: S3Client; bucket: string }> {
+  const backend = await getStorageBackend();
+  if (backend === 'b2') {
+    const { getS3Client, getBucket } = await import('./b2/client.js');
+    return { client: await getS3Client(), bucket: await getBucket() };
+  }
+  if (backend === 'r2') {
+    const { getS3Client, getBucket } = await import('./r2/client.js');
+    return { client: await getS3Client(), bucket: await getBucket() };
+  }
+  throw new Error(`S3 multipart upload not supported for backend: ${backend}`);
 }

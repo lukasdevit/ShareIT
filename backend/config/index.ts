@@ -66,12 +66,12 @@ function dbOrEnv(key: string, envFallback: string, db: Record<string, string>): 
   return db[key] || envFallback;
 }
 
-export type StorageBackend = 'local' | 'b2';
+export type StorageBackend = 'local' | 'b2' | 'r2';
 
 export async function getStorageBackend(): Promise<StorageBackend> {
   const db = await loadDbSettings();
   const backend = db.backend || 'local';
-  if (backend === 'local' || backend === 'b2') return backend;
+  if (backend === 'local' || backend === 'b2' || backend === 'r2') return backend;
   return 'local';
 }
 

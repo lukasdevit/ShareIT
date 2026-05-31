@@ -11,9 +11,8 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
-import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
 import { sanitizeFilename, validateFile, checkStorageQuota, finalizeFile } from '../../services/files/index.js';
-import { buildStorageKey } from '../../services/storage/index.js';
+import { buildStorageKey, getCurrentS3Client } from '../../services/storage/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
 
@@ -57,8 +56,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
       const filename = `${id}${ext}`;
       const key = await buildStorageKey(request.user!.id, filename);
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const createCmd = new CreateMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
@@ -96,8 +94,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'key, uploadId, and partNumber required' });
       }
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new UploadPartCommand({
         Bucket: bucket,
         Key: key,
@@ -185,8 +182,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'key and parts array required' });
       }
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new CompleteMultipartUploadCommand({
         Bucket: bucket,
         Key: body.key,
@@ -262,8 +258,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
       const { uploadId } = request.params as { uploadId: string };
       const { key } = request.body as { key: string };   
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new AbortMultipartUploadCommand({
         Bucket: bucket,
         Key: key,

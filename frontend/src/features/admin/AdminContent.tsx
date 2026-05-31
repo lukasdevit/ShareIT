@@ -6,7 +6,6 @@ import { useDashboard } from '@/features/dashboard/DashboardProvider';
 import { AdminPanel } from '@/components/admin/AdminPanel';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { ADMIN_TABS } from '@/config/constants';
-import type { AdminTab } from '@/config/constants';
 
 export function AdminContent() {
   const { user, api } = useAuth();

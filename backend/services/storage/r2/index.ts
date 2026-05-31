@@ -8,11 +8,11 @@ import {
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getS3Client, getBucket } from './client.js';
-import { B2_SETTING_KEYS } from './client.js';
+import { R2_SETTING_KEYS } from './client.js';
 import { registerProvider } from '../providers.js';
 import type { StorageProvider } from '../types.js';
 
-export class B2Storage implements StorageProvider {
+export class R2Storage implements StorageProvider {
   private s3Promise: ReturnType<typeof getS3Client> | null = null;
 
   private async s3() {
@@ -74,24 +74,8 @@ export class B2Storage implements StorageProvider {
 
   async delete(key: string): Promise<void> {
     const [client, bucket] = await Promise.all([this.s3(), getBucket()]);
-    let versionId: string | undefined;
-    try {
-      const head = await client.send(
-        new HeadObjectCommand({ Bucket: bucket, Key: key })
-      );
-      if (head.VersionId && head.VersionId !== 'null') {
-        versionId = head.VersionId;
-      }
-    } catch {
-      /* already gone */
-    }
-
     await client.send(
-      new DeleteObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        ...(versionId ? { VersionId: versionId } : {}),
-      })
+      new DeleteObjectCommand({ Bucket: bucket, Key: key })
     );
   }
 
@@ -129,4 +113,4 @@ export class B2Storage implements StorageProvider {
   }
 }
 
-registerProvider('b2', () => new B2Storage(), B2_SETTING_KEYS, '☁️ Backblaze B2');
+registerProvider('r2', () => new R2Storage(), R2_SETTING_KEYS, '☁️ Cloudflare R2');

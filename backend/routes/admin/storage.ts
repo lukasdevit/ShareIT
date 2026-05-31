@@ -6,6 +6,7 @@ import {
   DEFAULT_STORAGE_LIMIT,
 } from '../../config/index.js';
 import { getStorageBackend, getStorageSetting, clearConfigCache } from '../../config/index.js';
+import { STORAGE_SETTING_KEYS, allProviders } from '../../services/storage/index.js';
 import { recordAction } from '../../services/action-log-service.js';
 import { getAllSettings, upsertSetting } from '../../repositories/settings-repository.js';
 import { getStorageStats } from '../../repositories/storage-stats-repository.js';
@@ -58,8 +59,16 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         }
       }
 
+      const providers = allProviders();
+      const availableBackends: Record<string, string> = {};
+      for (const [name, info] of providers) {
+        availableBackends[name] = info.label;
+      }
+
       return reply.send({
         ...config,
+        available_backends: availableBackends,
+        setting_keys: [...STORAGE_SETTING_KEYS],
         users: row.users,
         total_bytes: row.total_bytes,
         total_files: row.total_files,
@@ -95,11 +104,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
       const body = request.body as Record<string, string>;
       const allowed = [
         'storage_path',
-        'b2_endpoint',
-        'b2_region',
-        'b2_bucket',
-        'b2_key_id',
-        'b2_app_key',
+        ...STORAGE_SETTING_KEYS,
         'backend',
         'registrations_open',
         's3_upload_enabled',
