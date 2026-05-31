@@ -1,7 +1,5 @@
 import { dbAll, dbGet, dbRun } from '../db/index.js';
 
-// ── Types ──
-
 export interface FileRow {
   id: number;
   filename: string;
@@ -34,8 +32,6 @@ export interface FileDeleteRow {
   user_id: number | null;
   storage_backend: string;
 }
-
-// ── Queries ──
 
 /** Find a file by its unique filename (used for public serving). */
 export async function findByFilename(filename: string): Promise<FileServeRow | undefined> {

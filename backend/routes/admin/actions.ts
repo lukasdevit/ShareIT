@@ -12,7 +12,6 @@ import { deleteUser } from '../../repositories/user-repository.js';
 import { reInsertRow } from '../../repositories/db-repository.js';
 
 export async function adminActionsRoutes(app: FastifyInstance) {
-  // List recent actions
   app.get('/admin/actions', async (_request, reply) => {
     const rows = await listRecentActions();
     return reply.send({
@@ -20,7 +19,6 @@ export async function adminActionsRoutes(app: FastifyInstance) {
     });
   });
 
-  // Undo an action
   app.post('/admin/actions/:id/undo', async (request, reply) => {
     const { id } = request.params as { id: string };
     const action = await findActionById(parseInt(id, 10));
@@ -42,7 +40,6 @@ export async function adminActionsRoutes(app: FastifyInstance) {
     }
   });
 
-  // Clear all undone actions
   app.delete('/admin/actions', async (_request, reply) => {
     const deleted = await deleteUndoneActions();
     return reply.send({ ok: true, deleted });

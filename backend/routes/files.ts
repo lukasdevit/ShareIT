@@ -23,7 +23,6 @@ const FILE_LIST_RATE = 120;
 const FILE_RATE_WINDOW_MS = 60_000;
 
 export async function filesRoutes(app: FastifyInstance) {
-  // ── Serve file by filename (public) ──
   app.get(
     '/file/:filename',
     {
@@ -83,7 +82,6 @@ export async function filesRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── Random file ──
   app.get(
     '/files/random',
     { preHandler: [requireAuth] },
@@ -99,7 +97,6 @@ export async function filesRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── List files (paginated) ──
   app.get(
     '/files',
     {
@@ -129,7 +126,6 @@ export async function filesRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── Toggle public ──
   app.patch(
     '/file/:id',
     {
@@ -156,7 +152,6 @@ export async function filesRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── Delete file ──
   app.delete(
     '/file/:id',
     { preHandler: [requireAuth] },

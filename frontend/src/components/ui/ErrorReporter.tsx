@@ -21,12 +21,10 @@ export function ErrorReporter() {
       }).catch(() => { /* can't log if server is down */ });
     }
 
-    // Uncaught errors
     function onError(event: ErrorEvent) {
       report(event.message || 'Unknown error', event.error?.stack);
     }
 
-    // Unhandled promise rejections
     function onRejection(event: PromiseRejectionEvent) {
       const reason = event.reason;
       const msg = reason instanceof Error ? reason.message : String(reason);

@@ -28,7 +28,6 @@ export function FilesPanel() {
   const { user, api, token } = useAuth();
   const { filesViewMode, setFilesViewMode } = useDashboard();
 
-  // ── Data hooks ──
   const {
     files, page: filePage, totalPages: fileTotalPages, total: fileTotal,
     imageFiles, imagePage, imageTotalPages, imageTotal,
@@ -49,7 +48,6 @@ export function FilesPanel() {
 
   const { storage, playRandomAudio } = useStorageAndRandomAudio(play);
 
-  // ── Callbacks ──
   const refreshList = useCallback(
     () => fetchFiles(filesViewMode, 1, searchRef.current),
     [fetchFiles, filesViewMode, searchRef]
@@ -68,7 +66,6 @@ export function FilesPanel() {
     [fetchFiles, search]
   );
 
-  // ── Effects ──
   useEffect(() => {
     fetchFiles(filesViewMode, 1, search);
   }, [fetchFiles, filesViewMode, search]);
@@ -79,7 +76,6 @@ export function FilesPanel() {
     currentAudio ? { currentAudio, isPlaying, audioRef, pause, resume } : null
   );
 
-  // ── Visibility ──
   const show = (mode: FilesViewMode) => filesViewMode === mode || filesViewMode === 'all';
   const anyContent = imageFiles.length || files.length || audioFiles.length || videoFiles.length;
   const isEmpty = !anyContent && !search;

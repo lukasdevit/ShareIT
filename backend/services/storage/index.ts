@@ -5,8 +5,6 @@ import type { StorageProvider } from './types.js';
 
 export type { StorageProvider } from './types.js';
 
-// ── Provider registry (add new backends here) ──
-
 const PROVIDERS: Record<string, () => StorageProvider> = {
   local: () => new LocalStorage(),
   b2: () => new B2Storage(),
@@ -19,8 +17,6 @@ export function resolveProvider(backend: string): StorageProvider {
   if (!factory) throw new Error(`Unknown storage backend: ${backend}`);
   return factory();
 }
-
-// ── Singleton ──
 
 let _storage: StorageProvider;
 
@@ -37,8 +33,6 @@ export async function getStorage(): Promise<StorageProvider> {
   }
   return _storage;
 }
-
-// ── Helper ──
 
 export async function buildStorageKey(userId: number, filename: string): Promise<string> {
   const prefix = await getStoragePath();

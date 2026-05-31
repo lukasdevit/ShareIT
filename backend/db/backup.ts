@@ -75,7 +75,6 @@ export async function backupToStorage(
 
   for (let attempt = 1; attempt <= BACKUP_RETRY_MAX; attempt++) {
     try {
-      // Create a fresh stream for each attempt
       const stream = fs.createReadStream(backup.filepath);
       await provider.save(key, stream);
       stream.destroy();
@@ -151,7 +150,6 @@ export async function backupDatabase(
     }
   }
 
-  // Clean up temp file
   try {
     fs.unlinkSync(backup.filepath);
   } catch {

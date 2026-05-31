@@ -11,13 +11,11 @@ import {
 } from '../../repositories/db-repository.js';
 
 export async function adminDbRoutes(app: FastifyInstance) {
-  // List tables with schema info
   app.get('/admin/db/tables', async (_request, reply) => {
     const results = await listTables();
     return reply.send(results);
   });
 
-  // Browse rows for a specific table
   app.get('/admin/db/tables/:name/rows', async (request, reply) => {
     const { name } = request.params as { name: string };
     if (!isValidTable(name)) {
@@ -27,7 +25,6 @@ export async function adminDbRoutes(app: FastifyInstance) {
     return reply.send(data);
   });
 
-  // Delete a single row by primary key
   app.delete(
     '/admin/db/tables/:name/rows',
     {

@@ -1,5 +1,3 @@
-// ── Global TypeScript types for ShareIT frontend ──
-
 export interface FileInfo {
   id: number;
   filename: string;

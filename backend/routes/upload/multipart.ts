@@ -45,7 +45,6 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(415).send({ error: validationError });
       }
 
-      // Check global + per-user storage quota
       try {
         await checkStorageQuota(1, request.user!.id);
       } catch (err) {
@@ -208,7 +207,6 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         });
       }
 
-      // Quota check before DB insert
       const filename = path.basename(body.key);
       const size = body.size || 0;
       try {
@@ -219,7 +217,6 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
           .send({ error: (err as Error).message });
       }
 
-      // DB record via shared finalizeFile
       const fileParams: {
         filename: string;
         originalName: string;

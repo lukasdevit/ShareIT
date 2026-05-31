@@ -95,12 +95,10 @@ function BackupOverview({
 
   useEffect(() => {
     fetchHistory();
-    // Fetch current backup schedule
     apiFetch('/admin/backup/schedule')
       .then((r) => r.json())
       .then((d) => setScheduleHours(String(d.backup_schedule_hours ?? 6)))
       .catch(() => {});
-    // Fetch retention days from storage config
     apiFetch('/admin/storage')
       .then((r) => r.json())
       .then((d) => setRetentionDays(String(d.backup_retention_days ?? 3)))

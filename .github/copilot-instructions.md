@@ -6,6 +6,21 @@
 
 ---
 
+## STATE RULE (CRITICAL)
+
+Agent must NOT rely on full conversation history.
+
+Before each action, assume only:
+- current task
+- modified files in this session
+- latest tool result
+
+- Agent must operate in only one domain at a time:
+  - backend OR frontend
+  - never both unless explicitly requested
+
+If state is unclear → ask before continuing.
+
 ## 1. Project Context
 
 Full-stack file sharing app (ShareX compatible).

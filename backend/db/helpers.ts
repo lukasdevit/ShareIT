@@ -1,7 +1,5 @@
 import { db } from './connection.js';
 
-// ── Single source of truth for database query helpers ──
-
 /** Promisified db.get */
 export function dbGet<T>(
   sql: string,

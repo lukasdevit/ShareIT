@@ -33,11 +33,9 @@ export function startCleanupJobs(log: FastifyBaseLogger) {
     if (cleaned > 0) log.info(`Cleaned up ${cleaned} stale demo user(s)`);
   }
 
-  // Run once at startup
   cleanupExpiredFiles().catch(() => {});
   demoCleanup().catch(() => {});
 
-  // Then on interval
   setInterval(() => {
     cleanupExpiredFiles().catch(() => {});
     demoCleanup().catch(() => {});

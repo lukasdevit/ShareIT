@@ -58,7 +58,6 @@ export function SslConfig({ apiFetch }: Props) {
       toast('Certificate uploaded and applied', 'ok');
       setCertPem('');
       setKeyPem('');
-      // Refresh status
       const cr = await apiFetch('/admin/ssl/cert');
       setCustomCert(await cr.json());
     } catch (e) {

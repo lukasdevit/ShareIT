@@ -68,7 +68,7 @@ async function tryReadCertExpiry(domain: string): Promise<string | null> {
       { stdio: 'pipe', timeout: 3000 }
     ).toString().trim();
     const match = output.match(/notAfter=(.+)/);
-    return match ? match[1] : null;
+    return match ? (match[1] ?? null) : null;
   } catch {
     return null;
   }

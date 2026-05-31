@@ -6,15 +6,12 @@ import { initScanner } from './utils/scan.js';
 import { startCleanupJobs } from './services/cleanup/cleanup-jobs.js';
 
 export async function bootstrap(app: FastifyInstance) {
-  // 1. Database
   await initSchema();
   await seedAdmin(app.log);
 
-  // 2. Background services
   startCleanupJobs(app.log);
   await initScanner();
 
-  // 3. Scheduled jobs
   startBackupJob(app);
 
   app.log.info('Bootstrap completed');

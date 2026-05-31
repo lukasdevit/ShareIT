@@ -12,8 +12,6 @@ import {
 } from '../../services/admin-user-service.js';
 
 export async function adminUserRoutes(app: FastifyInstance) {
-  // ── Demo registrations config ──
-
   app.get('/admin/users/demo-config', async (_request, reply) => {
     const value = await getSetting('demo_registrations_open');
     const open = value ? value !== 'false' : true;
@@ -42,7 +40,6 @@ export async function adminUserRoutes(app: FastifyInstance) {
     return reply.send({ ok: true, demo_registrations_open });
   });
 
-  // ── User CRUD ──
   const createUserSchema = {
     body: {
       type: 'object' as const,
@@ -68,7 +65,6 @@ export async function adminUserRoutes(app: FastifyInstance) {
     },
   };
 
-  // Create a new user
   app.post(
     '/admin/users',
     { schema: createUserSchema },

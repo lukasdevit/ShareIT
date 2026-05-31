@@ -15,8 +15,6 @@ import { DEMO_IP_RATE_LIMIT, DEMO_RATE_WINDOW_MS } from '../config/index.js';
 export async function authRoutes(app: FastifyInstance) {
   const isTest = DB_PATH.includes('test');
 
-  // ── Schemas ──
-
   const registerSchema = {
     body: {
       type: 'object' as const,
@@ -50,8 +48,6 @@ export async function authRoutes(app: FastifyInstance) {
     },
   };
 
-  // ── Register ──
-
   app.post(
     '/auth/register',
     {
@@ -80,8 +76,6 @@ export async function authRoutes(app: FastifyInstance) {
       }
     }
   );
-
-  // ── Login ──
 
   app.post(
     '/auth/login',
@@ -112,8 +106,6 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── Current user ──
-
   app.get('/auth/me', { preHandler: [requireAuth] }, async (request, reply) => {
     const user = request.user!;
     return reply.send({
@@ -125,8 +117,6 @@ export async function authRoutes(app: FastifyInstance) {
       },
     });
   });
-
-  // ── Change password ──
 
   app.post(
     '/auth/change-password',
@@ -158,8 +148,6 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // ── Storage info ──
-
   app.get(
     '/auth/storage',
     {
@@ -174,8 +162,6 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send(info);
     }
   );
-
-  // ── Demo account ──
 
   app.post(
     '/auth/demo',
@@ -199,8 +185,6 @@ export async function authRoutes(app: FastifyInstance) {
       }
     }
   );
-
-  // ── Demo session cleanup ──
 
   app.post(
     '/auth/demo-session',

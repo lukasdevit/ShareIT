@@ -30,8 +30,6 @@ import {
 
 const BCRYPT_ROUNDS = 10;
 
-// ── Demo name pool ──
-
 const DEMO_ADJECTIVES = [
   'Sleepy', 'Grumpy', 'Sassy', 'Wobbly', 'Funky', 'Cheeky', 'Bouncy',
   'Zigzag', 'Noodle', 'Pickle', 'Waffle', 'Squishy', 'Giggly', 'Dizzy',
@@ -43,8 +41,6 @@ const DEMO_NOUNS = [
   'Duck', 'Llama', 'Wombat', 'Narwhal', 'Koala', 'Hamster', 'Badger',
   'Ferret', 'Walrus', 'Otter', 'Corgi', 'Axolotl', 'Capybara',
 ];
-
-// ── Auth business logic ──
 
 interface RegisterResult {
   id: number;

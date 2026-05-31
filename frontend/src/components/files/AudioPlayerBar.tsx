@@ -60,7 +60,6 @@ export function AudioPlayerBar({
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Persist volume whenever it changes
   useEffect(() => {
     saveVolume(volume);
     if (audioRef.current) {
@@ -68,7 +67,6 @@ export function AudioPlayerBar({
     }
   }, [volume, muted, audioRef]);
 
-  // Show volume slider on hover, auto-hide after 2s
   const showSlider = useCallback(() => {
     setShowVolumeSlider(true);
     if (volumeTimeoutRef.current) clearTimeout(volumeTimeoutRef.current);
@@ -84,7 +82,6 @@ export function AudioPlayerBar({
   useEffect(() => {
     setCurrentTime(0);
     setDuration(0);
-    // Check format support
     if (currentAudio && audioRef.current) {
       const canPlay = audioRef.current.canPlayType(currentAudio.mime_type);
       setFormatSupported(canPlay === 'probably' || canPlay === 'maybe');

@@ -12,8 +12,6 @@ import {
 import type { UserInfo } from '@/types';
 import { apiFetch } from '@/lib/api-client';
 
-// ── Auth state shape ──
-
 export interface AuthState {
   token: string | null;
   user: UserInfo | null;
@@ -28,14 +26,11 @@ export interface AuthState {
 
 const AuthCtx = createContext<AuthState | null>(null);
 
-// ── Provider ──
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load token from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('shareit_token');
     if (saved) {
@@ -45,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Validate token and fetch user
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -151,8 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
-
-// ── Hook ──
 
 export function useAuth(): AuthState {
   const ctx = useContext(AuthCtx);

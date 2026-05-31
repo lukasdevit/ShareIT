@@ -2,8 +2,6 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config/index.js';
 
-// ── Type augmentation ──
-
 declare module 'fastify' {
   interface FastifyRequest {
     user?: JwtPayload;
@@ -16,8 +14,6 @@ export interface JwtPayload {
   isAdmin: boolean;
   isDemo: boolean;
 }
-
-// ── Token utilities ──
 
 export function signToken(
   userId: number,
@@ -43,8 +39,6 @@ export function getTokenFromHeader(request: FastifyRequest): string | null {
   if (!auth || !auth.startsWith('Bearer ')) return null;
   return auth.slice(7);
 }
-
-// ── Route guards (Fastify preHandler) ──
 
 export async function requireAuth(
   request: FastifyRequest,

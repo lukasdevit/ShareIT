@@ -19,13 +19,11 @@ import {
 import { getMimeType } from '../../services/files/adapter.js';
 
 export async function adminIntegrityRoutes(app: FastifyInstance) {
-  // List saved checks
   app.get('/admin/storage/integrity', async (_request, reply) => {
     const checks = await listChecks();
     return reply.send({ checks });
   });
 
-  // Start new check
   app.post(
     '/admin/storage/integrity',
     {
@@ -56,7 +54,6 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     }
   );
 
-  // Get paginated issues
   app.get('/admin/storage/integrity/:checkId', async (request, reply) => {
     const { checkId } = request.params as { checkId: string };
     const { offset, limit, type, userId, username } = request.query as {
@@ -107,7 +104,6 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     });
   });
 
-  // Resolve single
   app.post(
     '/admin/storage/integrity/:checkId/resolve',
     {
@@ -130,7 +126,7 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     }
   );
 
-  // Resolve bulk
+
   app.post(
     '/admin/storage/integrity/:checkId/resolve-bulk',
     {
@@ -159,7 +155,7 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     }
   );
 
-  // Import orphaned files
+
   app.post(
     '/admin/storage/integrity/:checkId/import',
     {
@@ -189,7 +185,6 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     }
   );
 
-  // Preview orphaned file
   app.get('/admin/file-preview', async (request, reply) => {
     const { path: filePath } = request.query as { path?: string };
     if (!filePath) return reply.code(400).send({ error: 'Missing path parameter' });
@@ -206,7 +201,6 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     return reply.send(fs.createReadStream(absPath));
   });
 
-  // Migrate files between users
   app.post(
     '/admin/storage/migrate',
     {
@@ -242,7 +236,6 @@ export async function adminIntegrityRoutes(app: FastifyInstance) {
     }
   );
 
-  // Delete a check
   app.delete('/admin/storage/integrity/:checkId', async (request, reply) => {
     const { checkId } = request.params as { checkId: string };
     await deleteCheck(checkId);

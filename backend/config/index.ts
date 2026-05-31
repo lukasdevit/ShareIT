@@ -6,7 +6,6 @@ function envOrCrash(key: string): string {
   return val;
 }
 
-// ── Server ──
 export const PORT = 3000;
 export const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 export const LOG_PRETTY = process.env.LOG_PRETTY === 'true';
@@ -14,26 +13,21 @@ export const DEFAULT_UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 export const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
 export const DOMAIN = process.env.DOMAIN || 'localhost';
 
-// ── Auth ──
 export const JWT_SECRET = envOrCrash('JWT_SECRET');
 export const JWT_EXPIRES_IN = '7d';
 
-// ── Admin seed ──
 export const ADMIN_USERNAME = envOrCrash('ADMIN_USERNAME');
 export const ADMIN_PASSWORD = envOrCrash('ADMIN_PASSWORD');
 
-// ── Rate limits ──
 export const RATE_LIMIT_MAX = 300;
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 export const AUTH_LOGIN_LIMIT = 5;
 export const AUTH_REGISTER_LIMIT = 3;
 export const AUTH_RATE_WINDOW_MS = 60_000;
 
-// ── Login lockout ──
 export const MAX_FAILED_LOGINS = 5;
 export const LOCKOUT_MINUTES = 1;
 
-// ── Storage ──
 export const DEFAULT_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB per user
 export async function getTotalStorageLimit(): Promise<number> {
   const db = await loadDbSettings();
@@ -42,7 +36,6 @@ export async function getTotalStorageLimit(): Promise<number> {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0; // 0 = unlimited
 }
 
-// ── Demo users ──
 export const DEMO_STORAGE_LIMIT = 100 * 1024 * 1024; // 100 MB
 export const DEMO_CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 export const DEMO_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
@@ -99,11 +92,9 @@ export async function getStoragePath(): Promise<string> {
   return backend === 'local' ? DEFAULT_UPLOAD_DIR : 'shareit/storage/';
 }
 
-// ── Database ──
 export const DB_PATH =
   process.env.DB_PATH || path.join(process.cwd(), 'database.db');
 
-// ── DB Backups ──
 export async function getBackupScheduleHours(): Promise<number> {
   const db = await loadDbSettings();
   const raw = db['backup_schedule_hours'] || '6';

@@ -142,7 +142,6 @@ export async function adminSslRoutes(app: FastifyInstance) {
     return reply.send(status);
   });
 
-  // Upload custom SSL certificate
   app.post('/admin/ssl/cert', async (request, reply) => {
     const { cert, key } = (request.body || {}) as {
       cert?: string;
@@ -180,7 +179,6 @@ export async function adminSslRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  // Delete custom SSL certificate
   app.delete('/admin/ssl/cert', async (request, reply) => {
     const certsDir = path.join(process.cwd(), 'caddy', 'certs');
     const snippetPath = path.join(certsDir, 'custom.caddy');
@@ -221,7 +219,6 @@ export async function adminSslRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  // Check if custom cert is active
   app.get('/admin/ssl/cert', async (_request, reply) => {
     const snippetPath = path.join(process.cwd(), 'caddy', 'certs', 'custom.caddy');
     const certPath = path.join(process.cwd(), 'caddy', 'certs', 'cert.pem');

@@ -5,7 +5,6 @@ import { DB_PATH } from '../config/index.js';
 
 const dbPath = DB_PATH;
 
-// Ensure directory exists for the db file
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
@@ -24,7 +23,6 @@ db.run('PRAGMA journal_mode=WAL');
 
 export function closeDb(): void {
   db.close();
-  // Clean up test database files
   if (DB_PATH !== path.join(process.cwd(), 'database.db')) {
     try {
       fs.unlinkSync(dbPath);

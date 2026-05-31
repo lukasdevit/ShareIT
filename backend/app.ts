@@ -181,7 +181,6 @@ export async function buildApp(opts: AppOptions = {}) {
   await app.register(authRoutes);
   await app.register(adminRoutes);
 
-  // Health check
   app.get('/health', async (_request, reply) => {
     return reply.send({
       status: 'ok',
