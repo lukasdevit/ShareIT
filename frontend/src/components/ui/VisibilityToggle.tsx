@@ -10,7 +10,7 @@ export function VisibilityToggle({ isPublic, onClick }: Props) {
     <button
       type="button"
       onClick={onClick}
-      className="p-1.5 rounded-md text-xs font-medium transition-colors bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+      className="pressable p-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
       title={isPublic ? 'Make private' : 'Make public'}
     >
       {isPublic ? (

@@ -43,6 +43,7 @@ export default function LoginPage() {
       onUsernameChange={setUsername}
       onPasswordChange={setPassword}
       onSubmit={handleSubmit}
+      onBack={() => router.push('/')}
     />
   );
 }
