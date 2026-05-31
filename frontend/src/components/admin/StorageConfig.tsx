@@ -90,6 +90,7 @@ export function StorageConfig({ apiFetch }: Props) {
         setData(d);
         const initForm: Record<string, string> = {
           backend: d.backend || 'local',
+          storage_path: String(d.storage_path ?? ''),
           total_storage_limit: String(d.total_storage_limit ?? 0),
           s3_upload_enabled: String(d.s3_upload_enabled === true),
         };
@@ -240,6 +241,23 @@ export function StorageConfig({ apiFetch }: Props) {
               ))}
             </div>
           )}
+
+          <div>
+            <label htmlFor="storage-path" className="block text-xs text-zinc-500 mb-1">
+              Storage Path / Prefix
+            </label>
+            <input
+              id="storage-path"
+              type="text"
+              value={form.storage_path || ''}
+              placeholder="shareit/storage/"
+              onChange={(e) => setForm({ ...form, storage_path: e.target.value })}
+              className="w-full sm:w-96 px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-zinc-600 mt-1">
+              Key prefix in the bucket. Leave empty for no prefix.
+            </p>
+          </div>
 
           <div>
             <label htmlFor="total-storage-limit" className="block text-xs text-zinc-500 mb-1">
