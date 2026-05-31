@@ -1,8 +1,8 @@
 'use client';
 
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useNavigation } from '@/hooks/useNavigation';
-import type { Page } from '@/hooks/useNavigation';
+import { useNavigation } from '@/hooks/use-navigation';
+import type { Page } from '@/hooks/use-navigation';
 
 export function NavHeader() {
   const { user, logout } = useAuth();

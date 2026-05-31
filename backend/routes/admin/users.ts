@@ -1,24 +1,15 @@
 import type { FastifyInstance } from 'fastify';
-import bcrypt from 'bcrypt';
-import { parsePagination, deleteFromStorage } from '../../utils/index.js';
-import { DEFAULT_STORAGE_LIMIT } from '../../config/index.js';
-import { recordAction } from '../../services/actionLogService.js';
+import { parsePagination } from '../../utils/index.js';
+import { recordAction } from '../../services/action-log-service.js';
 import { clearConfigCache } from '../../config/index.js';
-import { getSetting, upsertSetting } from '../../repositories/settingsRepository.js';
+import { getSetting, upsertSetting } from '../../repositories/settings-repository.js';
 import {
-  insertUser,
-  countUsersFiltered,
-  listUsersWithStats,
-  updateUser,
-  unlockUser,
-  deleteUser,
-} from '../../repositories/userRepository.js';
-import {
-  findFilePathsByUserId,
-  deleteFilesByUserId,
-} from '../../repositories/fileRepository.js';
-
-const BCRYPT_ROUNDS = 10;
+  createUser,
+  listUsersPaginated,
+  editUser,
+  unlockUserAccount,
+  removeUser,
+} from '../../services/admin-user-service.js';
 
 export async function adminUserRoutes(app: FastifyInstance) {
   // ── Demo registrations config ──
@@ -89,56 +80,29 @@ export async function adminUserRoutes(app: FastifyInstance) {
         storage_limit?: number;
       };
 
-      const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-      const limit =
-        storage_limit && storage_limit > 0
-          ? storage_limit
-          : DEFAULT_STORAGE_LIMIT;
-
       try {
-        const id = await insertUser({
-          username,
-          passwordHash: hash,
-          storageLimit: limit,
-          isAdmin: !!is_admin,
-        });
-        if (request.user?.username) {
-          await recordAction(
-            request.user!.username,
-            'user-create',
-            `Created user: ${username}`,
-            { userId: id, username, isAdmin: !!is_admin }
-          );
-        }
-        return reply.send({
-          id,
-          username,
-          is_admin: !!is_admin,
-          storage_limit: limit,
-        });
+        const result = await createUser(
+          { username, password, isAdmin: is_admin, storageLimit: storage_limit },
+          request.user?.username
+        );
+        return reply.send(result);
       } catch (err) {
-        if ((err as Error).message.includes('UNIQUE')) {
-          return reply.code(409).send({ error: 'Username already taken' });
-        }
-        throw err;
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 500).send({ error: e.message });
       }
     }
   );
 
   app.get('/admin/users', async (request, reply) => {
-    const { page, limit, offset, search } = parsePagination(
+    const { page, limit, search } = parsePagination(
       request.query as Record<string, string>
     );
-    const [total, users] = await Promise.all([
-      countUsersFiltered(search),
-      listUsersWithStats(limit, offset, search),
-    ]);
-    return reply.send({
-      users,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    });
+    try {
+      const result = await listUsersPaginated({ page, limit, search });
+      return reply.send(result);
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
   });
 
   app.patch(
@@ -152,68 +116,39 @@ export async function adminUserRoutes(app: FastifyInstance) {
         new_password?: string;
       };
 
-      const passwordHash = new_password
-        ? await bcrypt.hash(new_password, BCRYPT_ROUNDS)
-        : undefined;
-
-      const changes = await updateUser(parseInt(id, 10), {
-        storageLimit: storage_limit,
-        isAdmin: is_admin,
-        passwordHash,
-      });
-
-      if (changes === 0)
-        return reply.code(404).send({ error: 'User not found' });
-
-      if (request.user?.username) {
-        const changed: Record<string, unknown> = {};
-        if (storage_limit !== undefined) changed.storage_limit = storage_limit;
-        if (is_admin !== undefined) changed.is_admin = is_admin;
-        if (new_password !== undefined) changed.password_changed = true;
-        await recordAction(
-          request.user!.username,
-          'user-edit',
-          `Edited user #${id}`,
-          { userId: Number(id), changes: changed }
+      try {
+        await editUser(
+          parseInt(id, 10),
+          { storageLimit: storage_limit, isAdmin: is_admin, newPassword: new_password },
+          request.user?.username
         );
+        return reply.send({ ok: true });
+      } catch (err) {
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 500).send({ error: e.message });
       }
-      return reply.send({ ok: true });
     }
   );
 
   app.post('/admin/users/:id/unlock', async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
-    const changes = await unlockUser(userId);
-    if (changes === 0)
-      return reply.code(404).send({ error: 'User not found' });
-    return reply.send({ ok: true });
+    try {
+      await unlockUserAccount(userId);
+      return reply.send({ ok: true });
+    } catch (err) {
+      const e = err as { statusCode?: number; message: string };
+      return reply.code(e.statusCode || 500).send({ error: e.message });
+    }
   });
 
   app.delete('/admin/users/:id', async (request, reply) => {
     const userId = Number((request.params as { id: string }).id);
-    if (userId === request.user!.id)
-      return reply.code(400).send({ error: 'Cannot delete yourself' });
-
-    const files = await findFilePathsByUserId(userId);
-    for (const f of files) {
-      try {
-        await deleteFromStorage(f.path);
-      } catch (err) {
-        console.error('Storage delete failed:', (err as Error).message);
-      }
+    try {
+      const result = await removeUser(userId, request.user!.id, request.user?.username);
+      return reply.send({ ok: true, ...result });
+    } catch (err) {
+      const e = err as { statusCode?: number; message: string };
+      return reply.code(e.statusCode || 500).send({ error: e.message });
     }
-    await deleteFilesByUserId(userId);
-    const changes = await deleteUser(userId);
-    if (changes === 0)
-      return reply.code(404).send({ error: 'User not found' });
-    if (request.user?.username) {
-      await recordAction(
-        request.user!.username,
-        'user-delete',
-        `Deleted user #${userId}`,
-        { userId, filesDeleted: files.length }
-      );
-    }
-    return reply.send({ ok: true, files_deleted: files.length });
   });
 }

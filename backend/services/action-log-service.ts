@@ -1,4 +1,4 @@
-import { insertAction } from '../repositories/actionRepository.js';
+import { insertAction } from '../repositories/action-repository.js';
 
 /**
  * Record an admin action with optional undo data.

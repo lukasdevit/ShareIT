@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { buildApp } from './app.js';
 import { PORT, DEFAULT_UPLOAD_DIR } from './config/index.js';
-import { writeLog } from './services/logService.js';
+import { writeLog } from './services/log-service.js';
 import { bootstrap } from './bootstrap.js';
 
 if (!fs.existsSync(DEFAULT_UPLOAD_DIR)) {

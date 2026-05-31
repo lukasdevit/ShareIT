@@ -6,10 +6,10 @@ import {
   findActionById,
   markActionUndone,
   deleteUndoneActions,
-} from '../../repositories/actionRepository.js';
-import { deleteById, reInsertFile, updateFilePathAndUser } from '../../repositories/fileRepository.js';
-import { deleteUser } from '../../repositories/userRepository.js';
-import { reInsertRow } from '../../repositories/dbRepository.js';
+} from '../../repositories/action-repository.js';
+import { deleteById, reInsertFile, updateFilePathAndUser } from '../../repositories/file-repository.js';
+import { deleteUser } from '../../repositories/user-repository.js';
+import { reInsertRow } from '../../repositories/db-repository.js';
 
 export async function adminActionsRoutes(app: FastifyInstance) {
   // List recent actions

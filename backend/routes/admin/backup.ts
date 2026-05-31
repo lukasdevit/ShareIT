@@ -6,9 +6,9 @@ import { backupDatabase } from '../../db/index.js';
 import { resolveProvider } from '../../services/storage/index.js';
 import type { StorageProvider } from '../../services/storage/types.js';
 import { getStorageBackend, clearConfigCache, getBackupRetentionDays } from '../../config/index.js';
-import { recordAction } from '../../services/actionLogService.js';
-import { getSetting, upsertSetting } from '../../repositories/settingsRepository.js';
-import { listBackupHistory } from '../../repositories/backupRepository.js';
+import { recordAction } from '../../services/action-log-service.js';
+import { getSetting, upsertSetting } from '../../repositories/settings-repository.js';
+import { listBackupHistory } from '../../repositories/backup-repository.js';
 
 export async function adminBackupRoutes(app: FastifyInstance) {
   // Trigger a backup now

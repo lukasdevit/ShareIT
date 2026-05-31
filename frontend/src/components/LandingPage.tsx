@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/features/auth/AuthProvider';
+import { useDemoLogin } from '@/hooks/use-demo-login';
 
 const features = [
   {
@@ -27,21 +26,7 @@ const features = [
 ];
 
 export function LandingPage({ onLogin }: { onLogin: () => void }) {
-  const { demoLogin } = useAuth();
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoError, setDemoError] = useState<string | null>(null);
-
-  async function handleTryDemo() {
-    setDemoError(null);
-    setDemoLoading(true);
-    try {
-      await demoLogin();
-    } catch {
-      setDemoError('Demo unavailable right now. Try signing in instead.');
-    } finally {
-      setDemoLoading(false);
-    }
-  }
+  const { loading: demoLoading, error: demoError, handleTryDemo } = useDemoLogin();
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">

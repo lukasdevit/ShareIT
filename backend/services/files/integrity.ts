@@ -3,7 +3,7 @@ import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
 import { LocalStorage } from '../storage/local.js';
 import { B2Storage } from '../storage/b2/index.js';
 import type { StorageProvider } from '../storage/types.js';
-import { recordAction } from '../actionLogService.js';
+import { recordAction } from '../action-log-service.js';
 import {
   insertCheck,
   insertIssues,
@@ -13,8 +13,8 @@ import {
   getFileRow,
   deleteFileRow,
   findOrphanedIssue,
-} from '../../repositories/integrityRepository.js';
-import { insertFile, updateFilePathAndUser } from '../../repositories/fileRepository.js';
+} from '../../repositories/integrity-repository.js';
+import { insertFile, updateFilePathAndUser } from '../../repositories/file-repository.js';
 import {
   scanDirectory,
   toRelativePath,

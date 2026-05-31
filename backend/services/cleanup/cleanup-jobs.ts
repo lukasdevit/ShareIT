@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify';
-import { cleanupExpiredFiles } from './cleanupService.js';
-import { findStaleDemoUsers, deleteUser } from '../../repositories/userRepository.js';
-import { findFilePathsByUserId, deleteFilesByUserId } from '../../repositories/fileRepository.js';
+import { cleanupExpiredFiles } from './cleanup-service.js';
+import { findStaleDemoUsers, deleteUser } from '../../repositories/user-repository.js';
+import { findFilePathsByUserId, deleteFilesByUserId } from '../../repositories/file-repository.js';
 import { deleteFromStorage } from '../../utils/index.js';
 import { DEMO_CLEANUP_INTERVAL_MS, DEMO_MAX_AGE_MS } from '../../config/index.js';
 

@@ -56,7 +56,7 @@ let _dbSettings: Record<string, string> | null = null;
 async function loadDbSettings(): Promise<Record<string, string>> {
   if (_dbSettings) return _dbSettings;
   try {
-    const { getAllSettings } = await import('../repositories/settingsRepository.js');
+    const { getAllSettings } = await import('../repositories/settings-repository.js');
     _dbSettings = await getAllSettings();
   } catch {
     _dbSettings = {};

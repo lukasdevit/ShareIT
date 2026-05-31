@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { recordAction } from '../../services/actionLogService.js';
+import { recordAction } from '../../services/action-log-service.js';
 import {
   isValidTable,
   listTables,
@@ -8,7 +8,7 @@ import {
   countAdmins,
   findRow,
   deleteRow,
-} from '../../repositories/dbRepository.js';
+} from '../../repositories/db-repository.js';
 
 export async function adminDbRoutes(app: FastifyInstance) {
   // List tables with schema info

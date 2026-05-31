@@ -3,7 +3,7 @@ import { getBackupScheduleHours, getBackupRetentionDays } from './config/index.j
 import { initSchema, seedAdmin, backupDatabase } from './db/index.js';
 import { resolveProvider } from './services/storage/index.js';
 import { initScanner } from './utils/scan.js';
-import { startCleanupJobs } from './services/cleanup/cleanupJobs.js';
+import { startCleanupJobs } from './services/cleanup/cleanup-jobs.js';
 
 export async function bootstrap(app: FastifyInstance) {
   // 1. Database

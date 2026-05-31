@@ -1,13 +1,10 @@
-import { dbAll, dbRun } from '../../db/index.js';
 import { resolveProvider } from '../storage/index.js';
 import type { StorageProvider } from '../storage/types.js';
+import { findExpiredFiles, deleteFileRowById } from '../../repositories/file-repository.js';
 
 /** Delete files past their expiration date. Returns count of deleted files. */
 export async function cleanupExpiredFiles(): Promise<number> {
-  const rows = await dbAll<{ id: number; path: string; storage_backend: string }>(
-    `SELECT id, path, storage_backend FROM files
-     WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`
-  );
+  const rows = await findExpiredFiles();
 
   let deleted = 0;
   for (const row of rows) {
@@ -16,7 +13,7 @@ export async function cleanupExpiredFiles(): Promise<number> {
       await storage.delete(row.path);
     } catch { /* already gone */ }
 
-    await dbRun(`DELETE FROM files WHERE id = ?`, [row.id]);
+    await deleteFileRowById(row.id);
     deleted++;
   }
 

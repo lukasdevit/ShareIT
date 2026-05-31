@@ -191,6 +191,26 @@ export async function reInsertFile(row: Record<string, unknown>): Promise<void> 
   );
 }
 
+/** Find all expired files (for cleanup job). */
+export interface ExpiredFileRow {
+  id: number;
+  path: string;
+  storage_backend: string;
+}
+
+export async function findExpiredFiles(): Promise<ExpiredFileRow[]> {
+  return dbAll<ExpiredFileRow>(
+    `SELECT id, path, storage_backend FROM files
+     WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`
+  );
+}
+
+/** Delete a single file record by ID. Returns number of deleted rows. */
+export async function deleteFileRowById(id: number): Promise<number> {
+  const r = await dbRun(`DELETE FROM files WHERE id = ?`, [id]);
+  return r.changes;
+}
+
 /** Update a file's path and user_id (used by migration undo). */
 export async function updateFilePathAndUser(
   oldPath: string,

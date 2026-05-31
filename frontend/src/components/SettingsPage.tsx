@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { formatSize } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { MetricCard } from '@/components/ui/MetricCard';
-import type { StorageInfo } from '@/types';
+import { useSettings } from '@/hooks/use-settings';
 
 interface Props {
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
@@ -13,32 +13,23 @@ interface Props {
 
 export function SettingsPage({ apiFetch, onBack }: Props) {
   const { toast } = useToast();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [storage, setStorage] = useState<StorageInfo | null>(null);
-  const [storageLoading, setStorageLoading] = useState(true);
+  const {
+    currentPassword, setCurrentPassword,
+    newPassword, setNewPassword,
+    storage, storageLoading,
+    fetchStorage,
+    changePassword,
+  } = useSettings(apiFetch);
 
   useEffect(() => {
-    apiFetch('/auth/storage')
-      .then(async (r) => {
-        if (r.ok) setStorage(await r.json());
-      })
-      .finally(() => setStorageLoading(false));
-  }, [apiFetch]);
+    fetchStorage();
+  }, [fetchStorage]);
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const r = await apiFetch('/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      toast('Password changed successfully', 'ok');
-      setCurrentPassword('');
-      setNewPassword('');
+      const msg = await changePassword();
+      toast(msg, 'ok');
     } catch (err) {
       toast((err as Error).message, 'err');
     }

@@ -2,14 +2,14 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
-import { findIdByUsername } from '../../repositories/userRepository.js';
+import { findIdByUsername } from '../../repositories/user-repository.js';
 import {
   listChecks,
   findCheck,
   deleteCheck,
   countIssues,
   listIssues,
-} from '../../repositories/integrityRepository.js';
+} from '../../repositories/integrity-repository.js';
 import {
   runIntegrityCheck,
   resolveSingleIssue,

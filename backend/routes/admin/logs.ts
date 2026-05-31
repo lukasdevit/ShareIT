@@ -4,8 +4,8 @@ import {
   clearLogs,
   readLogFile,
   writeLog,
-} from '../../services/logService.js';
-import { recordAction } from '../../services/actionLogService.js';
+} from '../../services/log-service.js';
+import { recordAction } from '../../services/action-log-service.js';
 
 export async function adminLogRoutes(app: FastifyInstance) {
   // Get recent log entries

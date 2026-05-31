@@ -4,12 +4,12 @@ import path from 'path';
 import {
   DEFAULT_UPLOAD_DIR,
   DEFAULT_STORAGE_LIMIT,
-  DOMAIN,
 } from '../../config/index.js';
 import { getStorageBackend, getStorageSetting, clearConfigCache } from '../../config/index.js';
-import { recordAction } from '../../services/actionLogService.js';
-import { getAllSettings, upsertSetting } from '../../repositories/settingsRepository.js';
-import { getStorageStats } from '../../repositories/storageStatsRepository.js';
+import { recordAction } from '../../services/action-log-service.js';
+import { getAllSettings, upsertSetting } from '../../repositories/settings-repository.js';
+import { getStorageStats } from '../../repositories/storage-stats-repository.js';
+import { saveCustomCertificate, readSslStatus } from '../../services/storage/ssl-service.js';
 
 const STORAGE_RATE_LIMIT = 60; // requests per window
 const STORAGE_RATE_WINDOW_MS = 60_000;
@@ -134,46 +134,12 @@ export async function adminStorageRoutes(app: FastifyInstance) {
 
 export async function adminSslRoutes(app: FastifyInstance) {
   app.get('/admin/ssl', async (request, reply) => {
-    const domain = DOMAIN;
-    const isLocal = domain === 'localhost';
     const proto =
       (request.headers['x-forwarded-proto'] as string) ||
       request.protocol ||
       'http';
-
-    // Caddy sets x-forwarded-proto to "https" when it terminates SSL.
-    // In Docker, the API container can't read Caddy's cert store, so we
-    // rely on the header rather than filesystem checks.
-    const sslActive = proto === 'https';
-
-    // Try to read cert expiry from Caddy's data directory (best-effort).
-    // This works in non-Docker setups; in Docker it silently fails.
-    let certExpiry: string | null = null;
-    if (sslActive) {
-      certExpiry = await tryReadCertExpiry(domain);
-    }
-
-    const managedBy = isLocal
-      ? 'Caddy (self-signed, localhost)'
-      : sslActive
-        ? "Caddy + Let's Encrypt (auto-renewing)"
-        : 'Caddy (no certificate detected)';
-
-    const note = isLocal
-      ? 'Caddy auto-generates a self-signed certificate for localhost. Browsers will show a security warning — this is normal for local development.'
-      : sslActive
-        ? 'Caddy automatically obtains and renews SSL certificates. No manual configuration needed.'
-        : 'Caddy is configured but no SSL certificate was detected. Check that port 443 is reachable and DNS points to this server.';
-
-    return reply.send({
-      domain,
-      is_local: isLocal,
-      protocol: proto,
-      cert_valid: sslActive,
-      cert_expiry: certExpiry,
-      managed_by: managedBy,
-      note,
-    });
+    const status = await readSslStatus(proto);
+    return reply.send(status);
   });
 
   // Upload custom SSL certificate
@@ -182,23 +148,13 @@ export async function adminSslRoutes(app: FastifyInstance) {
       cert?: string;
       key?: string;
     };
-    if (!cert || !key) {
-      return reply.code(400).send({ error: 'Both cert and key PEM are required' });
-    }
-    if (!cert.includes('BEGIN CERTIFICATE') || !key.includes('BEGIN')) {
-      return reply
-        .code(400)
-        .send({ error: 'Invalid PEM format. Must include BEGIN/END markers.' });
-    }
 
-    const certsDir = path.join(process.cwd(), 'caddy', 'certs');
-    fs.mkdirSync(certsDir, { recursive: true });
-    fs.writeFileSync(path.join(certsDir, 'cert.pem'), cert.trim() + '\n');
-    fs.writeFileSync(path.join(certsDir, 'key.pem'), key.trim() + '\n');
-    fs.writeFileSync(
-      path.join(certsDir, 'custom.caddy'),
-      `tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem\n`
-    );
+    try {
+      await saveCustomCertificate(cert || '', key || '');
+    } catch (err) {
+      const e = err as { statusCode?: number; message: string };
+      return reply.code(e.statusCode || 400).send({ error: e.message });
+    }
 
     // Reload Caddy config via admin API
     try {
@@ -288,41 +244,4 @@ export async function adminSslRoutes(app: FastifyInstance) {
 
     return reply.send({ has_custom_cert: hasCustom, cert_expiry: expires });
   });
-}
-
-/** Best-effort: try to read the cert expiry from Caddy's cert store. */
-async function tryReadCertExpiry(domain: string): Promise<string | null> {
-  try {
-    const fs = await import('fs');
-    const path = await import('path');
-    const possibleDirs = [
-      '/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory',
-      '/data/caddy/certificates/acme-staging-v02.api.letsencrypt.org-directory',
-      '/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory',
-    ];
-
-    for (const certDir of possibleDirs) {
-      if (!fs.existsSync(certDir)) continue;
-      for (const entry of fs.readdirSync(certDir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || !entry.name.includes(domain)) continue;
-        const certPath = path.join(certDir, entry.name, `${entry.name}.crt`);
-        if (!fs.existsSync(certPath)) continue;
-
-        try {
-          const { execSync } = await import('child_process');
-          return execSync(
-            `openssl x509 -enddate -noout -in "${certPath}" 2>/dev/null`,
-            { encoding: 'utf8', timeout: 3000 }
-          )
-            .trim()
-            .replace('notAfter=', '');
-        } catch {
-          return 'Unknown';
-        }
-      }
-    }
-  } catch {
-    // Cert directory not accessible (expected in Docker)
-  }
-  return null;
 }

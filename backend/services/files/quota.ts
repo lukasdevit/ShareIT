@@ -1,5 +1,5 @@
-import { getTotalUsed, getUsedByUser } from '../../repositories/fileRepository.js';
-import { getStorageLimit } from '../../repositories/userRepository.js';
+import { getTotalUsed, getUsedByUser } from '../../repositories/file-repository.js';
+import { getStorageLimit } from '../../repositories/user-repository.js';
 import { getTotalStorageLimit } from '../../config/index.js';
 import { formatBytes } from '../../utils/index.js';
 

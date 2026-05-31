@@ -9,7 +9,7 @@ import {
   getUserStorageInfo,
   createDemoAccount,
   cleanupDemoSession,
-} from '../services/authService.js';
+} from '../services/auth-service.js';
 import { DEMO_IP_RATE_LIMIT, DEMO_RATE_WINDOW_MS } from '../config/index.js';
 
 export async function authRoutes(app: FastifyInstance) {

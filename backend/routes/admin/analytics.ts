@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { countUsers } from '../../repositories/userRepository.js';
+import { countUsers } from '../../repositories/user-repository.js';
 import {
   getFileTotals,
   countFilesSince,
   getDailyStats,
   getTopUsers,
   getFileCategories,
-} from '../../repositories/analyticsRepository.js';
+} from '../../repositories/analytics-repository.js';
 
 export async function adminAnalyticsRoutes(app: FastifyInstance) {
   app.get('/admin/analytics', async (_request, reply) => {

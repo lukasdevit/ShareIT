@@ -8,8 +8,8 @@ import { finalizeFile } from './finalize.js';
 import { scanFile } from '../../utils/scan.js';
 import { getStorage, buildStorageKey } from '../storage/index.js';
 
-export async function saveFile(
-  fileStream: NodeJS.ReadableStream,
+export async function save-file(
+  file-stream: NodeJS.ReadableStream,
   filename: string,
   originalName: string,
   mimeType: string,
@@ -25,7 +25,7 @@ export async function saveFile(
   const tmpPath = path.join(os.tmpdir(), `shareit-${filename}`);
   let size = 0;
   try {
-    await pipeline(fileStream, fs.createWriteStream(tmpPath));
+    await pipeline(file-stream, fs.createWriteStream(tmpPath));
     const stats = fs.statSync(tmpPath);
     size = stats.size;
 

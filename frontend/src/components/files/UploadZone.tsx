@@ -1,11 +1,9 @@
 'use client';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { useRef, useState, useEffect, useCallback } from 'react';
-import { API_BASE } from '@/lib/api-client';
-import { Uppy } from '@uppy/core';
-import AwsS3Multipart from '@uppy/aws-s3';
+import { useRef, useState, useCallback } from 'react';
+import { useUppyUpload } from '@/hooks/use-uppy-upload';
+import { useFileUpload } from '@/hooks/use-file-upload';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface Props {
   s3Enabled: boolean;
@@ -15,169 +13,26 @@ interface Props {
 
 export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uppyRef = useRef<Uppy | null>(null);
-
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadCount, setUploadCount] = useState({ done: 0, total: 0 });
   const [dragOver, setDragOver] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expireDays, setExpireDays] = useState('');
 
-  const authHeaders = useCallback(
-    (): Record<string, string> =>
-      token ? { Authorization: `Bearer ${token}` } : {},
-    [token]
-  );
+  const { api } = useAuth();
+  const uppy = useUppyUpload(s3Enabled, token);
+  const legacy = useFileUpload(api, token);
 
-  // ── Init Uppy for S3 multipart ──
-  useEffect(() => {
-    if (!s3Enabled) {
-      if (uppyRef.current) {
-        uppyRef.current.destroy();
-        uppyRef.current = null;
-      }
-      return;
-    }
-    if (uppyRef.current) return; // already initialized
-
-    const uppy = new Uppy({
-      autoProceed: true,
-      restrictions: { maxFileSize: 5 * 1024 * 1024 * 1024 },
-      onBeforeFileAdded: (file: any) => {
-        file.meta = { ...file.meta, filename: file.name, mimeType: file.type || 'application/octet-stream' };
-        return true;
-      },
-    });
-
-    uppy.use(AwsS3Multipart, {
-      shouldUseMultipart: true,
-      createMultipartUpload: async (file: any) => {
-        const res = await fetch(`${API_BASE}/upload/multipart/init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream' }),
-        });
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { uploadId: json.data.uploadId, key: json.data.key };
-      },
-      signPart: async (_file: any, opts: any) => {
-        const { uploadId, key, partNumber } = opts;
-        const res = await fetch(`${API_BASE}/upload/multipart/sign-part`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ key, uploadId, partNumber }),
-        });
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { url: json.data.url };
-      },
-      listParts: async () => [],
-      completeMultipartUpload: async (file: any, opts: any) => {
-        const { uploadId, key, parts } = opts;
-        const res = await fetch(
-          `${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}/complete`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({
-              key,
-              parts: (parts as any[]).map((p: any) => ({ PartNumber: p.PartNumber, ETag: p.ETag })),
-              originalName: file.name,
-              mimeType: file.type || 'application/octet-stream',
-              size: file.size,
-              expiresInDays: expireDays ? parseInt(expireDays, 10) : undefined,
-            }),
-          }
-        );
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { location: json.data.url };
-      },
-      abortMultipartUpload: async (_file: any, opts: any) => {
-        const { uploadId, key } = opts;
-        await fetch(`${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ key }),
-        });
-      },
-    });
-
-    uppy.on('progress', (pct: number) => setUploadProgress(pct));
-    uppy.on('upload', () => { setUploading(true); setError(null); });
-    uppy.on('complete', () => { setUploading(false); onUploadComplete(); });
-    uppy.on('error', (err: any) => { setError((err as Error).message); setUploading(false); });
-
-    uppyRef.current = uppy;
-
-    return () => {
-      uppy.destroy();
-      uppyRef.current = null;
-    };
-  }, [s3Enabled]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Add files ──
+  const uploading = s3Enabled ? uppy.uploading : legacy.uploading;
+  const uploadProgress = s3Enabled ? uppy.uploadProgress : legacy.uploadProgress;
+  const error = s3Enabled ? uppy.error : legacy.error;
 
   const addFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
-
-      // S3 multipart via Uppy
-      if (uppyRef.current) {
-        setUploading(true);
-        setUploadProgress(0);
-        setUploadCount({ done: 0, total: files.length });
-        setError(null);
-        for (const file of files) uppyRef.current.addFile({ name: file.name, type: file.type, data: file });
-        return;
+      if (s3Enabled && uppy.uppyRef.current) {
+        uppy.addFiles(files);
+      } else {
+        legacy.uploadFile(files, onUploadComplete);
       }
-
-      // Legacy XHR
-      setUploading(true);
-      setUploadProgress(0);
-      setUploadCount({ done: 0, total: files.length });
-      setError(null);
-
-      (async () => {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i]!;
-          const form = new FormData();
-          form.append('file', file);
-          try {
-            await new Promise<void>((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-              });
-              xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else {
-                  try { reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed')); }
-                  catch { reject(new Error('Upload failed')); }
-                }
-              });
-              xhr.addEventListener('error', () => reject(new Error('Network error')));
-              let url = `${API_BASE}/upload`;
-              if (expireDays) url += `?expires=${expireDays}`;
-              xhr.open('POST', url);
-              if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-              xhr.setRequestHeader('X-File-Expires', expireDays);
-              xhr.send(form);
-            });
-          } catch (err) {
-            setError(`${file.name}: ${(err as Error).message}`);
-            setUploading(false);
-            return;
-          }
-          setUploadCount({ done: i + 1, total: files.length });
-        }
-        setUploading(false);
-        await onUploadComplete();
-      })();
     },
-    [token, expireDays, onUploadComplete]
+    [s3Enabled, uppy, legacy, onUploadComplete]
   );
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -212,9 +67,7 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
               <div className="h-full bg-blue-400 rounded-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
             </div>
             <span className="text-xs text-zinc-400">
-              {uploadCount.total > 1
-                ? `Uploading ${uploadCount.done + 1}/${uploadCount.total} — ${uploadProgress}%`
-                : uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing...'}
+              {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing...'}
             </span>
           </div>
         ) : (

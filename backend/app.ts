@@ -19,7 +19,7 @@ import { filesRoutes } from './routes/files.js';
 import { sharexRoutes } from './routes/sharex.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
-import { writeLog } from './services/logService.js';
+import { writeLog } from './services/log-service.js';
 
 const startTime = Date.now();
 

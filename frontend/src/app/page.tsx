@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useNavigation } from '@/hooks/useNavigation';
+import { useNavigation } from '@/hooks/use-navigation';
 import { LandingPage } from '@/components/LandingPage';
 import { LoginForm } from '@/features/auth/LoginForm';
 import { FilesContent } from '@/features/files/FilesContent';

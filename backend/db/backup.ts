@@ -10,7 +10,7 @@ import {
 } from '../config/index.js';
 import { dbRun } from './helpers.js';
 import type { StorageProvider } from '../services/storage/types.js';
-import { rotateBackups } from '../services/storage/backupRotation.js';
+import { rotateBackups } from '../services/storage/backup-rotation.js';
 
 interface Logger {
   info: (msg: string) => void;

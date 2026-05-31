@@ -11,13 +11,13 @@ import {
   getStorageLimit,
   countDemoUsersSince,
   deleteDemoUser,
-} from '../repositories/userRepository.js';
+} from '../repositories/user-repository.js';
 import {
   findFilePathsByUserId,
   deleteFilesByUserId,
   getUsedByUser,
-} from '../repositories/fileRepository.js';
-import { getSetting } from '../repositories/settingsRepository.js';
+} from '../repositories/file-repository.js';
+import { getSetting } from '../repositories/settings-repository.js';
 import { deleteFromStorage } from '../utils/index.js';
 import {
   DEFAULT_STORAGE_LIMIT,

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useFileList } from '@/hooks/useFileList';
-import { useFileActions } from '@/hooks/useFileActions';
-import { useFileViewer } from '@/hooks/useFileViewer';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useEffect, useCallback } from 'react';
+import { useFileList } from '@/hooks/use-file-list';
+import { useFileActions } from '@/hooks/use-file-actions';
+import { useFileViewer } from '@/hooks/use-file-viewer';
+import { useAudioPlayer } from '@/hooks/use-audio-player';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { useStorageAndRandomAudio } from '@/hooks/use-storage-and-random-audio';
 import { UploadZone } from '@/components/files/UploadZone';
 import { ImageGallery } from '@/components/files/ImageGallery';
 import { FileSection } from '@/components/files/FileSection';
@@ -20,14 +21,12 @@ import { StorageBar } from '@/components/files/StorageBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useDashboard } from '@/features/dashboard/DashboardProvider';
 import type { FilesViewMode } from '@/features/dashboard/DashboardProvider';
-import type { StorageInfo } from '@/types';
 
 const PAGE_SIZE = 9;
 
 export function FilesPanel() {
   const { user, api, token } = useAuth();
   const { filesViewMode, setFilesViewMode } = useDashboard();
-  const [storage, setStorage] = useState<StorageInfo | null>(null);
 
   // ── Data hooks ──
   const {
@@ -48,6 +47,8 @@ export function FilesPanel() {
     play, pause, resume, close: closeAudio,
   } = useAudioPlayer();
 
+  const { storage, playRandomAudio } = useStorageAndRandomAudio(play);
+
   // ── Callbacks ──
   const refreshList = useCallback(
     () => fetchFiles(filesViewMode, 1, searchRef.current),
@@ -62,16 +63,6 @@ export function FilesPanel() {
     [currentAudio, closeAudio, deleteFile, refreshList]
   );
 
-  const playRandomAudio = useCallback(async () => {
-    try {
-      const res = await api('/files/random?type=audio');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) play(json.data);
-      }
-    } catch { /* ignore */ }
-  }, [api, play]);
-
   const goToPage = useCallback(
     (type: FilesViewMode, page: number) => fetchFiles(type, page, search),
     [fetchFiles, search]
@@ -81,10 +72,6 @@ export function FilesPanel() {
   useEffect(() => {
     fetchFiles(filesViewMode, 1, search);
   }, [fetchFiles, filesViewMode, search]);
-
-  useEffect(() => {
-    api('/auth/storage').then(r => r.json()).then(setStorage).catch(() => {});
-  }, [api]);
 
   useKeyboardShortcuts(
     { lightboxIndex, imageCount: imageFiles.length, closeLightbox, openLightbox },
