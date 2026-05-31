@@ -13,6 +13,16 @@ export class LocalStorage implements StorageProvider {
 
   private resolve(key: string): string {
     if (path.isAbsolute(key) && key.startsWith(this.baseDir)) return key;
+
+    const baseName = path.basename(this.baseDir);
+    if (key.startsWith(baseName + path.sep) || key.startsWith(baseName + '/')) {
+      const doubledPath = path.join(this.baseDir, key);
+      // Legacy: file physically exists at the doubled path
+      if (fs.existsSync(doubledPath)) return doubledPath;
+      // New code: strip the redundant prefix
+      return path.join(this.baseDir, key.slice(baseName.length + 1));
+    }
+
     return path.join(this.baseDir, key);
   }
 

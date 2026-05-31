@@ -6,7 +6,7 @@ import {
   DEFAULT_STORAGE_LIMIT,
 } from '../../config/index.js';
 import { getStorageBackend, getStorageSetting, getStoragePath, clearConfigCache } from '../../config/index.js';
-import { STORAGE_SETTING_KEYS, allProviders } from '../../services/storage/index.js';
+import { STORAGE_SETTING_KEYS, allProviders, clearStorageCache } from '../../services/storage/index.js';
 import { recordAction } from '../../services/action-log-service.js';
 import { getAllSettings, upsertSetting } from '../../repositories/settings-repository.js';
 import { getStorageStats } from '../../repositories/storage-stats-repository.js';
@@ -125,6 +125,7 @@ export async function adminStorageRoutes(app: FastifyInstance) {
         await upsertSetting(k, v);
       }
       clearConfigCache();
+      clearStorageCache();
       if (request.user?.username) {
         await recordAction(
           request.user!.username,

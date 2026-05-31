@@ -10,8 +10,11 @@ import type { S3Client } from '@aws-sdk/client-s3';
 
 export type { StorageProvider } from './types.js';
 
-// Local storage is always available
-registerProvider('local', () => new LocalStorage(), [], '💻 Local filesystem');
+// Cached storage path for the local provider factory (populated on first getStorage() call)
+let _cachedLocalPath: string | undefined;
+
+// Local storage is always available — factory uses cached configured path
+registerProvider('local', () => new LocalStorage(_cachedLocalPath), [], '💻 Local filesystem');
 
 /** All admin-configurable setting keys, aggregated from every registered provider. */
 export const STORAGE_SETTING_KEYS = allSettingKeys();
@@ -20,14 +23,31 @@ export { resolveProvider, allProviders };
 
 let _storage: StorageProvider;
 
+/** Clear cached storage instance and local path — call after admin changes storage settings. */
+export function clearStorageCache(): void {
+  _storage = undefined as unknown as StorageProvider;
+  _cachedLocalPath = undefined;
+}
+
+/** Ensure the local storage path cache is populated. Call early in bootstrap. */
+export async function initLocalPath(): Promise<void> {
+  if (_cachedLocalPath === undefined) {
+    const path = await getStoragePath();
+    _cachedLocalPath = path || undefined;
+  }
+}
+
 export async function getStorage(): Promise<StorageProvider> {
   if (!_storage) {
     const [backend, configuredPath] = await Promise.all([
       getStorageBackend(),
       getStoragePath(),
     ]);
-    _storage = configuredPath && backend === 'local'
-      ? new LocalStorage(configuredPath)
+    if (backend === 'local') {
+      _cachedLocalPath = configuredPath || undefined;
+    }
+    _storage = backend === 'local'
+      ? new LocalStorage(_cachedLocalPath)
       : resolveProvider(backend);
     console.warn(`Storage: ${backend}`);
   }
@@ -35,12 +55,21 @@ export async function getStorage(): Promise<StorageProvider> {
 }
 
 export async function buildStorageKey(userId: number, filename: string): Promise<string> {
-  const prefix = await getStoragePath();
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const base = `share/${userId}/${yyyy}/${mm}/${dd}/${filename}`;
+  const base = `${userId}/${yyyy}/${mm}/${dd}/${filename}`;
+
+  const backend = await getStorageBackend();
+  if (backend === 'local') {
+    // For local storage, LocalStorage already uses storagePath as baseDir,
+    // so the key must be relative — no prefix.
+    return base;
+  }
+
+  // For cloud backends (B2/R2), prefix is a key prefix in the bucket.
+  const prefix = await getStoragePath();
   return prefix ? `${prefix.replace(/\/$/, '')}/${base}` : base;
 }
 
