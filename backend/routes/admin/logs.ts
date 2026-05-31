@@ -4,11 +4,10 @@ import {
   clearLogs,
   readLogFile,
   writeLog,
-} from '../../services/logService.js';
-import { recordAction } from '../../services/actionLogService.js';
+} from '../../services/log-service.js';
+import { recordAction } from '../../services/action-log-service.js';
 
 export async function adminLogRoutes(app: FastifyInstance) {
-  // Get recent log entries
   app.get('/admin/logs', async (request, reply) => {
     const { lines, level } = request.query as {
       lines?: string;
@@ -27,7 +26,6 @@ export async function adminLogRoutes(app: FastifyInstance) {
     return reply.send({ logs: entries, total: entries.length });
   });
 
-  // Download full log file
   app.get('/admin/logs/download', async (_request, reply) => {
     const content = readLogFile();
     reply.header('Content-Type', 'text/plain');
@@ -35,7 +33,6 @@ export async function adminLogRoutes(app: FastifyInstance) {
     return reply.send(content);
   });
 
-  // Clear logs
   app.delete('/admin/logs', async (request, reply) => {
     clearLogs();
     if (request.user?.username) {

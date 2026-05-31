@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border animate-slide-in
+            className={`pointer-events-auto px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border animate-slide-in whitespace-pre-line
               ${
                 t.type === 'ok'
                   ? 'bg-emerald-600/90 border-emerald-500/40 text-white'

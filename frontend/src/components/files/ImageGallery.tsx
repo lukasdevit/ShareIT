@@ -5,6 +5,7 @@ import type { FileInfo } from '@/types';
 import { VisibilityToggle } from '@/components/ui/VisibilityToggle';
 import { DeleteButton } from '@/components/ui/DeleteButton';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { useGlowEffect } from '@/hooks/use-glow-effect';
 
 interface Props {
   images: FileInfo[];
@@ -15,6 +16,29 @@ interface Props {
   onDelete: (id: number) => void;
   onTogglePublic: (id: number, isPublic: boolean) => void;
   onOpenLightbox: (index: number) => void;
+}
+
+function GlowImageCard({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  const { ref, onMouseMove, onMouseLeave } = useGlowEffect<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="pressable glow-hover glow-blue group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:shadow-lg hover:shadow-black/30 cursor-pointer transition-[border-color,box-shadow] duration-200"
+    >
+      {children}
+    </div>
+  );
 }
 
 export function ImageGallery({
@@ -31,40 +55,21 @@ export function ImageGallery({
     <section>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {images.map((f, idx) => (
-          <div
-            key={f.id}
-            onClick={() => onOpenLightbox(idx)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onOpenLightbox(idx);
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer"
-          >
+          <GlowImageCard key={f.id} onClick={() => onOpenLightbox(idx)}>
             <img
               src={`${location.origin}/file/${f.filename}`}
               alt={f.original_name}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
               loading="lazy"
             />
-            <div className="absolute top-2 right-2">
-              <VisibilityToggle
-                isPublic={!!f.is_public}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTogglePublic(f.id, !f.is_public);
-                }}
-              />
-            </div>
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100">
-              <p className="text-xs text-white truncate">{f.original_name}</p>
-              <p className="text-xs text-zinc-400">
+
+            {/* Hover overlay — bottom bar with actions */}
+            <div className="absolute inset-x-0 bottom-0 z-10 p-2 pt-8 bg-linear-to-t from-black/80 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <p className="text-xs font-medium text-white truncate drop-shadow-sm">{f.original_name}</p>
+              <p className="text-[11px] text-zinc-300 mt-0.5">
                 {formatSize(f.size)} · {formatDate(f.created_at)}
               </p>
-              <div className="flex gap-1 mt-1 flex-wrap">
+              <div className="flex gap-1 mt-1.5 flex-wrap">
                 <CopyButton
                   filename={f.filename}
                   id={f.id}
@@ -91,7 +96,7 @@ export function ImageGallery({
                 />
               </div>
             </div>
-          </div>
+          </GlowImageCard>
         ))}
       </div>
     </section>

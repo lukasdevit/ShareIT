@@ -12,8 +12,6 @@ import {
 
 import type { AdminTab } from '@/config/constants';
 
-// ── Types ──
-
 export type FilesViewMode = 'all' | 'images' | 'audio' | 'video' | 'file';
 
 export type { AdminTab };
@@ -48,8 +46,6 @@ function saveState(state: DashboardState) {
     /* ignore */
   }
 }
-
-// ── Context ──
 
 interface ContextValue extends DashboardState {
   setFilesViewMode: (m: FilesViewMode) => void;

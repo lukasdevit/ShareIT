@@ -15,25 +15,21 @@ export function useFileList(
   api: (path: string, options?: RequestInit) => Promise<Response>,
   { pageSize = 50 }: UseFileListOptions = {}
 ) {
-  // Non-image files (text, PDF, archives, etc.)
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
 
-  // Images
   const [imageFiles, setImageFiles] = useState<FileInfo[]>([]);
   const [imagePage, setImagePage] = useState(1);
   const [imageTotalPages, setImageTotalPages] = useState(0);
   const [imageTotal, setImageTotal] = useState(0);
 
-  // Audio
   const [audioFiles, setAudioFiles] = useState<FileInfo[]>([]);
   const [audioPage, setAudioPage] = useState(1);
   const [audioTotalPages, setAudioTotalPages] = useState(0);
   const [audioTotal, setAudioTotal] = useState(0);
 
-  // Video
   const [videoFiles, setVideoFiles] = useState<FileInfo[]>([]);
   const [videoPage, setVideoPage] = useState(1);
   const [videoTotalPages, setVideoTotalPages] = useState(0);
@@ -50,7 +46,6 @@ export function useFileList(
         if (searchTerm) base.set('search', searchTerm);
 
         if (viewMode === 'all') {
-          // Fetch all types in parallel
           const build = (type: string, pageNum: number) => {
             const params = new URLSearchParams(base);
             params.set('page', String(pageNum));
@@ -73,7 +68,6 @@ export function useFileList(
           apply(audioRes, (d) => { setAudioFiles(d.files); setAudioPage(d.page); setAudioTotalPages(d.totalPages); setAudioTotal(d.total); });
           apply(videoRes, (d) => { setVideoFiles(d.files); setVideoPage(d.page); setVideoTotalPages(d.totalPages); setVideoTotal(d.total); });
         } else {
-          // Single type fetch
           const params = new URLSearchParams(base);
           params.set('page', String(p));
           // Map viewMode plural forms to API singular forms (images→image)
@@ -83,7 +77,6 @@ export function useFileList(
           const res = await api(`/files?${params.toString()}`);
           if (res.ok) {
             const d: FilePage = await res.json();
-            // Clear all, then set the matching type
             setFiles([]); setTotal(0);
             setImageFiles([]); setImageTotal(0);
             setAudioFiles([]); setAudioTotal(0);
@@ -96,7 +89,6 @@ export function useFileList(
           }
         }
       } catch {
-        // handled by caller
       }
     },
     [api, pageSize]

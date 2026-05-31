@@ -82,7 +82,6 @@ export function IntegrityCheck({ apiFetch }: Props) {
   const [pageSize, setPageSize] = useState(25);
   const [deletingCheck, setDeletingCheck] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
-  // Preview state
   const [previewPath, setPreviewPath] = useState<string | null>(null);
 
   const loadChecks = useCallback(() => {
@@ -122,7 +121,6 @@ export function IntegrityCheck({ apiFetch }: Props) {
     [apiFetch, toast, filterType, pageSize]
   );
 
-  // Re-fetch when filters or page size change
   useEffect(() => {
     if (activeCheckId) {
       loadPage(activeCheckId, 0);

@@ -4,6 +4,7 @@
 body {
   background: #0a0a0a;
   color: #ededed;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── Reusable components ── */
@@ -15,22 +16,40 @@ body {
     @apply text-lg font-semibold;
   }
   .btn {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150;
+  }
+  .btn:active {
+    transform: scale(0.97);
   }
   .btn-zinc {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-zinc-800 hover:bg-zinc-700 text-zinc-300;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 bg-zinc-800 hover:bg-zinc-700 text-zinc-300;
+  }
+  .btn-zinc:active {
+    transform: scale(0.97);
   }
   .btn-blue {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 bg-blue-600 hover:bg-blue-500 text-white;
+  }
+  .btn-blue:active {
+    transform: scale(0.97);
   }
   .btn-green {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-green-600 hover:bg-green-500 text-white;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 bg-green-600 hover:bg-green-500 text-white;
+  }
+  .btn-green:active {
+    transform: scale(0.97);
   }
   .btn-red {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-red-900/50 hover:bg-red-800 text-red-300;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 bg-red-900/50 hover:bg-red-800 text-red-300;
+  }
+  .btn-red:active {
+    transform: scale(0.97);
   }
   .btn-ghost {
-    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-transparent hover:bg-zinc-800 text-zinc-400;
+    @apply px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 bg-transparent hover:bg-zinc-800 text-zinc-400;
+  }
+  .btn-ghost:active {
+    transform: scale(0.97);
   }
   .input {
     @apply w-full px-2.5 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs
@@ -136,4 +155,93 @@ body {
 }
 .markdown-body img {
   @apply max-w-full rounded-lg my-2;
+}
+
+/* ── Press feedback ── */
+@layer utilities {
+  .pressable {
+    @apply transition-all duration-150;
+  }
+  .pressable:active {
+    transform: scale(0.97);
+  }
+  .pressable-lg:active {
+    transform: scale(0.985);
+  }
+}
+
+/* ── Tab content transition ── */
+@keyframes tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-tab-in {
+  animation: tab-fade-in 0.25s ease-out;
+}
+
+/* ── Tab pill indicator ── */
+.tab-pill {
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Cursor glow effect ── */
+.glow-hover {
+  --glow-x: -9999px;
+  --glow-y: -9999px;
+  position: relative;
+  overflow: hidden;
+}
+.glow-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(
+    350px circle at var(--glow-x) var(--glow-y),
+    var(--glow-color, rgba(59, 130, 246, 0.12)),
+    transparent 60%
+  );
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-hover:hover::before {
+  opacity: 1;
+}
+
+/* Glow color variants */
+.glow-blue { --glow-color: rgba(59, 130, 246, 0.12); }
+.glow-violet { --glow-color: rgba(139, 92, 246, 0.12); }
+.glow-amber { --glow-color: rgba(245, 158, 11, 0.12); }
+.glow-emerald { --glow-color: rgba(16, 185, 129, 0.12); }
+
+/* ── Respect reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .pressable,
+  .pressable-lg,
+  .glow-hover::before,
+  .btn:active,
+  .btn-zinc:active,
+  .btn-blue:active,
+  .btn-green:active,
+  .btn-red:active,
+  .btn-ghost:active {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

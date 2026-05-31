@@ -1,7 +1,5 @@
 import { dbAll, dbGet } from '../db/index.js';
 
-// ── Types ──
-
 export interface DailyPoint {
   day: string;
   count: number;
@@ -19,8 +17,6 @@ export interface Category {
   count: number;
   bytes: number;
 }
-
-// ── Queries ──
 
 /** Total file count and bytes across all files. */
 export async function getFileTotals(): Promise<{ files: number; bytes: number }> {

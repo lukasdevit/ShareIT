@@ -1,11 +1,10 @@
 'use client';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { useRef, useState, useEffect, useCallback } from 'react';
-import { API_BASE } from '@/lib/api-client';
-import { Uppy } from '@uppy/core';
-import AwsS3Multipart from '@uppy/aws-s3';
+import { useRef, useState, useCallback } from 'react';
+import { useUppyUpload } from '@/hooks/use-uppy-upload';
+import { useFileUpload } from '@/hooks/use-file-upload';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useGlowEffect } from '@/hooks/use-glow-effect';
 
 interface Props {
   s3Enabled: boolean;
@@ -15,169 +14,29 @@ interface Props {
 
 export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uppyRef = useRef<Uppy | null>(null);
-
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadCount, setUploadCount] = useState({ done: 0, total: 0 });
   const [dragOver, setDragOver] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expireDays, setExpireDays] = useState('');
+  const { ref: glowRef, onMouseMove: glowMove, onMouseLeave: glowLeave } = useGlowEffect<HTMLDivElement>();
 
-  const authHeaders = useCallback(
-    (): Record<string, string> =>
-      token ? { Authorization: `Bearer ${token}` } : {},
-    [token]
-  );
+  const { api } = useAuth();
+  const uppy = useUppyUpload(s3Enabled, token);
+  const legacy = useFileUpload(api, token);
 
-  // ── Init Uppy for S3 multipart ──
-  useEffect(() => {
-    if (!s3Enabled) {
-      if (uppyRef.current) {
-        uppyRef.current.destroy();
-        uppyRef.current = null;
-      }
-      return;
-    }
-    if (uppyRef.current) return; // already initialized
-
-    const uppy = new Uppy({
-      autoProceed: true,
-      restrictions: { maxFileSize: 5 * 1024 * 1024 * 1024 },
-      onBeforeFileAdded: (file: any) => {
-        file.meta = { ...file.meta, filename: file.name, mimeType: file.type || 'application/octet-stream' };
-        return true;
-      },
-    });
-
-    uppy.use(AwsS3Multipart, {
-      shouldUseMultipart: true,
-      createMultipartUpload: async (file: any) => {
-        const res = await fetch(`${API_BASE}/upload/multipart/init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream' }),
-        });
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { uploadId: json.data.uploadId, key: json.data.key };
-      },
-      signPart: async (_file: any, opts: any) => {
-        const { uploadId, key, partNumber } = opts;
-        const res = await fetch(`${API_BASE}/upload/multipart/sign-part`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ key, uploadId, partNumber }),
-        });
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { url: json.data.url };
-      },
-      listParts: async () => [],
-      completeMultipartUpload: async (file: any, opts: any) => {
-        const { uploadId, key, parts } = opts;
-        const res = await fetch(
-          `${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}/complete`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({
-              key,
-              parts: (parts as any[]).map((p: any) => ({ PartNumber: p.PartNumber, ETag: p.ETag })),
-              originalName: file.name,
-              mimeType: file.type || 'application/octet-stream',
-              size: file.size,
-              expiresInDays: expireDays ? parseInt(expireDays, 10) : undefined,
-            }),
-          }
-        );
-        const json: any = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        return { location: json.data.url };
-      },
-      abortMultipartUpload: async (_file: any, opts: any) => {
-        const { uploadId, key } = opts;
-        await fetch(`${API_BASE}/upload/multipart/${encodeURIComponent(uploadId)}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ key }),
-        });
-      },
-    });
-
-    uppy.on('progress', (pct: number) => setUploadProgress(pct));
-    uppy.on('upload', () => { setUploading(true); setError(null); });
-    uppy.on('complete', () => { setUploading(false); onUploadComplete(); });
-    uppy.on('error', (err: any) => { setError((err as Error).message); setUploading(false); });
-
-    uppyRef.current = uppy;
-
-    return () => {
-      uppy.destroy();
-      uppyRef.current = null;
-    };
-  }, [s3Enabled]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Add files ──
+  const uploading = s3Enabled ? uppy.uploading : legacy.uploading;
+  const uploadProgress = s3Enabled ? uppy.uploadProgress : legacy.uploadProgress;
+  const error = s3Enabled ? uppy.error : legacy.error;
+  const expireDays = s3Enabled ? uppy.expireDays : legacy.expireDays;
+  const setExpireDays = s3Enabled ? uppy.setExpireDays : legacy.setExpireDays;
 
   const addFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
-
-      // S3 multipart via Uppy
-      if (uppyRef.current) {
-        setUploading(true);
-        setUploadProgress(0);
-        setUploadCount({ done: 0, total: files.length });
-        setError(null);
-        for (const file of files) uppyRef.current.addFile({ name: file.name, type: file.type, data: file });
-        return;
+      if (s3Enabled && uppy.uppyRef.current) {
+        uppy.addFiles(files);
+      } else {
+        legacy.uploadFile(files, onUploadComplete);
       }
-
-      // Legacy XHR
-      setUploading(true);
-      setUploadProgress(0);
-      setUploadCount({ done: 0, total: files.length });
-      setError(null);
-
-      (async () => {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i]!;
-          const form = new FormData();
-          form.append('file', file);
-          try {
-            await new Promise<void>((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-              });
-              xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else {
-                  try { reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed')); }
-                  catch { reject(new Error('Upload failed')); }
-                }
-              });
-              xhr.addEventListener('error', () => reject(new Error('Network error')));
-              let url = `${API_BASE}/upload`;
-              if (expireDays) url += `?expires=${expireDays}`;
-              xhr.open('POST', url);
-              if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-              xhr.setRequestHeader('X-File-Expires', expireDays);
-              xhr.send(form);
-            });
-          } catch (err) {
-            setError(`${file.name}: ${(err as Error).message}`);
-            setUploading(false);
-            return;
-          }
-          setUploadCount({ done: i + 1, total: files.length });
-        }
-        setUploading(false);
-        await onUploadComplete();
-      })();
     },
-    [token, expireDays, onUploadComplete]
+    [s3Enabled, uppy, legacy, onUploadComplete]
   );
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -193,8 +52,11 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
   }
 
   return (
-    <div className="w-full max-w-2xl px-4 mb-8">
+    <div className="w-full max-w-2xl px-4 mb-6">
       <div
+        ref={glowRef}
+        onMouseMove={(e) => { glowMove(e); }}
+        onMouseLeave={(e) => { glowLeave(); setDragOver(false); }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
@@ -202,33 +64,40 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
         role="button"
         tabIndex={0}
-        className={`relative flex flex-col items-center justify-center h-40 rounded-xl border-2 cursor-pointer transition-all select-none overflow-hidden pb-8 ${
-          dragOver ? 'border-blue-400 bg-blue-500/10' : 'border-zinc-700 hover:border-zinc-500 bg-zinc-900'
-        } ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+        className={`relative flex flex-col items-center justify-center h-44 rounded-2xl border-2 border-dashed cursor-pointer select-none overflow-hidden ${
+          dragOver
+            ? 'border-blue-400 bg-blue-500/10 scale-[1.01]'
+            : 'glow-hover glow-blue border-zinc-700/60 hover:border-zinc-500/80 bg-zinc-900/50 hover:bg-zinc-900/80'
+        } ${uploading ? 'pointer-events-none opacity-50' : 'pressable'}`}
       >
         {uploading ? (
-          <div className="flex flex-col items-center gap-2 w-48">
+          <div className="flex flex-col items-center gap-2.5 w-52">
             <div className="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
-              <div className="h-full bg-blue-400 rounded-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+              <div
+                className="h-full rounded-full transition-all duration-200 bg-linear-to-r from-blue-500 to-blue-400"
+                style={{ width: `${uploadProgress}%` }}
+              />
             </div>
             <span className="text-xs text-zinc-400">
-              {uploadCount.total > 1
-                ? `Uploading ${uploadCount.done + 1}/${uploadCount.total} — ${uploadProgress}%`
-                : uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing...'}
+              {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing...'}
             </span>
           </div>
         ) : (
           <>
-            <svg className="w-20 h-16 mb-3 text-blue-500/50" viewBox="0 0 80 60" fill="currentColor">
-              <path d="M16 46c-6.63 0-12-5.37-12-12s5.37-12 12-12c1.6-5.6 7-9.6 13.2-9.6 5.8 0 10.8 3.4 12.8 8.4 3.6-1.6 7.6-2.4 12-2.4 8.8 0 16 7.2 16 16s-7.2 16-16 16H16z" opacity="0.25" />
-              <path d="M28 38l12 10 12-10M40 48V26" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
-            <span className="text-sm text-zinc-400">Drop a file here or click to browse</span>
-            {s3Enabled && <span className="text-xs text-zinc-600 mt-1">Multipart upload direct to storage</span>}
+            <div className={`mb-3 p-3 rounded-xl transition-colors ${dragOver ? 'bg-blue-500/20' : 'bg-zinc-800/50'}`}>
+              <svg className="w-10 h-8" viewBox="0 0 40 30" fill="none">
+                <path d="M8 24c-3.31 0-6-2.69-6-6s2.69-6 6-6c.8-2.8 3.5-4.8 6.6-4.8 2.9 0 5.4 1.7 6.4 4.2 1.8-.8 3.8-1.2 6-1.2 4.4 0 8 3.6 8 8s-3.6 8-8 8H8z" fill="currentColor" className={`${dragOver ? 'text-blue-400/40' : 'text-zinc-600/50'} transition-colors`} />
+                <path d="M20 20l7-7M20 20V8" stroke={dragOver ? '#60a5fa' : '#52525b'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors" />
+              </svg>
+            </div>
+            <span className={`text-sm font-medium transition-colors ${dragOver ? 'text-blue-300' : 'text-zinc-400'}`}>
+              {dragOver ? 'Drop to upload' : 'Drop a file here or click to browse'}
+            </span>
+            {s3Enabled && <span className="text-[11px] text-zinc-600 mt-1">Multipart upload direct to storage</span>}
           </>
         )}
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} multiple aria-label="Choose files to upload" />
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-zinc-800/50 border-t border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800/40 border-t border-zinc-700/40" onClick={(e) => e.stopPropagation()}>
           <span className="text-[11px] text-zinc-500 whitespace-nowrap">⏱️ Auto-delete:</span>
           <select value={expireDays} onChange={(e) => setExpireDays(e.target.value)} className="bg-transparent text-zinc-400 text-[11px] focus:outline-none cursor-pointer">
             <option value="">Never</option>
@@ -240,7 +109,14 @@ export function UploadZone({ s3Enabled, token, onUploadComplete }: Props) {
         </div>
       </div>
       {error && (
-        <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>
+        <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          {error}
+        </div>
       )}
     </div>
   );

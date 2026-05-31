@@ -43,7 +43,6 @@ export function TableBrowser({
     fetchTables();
   }, [refreshKey]);
 
-  // Auto-select users table when first loaded
   useEffect(() => {
     if (tables.length > 0 && !expanded) {
       const preferred = tables.find((t) => t.name === 'users') ?? tables[0];
@@ -51,7 +50,6 @@ export function TableBrowser({
     }
   }, [tables]);
 
-  // Load table data when expanded changes
   useEffect(() => {
     if (expanded) loadTableData(expanded);
   }, [expanded]);

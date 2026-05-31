@@ -1,7 +1,5 @@
 import { dbAll, dbGet, dbRun } from '../db/index.js';
 
-// ── Types ──
-
 export interface CheckRow {
   id: number;
   check_id: string;
@@ -42,8 +40,6 @@ export interface IntegrityFileRow {
   user_id: number | null;
   storage_backend: string;
 }
-
-// ── Checks ──
 
 /** List recent integrity checks (last 20). */
 export async function listChecks(): Promise<CheckRow[]> {
@@ -87,8 +83,6 @@ export async function deleteCheck(checkId: string): Promise<void> {
   await dbRun(`DELETE FROM integrity_issues WHERE check_id = ?`, [checkId]);
   await dbRun(`DELETE FROM integrity_checks WHERE check_id = ?`, [checkId]);
 }
-
-// ── Issues ──
 
 /** Insert a batch of integrity issues. */
 export async function insertIssues(
@@ -167,8 +161,6 @@ export async function resolveIssue(
     [action, issueId]
   );
 }
-
-// ── File queries used by integrity ──
 
 /** Get all files from DB, optionally scoped to a user. */
 export async function getFilesForScan(userId?: number): Promise<IntegrityFileRow[]> {

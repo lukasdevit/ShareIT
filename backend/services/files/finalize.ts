@@ -1,4 +1,4 @@
-import { insertFile } from '../../repositories/fileRepository.js';
+import { insertFile } from '../../repositories/file-repository.js';
 import { getStorageBackend } from '../../config/index.js';
 import { getStorage } from '../storage/index.js';
 

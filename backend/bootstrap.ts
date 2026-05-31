@@ -2,19 +2,20 @@ import type { FastifyInstance } from 'fastify';
 import { getBackupScheduleHours, getBackupRetentionDays } from './config/index.js';
 import { initSchema, seedAdmin, backupDatabase } from './db/index.js';
 import { resolveProvider } from './services/storage/index.js';
+import { initLocalPath } from './services/storage/index.js';
 import { initScanner } from './utils/scan.js';
-import { startCleanupJobs } from './services/cleanup/cleanupJobs.js';
+import { startCleanupJobs } from './services/cleanup/cleanup-jobs.js';
 
 export async function bootstrap(app: FastifyInstance) {
-  // 1. Database
   await initSchema();
   await seedAdmin(app.log);
 
-  // 2. Background services
+  // Populate local storage path cache before any resolveProvider('local') calls
+  await initLocalPath();
+
   startCleanupJobs(app.log);
   await initScanner();
 
-  // 3. Scheduled jobs
   startBackupJob(app);
 
   app.log.info('Bootstrap completed');

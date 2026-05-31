@@ -1,7 +1,5 @@
 import { dbAll, dbGet, dbRun } from '../db/index.js';
 
-// ── Types ──
-
 export interface UserRow {
   id: number;
   username: string;
@@ -32,8 +30,6 @@ export interface UserStatsRow {
   used: number | null;
   file_count: number | null;
 }
-
-// ── Queries ──
 
 /** Find a user by username (for login). */
 export async function findByUsername(username: string): Promise<UserLoginRow | undefined> {

@@ -6,12 +6,11 @@ import { backupDatabase } from '../../db/index.js';
 import { resolveProvider } from '../../services/storage/index.js';
 import type { StorageProvider } from '../../services/storage/types.js';
 import { getStorageBackend, clearConfigCache, getBackupRetentionDays } from '../../config/index.js';
-import { recordAction } from '../../services/actionLogService.js';
-import { getSetting, upsertSetting } from '../../repositories/settingsRepository.js';
-import { listBackupHistory } from '../../repositories/backupRepository.js';
+import { recordAction } from '../../services/action-log-service.js';
+import { getSetting, upsertSetting } from '../../repositories/settings-repository.js';
+import { listBackupHistory } from '../../repositories/backup-repository.js';
 
 export async function adminBackupRoutes(app: FastifyInstance) {
-  // Trigger a backup now
   app.post('/admin/backup/run', async (request, reply) => {
     const backend = await getStorageBackend();
     const retentionDays = await getBackupRetentionDays();
@@ -36,7 +35,6 @@ export async function adminBackupRoutes(app: FastifyInstance) {
     return reply.send({ ok: result.ok, results: result.results });
   });
 
-  // Download latest local backup
   app.get('/admin/backup/latest', async (_request, reply) => {
     try {
       const files = fs
@@ -60,20 +58,17 @@ export async function adminBackupRoutes(app: FastifyInstance) {
     }
   });
 
-  // List backup history
   app.get('/admin/backup/history', async (_request, reply) => {
     const backups = await listBackupHistory();
     return reply.send({ backups });
   });
 
-  // Get backup schedule config
   app.get('/admin/backup/schedule', async (_request, reply) => {
     const value = await getSetting('backup_schedule_hours');
     const hours = parseInt(value || '6', 10) || 6;
     return reply.send({ backup_schedule_hours: hours });
   });
 
-  // Update backup schedule config
   app.patch('/admin/backup/schedule', async (request, reply) => {
     const { backup_schedule_hours } = request.body as {
       backup_schedule_hours?: number;

@@ -3,7 +3,7 @@ import { DEFAULT_UPLOAD_DIR } from '../../config/index.js';
 import { LocalStorage } from '../storage/local.js';
 import { B2Storage } from '../storage/b2/index.js';
 import type { StorageProvider } from '../storage/types.js';
-import { recordAction } from '../actionLogService.js';
+import { recordAction } from '../action-log-service.js';
 import {
   insertCheck,
   insertIssues,
@@ -13,8 +13,8 @@ import {
   getFileRow,
   deleteFileRow,
   findOrphanedIssue,
-} from '../../repositories/integrityRepository.js';
-import { insertFile, updateFilePathAndUser } from '../../repositories/fileRepository.js';
+} from '../../repositories/integrity-repository.js';
+import { insertFile, updateFilePathAndUser } from '../../repositories/file-repository.js';
 import {
   scanDirectory,
   toRelativePath,
@@ -24,8 +24,6 @@ import {
   statFile,
   moveFile,
 } from './adapter.js';
-
-// ── Storage providers ──
 
 const local: StorageProvider = new LocalStorage();
 // B2 is lazily created only when needed (avoids import overhead when B2 not configured)
@@ -38,8 +36,6 @@ function getB2Provider(): StorageProvider | null {
   }
 }
 
-// ── Integrity check logic ──
-
 export async function runIntegrityCheck(
   userId?: number
 ): Promise<{ checkId: string; total: number; summary: { missingFiles: number; orphanedFiles: number; sizeMismatches: number } }> {
@@ -51,7 +47,6 @@ export async function runIntegrityCheck(
   const dbByPath = new Map<string, (typeof dbFiles)[0]>();
   for (const f of localDbFiles) dbByPath.set(toRelativePath(f.path), f);
 
-  // Scan disk
   const diskFiles = new Map<string, string>();
   const scanDir = userId
     ? path.join(DEFAULT_UPLOAD_DIR, 'share', String(userId))
@@ -60,7 +55,6 @@ export async function runIntegrityCheck(
 
   const insertRows: (string | number | null)[][] = [];
 
-  // Compare local DB entries against local disk
   for (const [relPath, dbFile] of dbByPath) {
     const absPath = path.join(DEFAULT_UPLOAD_DIR, relPath);
     const stat = statFile(absPath);
@@ -71,7 +65,6 @@ export async function runIntegrityCheck(
     }
   }
 
-  // Compare B2 DB entries against B2 storage
   if (b2DbFiles.length > 0) {
     const b2 = getB2Provider();
     if (b2) {
@@ -88,7 +81,6 @@ export async function runIntegrityCheck(
     }
   }
 
-  // Find orphaned files on disk (not in DB)
   for (const [relPath] of diskFiles) {
     if (!dbByPath.has(relPath)) {
       insertRows.push(['orphaned-file', null, null, null, null, relPath, null, null]);
@@ -105,8 +97,6 @@ export async function runIntegrityCheck(
 
   return { checkId, total: insertRows.length, summary: { missingFiles, orphanedFiles, sizeMismatches } };
 }
-
-// ── Issue resolution ──
 
 export async function resolveSingleIssue(
   checkId: string,
@@ -135,8 +125,6 @@ export async function resolveSingleIssue(
 
   await markIssueResolved(issueId, action);
 }
-
-// ── Import orphaned files ──
 
 export async function importOrphanedFiles(
   checkId: string,
@@ -186,8 +174,6 @@ export async function importOrphanedFiles(
 
   return imported;
 }
-
-// ── Migration ──
 
 export async function migrateFile(
   relPath: string,

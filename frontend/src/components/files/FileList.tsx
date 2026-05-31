@@ -6,6 +6,7 @@ import { TAG_COLORS, DEFAULT_TAG_COLOR } from '@/config/constants';
 import { VisibilityToggle } from '@/components/ui/VisibilityToggle';
 import { DeleteButton } from '@/components/ui/DeleteButton';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { useGlowEffect } from '@/hooks/use-glow-effect';
 
 interface Props {
   files: FileInfo[];
@@ -38,6 +39,33 @@ function TagBadge({ filename }: { filename: string }) {
   );
 }
 
+function FileRow({
+  f,
+  isNowPlaying,
+  onClick,
+  children,
+}: {
+  f: FileInfo;
+  isNowPlaying: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const { ref, onMouseMove, onMouseLeave } = useGlowEffect<HTMLLIElement>();
+  return (
+    <li
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className={`pressable glow-hover glow-blue flex items-center gap-3 p-3 rounded-lg border
+        ${isOpenable(f.mime_type) ? 'cursor-pointer' : ''}
+        ${isNowPlaying ? 'border-blue-500/60 bg-blue-500/5 shadow-[0_0_12px_rgba(59,130,246,0.08)]' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'}`}
+      onClick={onClick}
+    >
+      {children}
+    </li>
+  );
+}
+
 export function FileList({
   files,
   total,
@@ -56,11 +84,10 @@ export function FileList({
         {files.map((f) => {
           const isNowPlaying = currentAudioId === f.id && isAudio(f.mime_type);
           return (
-          <li
+          <FileRow
             key={f.id}
-            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors
-              ${isOpenable(f.mime_type) ? 'cursor-pointer' : ''}
-              ${isNowPlaying ? 'border-blue-500/60 bg-blue-500/5 shadow-[0_0_12px_rgba(59,130,246,0.08)]' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'}`}
+            f={f}
+            isNowPlaying={isNowPlaying}
             onClick={() => {
               if (!isOpenable(f.mime_type)) return;
               if (isAudio(f.mime_type)) onPlayAudio(f);
@@ -117,7 +144,7 @@ export function FileList({
                 }}
               />
             </div>
-          </li>
+          </FileRow>
         )})}
       </ul>
     </section>

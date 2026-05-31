@@ -48,10 +48,18 @@ export function FileSection({
 
   return (
     <>
-      {showDivider && <hr className="border-zinc-800" />}
+      {showDivider && (
+        <div className="flex items-center gap-3 pt-2">
+          <div className="flex-1 h-px bg-zinc-800/80" />
+        </div>
+      )}
       {filesViewMode === 'all' && (
-        <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          {label} ({total})
+        <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider pt-1">
+          {label === 'Audio' && '🎵 '}
+          {label === 'Video' && '🎬 '}
+          {label === 'Files' && '📄 '}
+          {label}
+          <span className="ml-1.5 text-zinc-600 font-normal">({total})</span>
         </h2>
       )}
       <FileList

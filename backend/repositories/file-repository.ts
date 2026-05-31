@@ -1,7 +1,5 @@
 import { dbAll, dbGet, dbRun } from '../db/index.js';
 
-// ── Types ──
-
 export interface FileRow {
   id: number;
   filename: string;
@@ -34,8 +32,6 @@ export interface FileDeleteRow {
   user_id: number | null;
   storage_backend: string;
 }
-
-// ── Queries ──
 
 /** Find a file by its unique filename (used for public serving). */
 export async function findByFilename(filename: string): Promise<FileServeRow | undefined> {
@@ -189,6 +185,26 @@ export async function reInsertFile(row: Record<string, unknown>): Promise<void> 
       row.mime_type, row.user_id, row.created_at, row.is_public, row.storage_backend,
     ]
   );
+}
+
+/** Find all expired files (for cleanup job). */
+export interface ExpiredFileRow {
+  id: number;
+  path: string;
+  storage_backend: string;
+}
+
+export async function findExpiredFiles(): Promise<ExpiredFileRow[]> {
+  return dbAll<ExpiredFileRow>(
+    `SELECT id, path, storage_backend FROM files
+     WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`
+  );
+}
+
+/** Delete a single file record by ID. Returns number of deleted rows. */
+export async function deleteFileRowById(id: number): Promise<number> {
+  const r = await dbRun(`DELETE FROM files WHERE id = ?`, [id]);
+  return r.changes;
 }
 
 /** Update a file's path and user_id (used by migration undo). */

@@ -11,7 +11,7 @@ export function DeleteButton({ id, confirming, onClick }: Props) {
     <button
       type="button"
       onClick={onClick}
-      className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+      className={`pressable px-2 py-1.5 rounded-md text-xs font-medium whitespace-nowrap ${
         confirming
           ? 'bg-red-600 hover:bg-red-500 text-white'
           : 'bg-zinc-800 hover:bg-red-800 text-zinc-400 hover:text-red-400'

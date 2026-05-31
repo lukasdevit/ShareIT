@@ -5,38 +5,24 @@ import {
   getTokenFromHeader,
   verifyToken,
 } from '../middleware/index.js';
-import { deleteFromStorage, parseRange } from '../utils/index.js';
-import {
-  findByFilename,
-  findRandomByUser,
-  countByUser,
-  listByUser,
-  findOwnershipById,
-  togglePublic,
-  findForDelete,
-  deleteById,
-} from '../repositories/fileRepository.js';
+import { parseRange } from '../utils/index.js';
 import {
   resolveReadStream,
   resolveReadStreamRange,
-} from '../services/files/fileStream.js';
+} from '../services/files/file-stream.js';
+import {
+  getFileByFilename,
+  getRandomFile,
+  listUserFiles,
+  toggleFilePublic,
+  deleteUserFile,
+} from '../services/files/file-listing-service.js';
 
 const FILE_SERVE_RATE = 300;
 const FILE_LIST_RATE = 120;
 const FILE_RATE_WINDOW_MS = 60_000;
 
-function buildTypeClause(type?: string): string {
-  switch (type) {
-    case 'audio':  return `AND mime_type LIKE 'audio/%'`;
-    case 'video':  return `AND mime_type LIKE 'video/%'`;
-    case 'image':  return `AND mime_type LIKE 'image/%'`;
-    case 'file':   return `AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'audio/%' AND mime_type NOT LIKE 'video/%'`;
-    default:       return '';
-  }
-}
-
 export async function filesRoutes(app: FastifyInstance) {
-  // ── Serve file by filename (public) ──
   app.get(
     '/file/:filename',
     {
@@ -47,15 +33,8 @@ export async function filesRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { filename } = request.params as { filename: string };
 
-      if (filename.includes('..') || filename.includes('/')) {
-        return reply.code(400).send({ error: 'Invalid filename' });
-      }
-
       try {
-        const file = await findByFilename(filename);
-        if (!file) {
-          return reply.code(404).send({ error: 'File not found' });
-        }
+        const file = await getFileByFilename(filename);
 
         // If not public, require auth + ownership
         if (!file.is_public) {
@@ -94,28 +73,30 @@ export async function filesRoutes(app: FastifyInstance) {
 
         reply.header('Content-Length', file.size);
         return reply.send(stream);
-      } catch {
+      } catch (err) {
+        const e = err as { statusCode?: number; message: string };
         if (!reply.sent) {
-          return reply.code(404).send({ error: 'File missing from storage' });
+          return reply.code(e.statusCode || 404).send({ error: e.message || 'File missing from storage' });
         }
       }
     }
   );
 
-  // ── Random file ──
   app.get(
     '/files/random',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const userId = request.user!.id;
-      const typeClause = buildTypeClause((request.query as { type?: string }).type);
-      const file = await findRandomByUser(userId, typeClause);
-      if (!file) return reply.code(404).send({ error: 'No files found' });
-      return reply.send({ data: file });
+      try {
+        const type = (request.query as { type?: string }).type;
+        const file = await getRandomFile(request.user!.id, type);
+        return reply.send({ data: file });
+      } catch (err) {
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 500).send({ error: e.message });
+      }
     }
   );
 
-  // ── List files (paginated) ──
   app.get(
     '/files',
     {
@@ -125,7 +106,6 @@ export async function filesRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const userId = request.user!.id;
       const query = request.query as {
         page?: string;
         limit?: string;
@@ -135,28 +115,17 @@ export async function filesRoutes(app: FastifyInstance) {
 
       const page = Math.max(1, parseInt(query.page || '1', 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(query.limit || '50', 10) || 50));
-      const offset = (page - 1) * limit;
       const search = query.search?.trim() || undefined;
-      const typeClause = buildTypeClause(query.type);
 
       try {
-        const [total, files] = await Promise.all([
-          countByUser(userId, typeClause, search),
-          listByUser(userId, typeClause, limit, offset, search),
-        ]);
-        return reply.send({
-          files,
-          total,
-          page,
-          totalPages: Math.ceil(total / limit),
-        });
+        const result = await listUserFiles(request.user!.id, { page, limit, search, type: query.type });
+        return reply.send(result);
       } catch (err) {
         return reply.code(500).send({ error: (err as Error).message });
       }
     }
   );
 
-  // ── Toggle public ──
   app.patch(
     '/file/:id',
     {
@@ -171,38 +140,31 @@ export async function filesRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const userId = request.user!.id;
       const { is_public } = request.body as { is_public: boolean };
 
-      const file = await findOwnershipById(parseInt(id, 10));
-      if (!file) return reply.code(404).send({ error: 'File not found' });
-      if (file.user_id !== userId) return reply.code(403).send({ error: 'Not your file' });
-
-      await togglePublic(parseInt(id, 10), is_public);
-      return reply.send({ ok: true, is_public });
+      try {
+        const result = await toggleFilePublic(parseInt(id, 10), request.user!.id, is_public);
+        return reply.send({ ok: true, ...result });
+      } catch (err) {
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 500).send({ error: e.message });
+      }
     }
   );
 
-  // ── Delete file ──
   app.delete(
     '/file/:id',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const userId = request.user!.id;
-
-      const file = await findForDelete(parseInt(id, 10));
-      if (!file) return reply.code(404).send({ error: 'File not found' });
-      if (file.user_id !== userId) return reply.code(403).send({ error: 'Not your file' });
 
       try {
-        await deleteFromStorage(file.path);
+        await deleteUserFile(parseInt(id, 10), request.user!.id);
+        return reply.send({ ok: true });
       } catch (err) {
-        request.log.error({ err }, 'Storage delete failed');
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 500).send({ error: e.message });
       }
-
-      await deleteById(parseInt(id, 10));
-      return reply.send({ ok: true });
     }
   );
 }

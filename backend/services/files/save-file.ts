@@ -32,7 +32,6 @@ export async function saveFile(
     // Single quota check — covers both global limit and per-user quota
     await checkStorageQuota(size, userId);
 
-    // Virus scan
     const scanResult = await scanFile(tmpPath);
     if (!scanResult.clean) {
       throw Object.assign(
@@ -43,7 +42,6 @@ export async function saveFile(
       );
     }
 
-    // Upload to storage
     const readStream = fs.createReadStream(tmpPath);
     await storage.save(storageKey, readStream);
   } finally {

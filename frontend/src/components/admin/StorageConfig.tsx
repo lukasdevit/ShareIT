@@ -13,13 +13,8 @@ interface StorageData {
   backend: string;
   default_storage_limit: number;
   total_storage_limit: number;
-  b2_endpoint?: string;
-  b2_region?: string;
-  b2_bucket?: string;
-  b2_prefix?: string;
-  b2_key_id?: string;
-  b2_has_key_id?: boolean;
-  b2_has_app_key?: boolean;
+  available_backends: Record<string, string>;
+  setting_keys: string[];
   disk_total?: number;
   disk_used?: number;
   disk_free?: number;
@@ -28,6 +23,41 @@ interface StorageData {
   total_bytes: number;
   registrations_open: boolean;
   s3_upload_enabled: boolean;
+  [key: string]: unknown;
+}
+
+/** Convert a prefixed setting key to a human label: "b2_endpoint" → "Endpoint" */
+function fieldLabel(key: string): string {
+  const parts = key.split('_');
+  return parts.slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/** Check if a setting key holds a secret value */
+function isSecretKey(key: string): boolean {
+  return /_(key_id|app_key|access_key|secret_key)$/.test(key);
+}
+
+function fmtBytes(b: string): string {
+  const n = parseInt(b, 10);
+  if (!n) return b;
+  if (n >= 1073741824) return `${(n / 1073741824).toFixed(1)} GB`;
+  if (n >= 1048576) return `${(n / 1048576).toFixed(0)} MB`;
+  return `${(n / 1024).toFixed(0)} KB`;
+}
+
+function formatSavedMessage(updated: string[], form: Record<string, string>): string {
+  const items = updated.map((key) => {
+    const label = fieldLabel(key);
+    if (isSecretKey(key)) return `${label}: ••••••••`;
+    let value = form[key] || '';
+    if (key === 'total_storage_limit' && value) value = fmtBytes(value);
+    if (key === 'backend' && value) value = form.backend;  // handled below in caller
+    if (key === 'registrations_open' || key === 's3_upload_enabled') {
+      value = value === 'true' ? 'on' : 'off';
+    }
+    return value ? `${label} → ${value}` : label;
+  });
+  return `Storage updated:\n${items.join('\n')}`;
 }
 
 export function StorageConfig({ apiFetch }: Props) {
@@ -37,46 +67,46 @@ export function StorageConfig({ apiFetch }: Props) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showKeyId, setShowKeyId] = useState(false);
-  const [showAppKey, setShowAppKey] = useState(false);
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
 
-  const revealAppKey = useCallback(async () => {
-    if (showAppKey) { setShowAppKey(false); return; }
+  const toggleSecret = useCallback(async (key: string) => {
+    if (revealedSecrets[key]) {
+      setRevealedSecrets((prev) => ({ ...prev, [key]: false }));
+      return;
+    }
     try {
       const r = await apiFetch('/admin/storage/secrets');
       const d = await r.json();
-      if (d.b2_app_key) setForm((f) => ({ ...f, b2_app_key: d.b2_app_key }));
+      if (d[key]) setForm((f) => ({ ...f, [key]: d[key] }));
     } catch { /* */ }
-    setShowAppKey(true);
-  }, [showAppKey, apiFetch]);
-
-  const revealKey = useCallback(async () => {
-    if (showKeyId) { setShowKeyId(false); return; }
-    try {
-      const r = await apiFetch('/admin/storage/secrets');
-      const d = await r.json();
-      if (d.b2_key_id) setForm((f) => ({ ...f, b2_key_id: d.b2_key_id }));
-    } catch { /* */ }
-    setShowKeyId(true);
-  }, [showKeyId, apiFetch]);
+    setRevealedSecrets((prev) => ({ ...prev, [key]: true }));
+  }, [revealedSecrets, apiFetch]);
 
   const load = useCallback(() => {
     setLoading(true);
     apiFetch('/admin/storage')
       .then((r) => r.json())
-      .then((d) => {
+      .then((d: StorageData) => {
         setData(d);
-        setForm((prev) => ({
+        const initForm: Record<string, string> = {
           backend: d.backend || 'local',
+          storage_path: String(d.storage_path ?? ''),
           total_storage_limit: String(d.total_storage_limit ?? 0),
-          b2_endpoint: d.b2_endpoint || '',
-          b2_region: d.b2_region || '',
-          b2_bucket: d.b2_bucket || '',
-          b2_prefix: d.b2_prefix || '',
-          b2_key_id: prev.b2_key_id || '',
-          b2_app_key: prev.b2_app_key || '',
           s3_upload_enabled: String(d.s3_upload_enabled === true),
-        }));
+        };
+        for (const key of d.setting_keys || []) {
+          initForm[key] = String(d[key] ?? '');
+        }
+        setForm((prev) => {
+          // Preserve previously entered secret values not in API response
+          const merged = { ...initForm };
+          for (const key of d.setting_keys || []) {
+            if (isSecretKey(key) && prev[key] && !d[key]) {
+              merged[key] = prev[key];
+            }
+          }
+          return merged;
+        });
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -96,8 +126,11 @@ export function StorageConfig({ apiFetch }: Props) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      const savedMsg = `Saved: ${d.updated.join(', ')}`;
-      toast(savedMsg, 'ok');
+      const backends = data?.available_backends ?? {};
+      const backendLabel = backends[form.backend] || form.backend;
+      const msg = formatSavedMessage(d.updated, form)
+        .replace(`Backend → ${form.backend}`, `Backend → ${backendLabel}`);
+      toast(msg, 'ok');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       load();
@@ -107,6 +140,13 @@ export function StorageConfig({ apiFetch }: Props) {
       setSaving(false);
     }
   }
+
+  const allSettingKeys: string[] = data?.setting_keys ?? [];
+  // Only show keys for the currently selected backend
+  const settingKeys = allSettingKeys.filter((k) => k.startsWith(`${form.backend}_`));
+  const visibleKeys = settingKeys.filter((k) => !isSecretKey(k));
+  const secretKeys = settingKeys.filter(isSecretKey);
+  const backends = data?.available_backends ?? {};
 
   if (loading)
     return (
@@ -154,51 +194,71 @@ export function StorageConfig({ apiFetch }: Props) {
               onChange={(e) => setForm({ ...form, backend: e.target.value })}
               className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
             >
-              <option value="local">💻 Local filesystem</option>
-              <option value="b2">☁️ Backblaze B2</option>
+              {Object.entries(backends).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
             </select>
           </div>
-          {form.backend === 'b2' && (
+
+          {form.backend !== 'local' && settingKeys.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                ['b2_endpoint', 'Endpoint'],
-                ['b2_region', 'Region'],
-                ['b2_bucket', 'Bucket'],
-                ['b2_prefix', 'Prefix'],
-              ].map(([key, label]) => (
+              {visibleKeys.map((key) => (
                 <div key={key}>
-                  <label htmlFor={`b2-${key}`} className="block text-xs text-zinc-500 mb-1">{label}</label>
-                  <input id={`b2-${key}`} type="text" value={form[key] || ''}
+                  <label htmlFor={`setting-${key}`} className="block text-xs text-zinc-500 mb-1">
+                    {fieldLabel(key)}
+                  </label>
+                  <input
+                    id={`setting-${key}`}
+                    type="text"
+                    value={form[key] || ''}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
+                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+                  />
                 </div>
               ))}
-              <div>
-                <label htmlFor="b2-key_id" className="block text-xs text-zinc-500 mb-1">Key ID</label>
-                <div className="relative">
-                  <input id="b2-key_id" type={showKeyId ? 'text' : 'password'} value={form.b2_key_id || ''}
-                    placeholder={data?.b2_has_key_id ? '••••••••' : ''}
-                    onChange={(e) => setForm({ ...form, b2_key_id: e.target.value })}
-                    className="w-full px-3 py-2 pr-10 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
-                    <VisibilityToggle isPublic={showKeyId} onClick={revealKey} />
+              {secretKeys.map((key) => (
+                <div key={key}>
+                  <label htmlFor={`setting-${key}`} className="block text-xs text-zinc-500 mb-1">
+                    {fieldLabel(key)}
+                  </label>
+                  <div className="relative">
+                    <input
+                      id={`setting-${key}`}
+                      type={revealedSecrets[key] ? 'text' : 'password'}
+                      value={form[key] || ''}
+                      placeholder={data[key] ? '••••••••' : ''}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      className="w-full px-3 py-2 pr-10 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                      <VisibilityToggle
+                        isPublic={!!revealedSecrets[key]}
+                        onClick={() => toggleSecret(key)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div>
-                <label htmlFor="b2-app_key" className="block text-xs text-zinc-500 mb-1">Application Key</label>
-                <div className="relative">
-                  <input id="b2-app_key" type={showAppKey ? 'text' : 'password'} value={form.b2_app_key || ''}
-                    placeholder={data?.b2_has_app_key ? '••••••••' : ''}
-                    onChange={(e) => setForm({ ...form, b2_app_key: e.target.value })}
-                    className="w-full px-3 py-2 pr-10 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500" />
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
-                    <VisibilityToggle isPublic={showAppKey} onClick={revealAppKey} />
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           )}
+
+          <div>
+            <label htmlFor="storage-path" className="block text-xs text-zinc-500 mb-1">
+              Storage Path / Prefix
+            </label>
+            <input
+              id="storage-path"
+              type="text"
+              value={form.storage_path || ''}
+              placeholder="shareit/storage/"
+              onChange={(e) => setForm({ ...form, storage_path: e.target.value })}
+              className="w-full sm:w-96 px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-zinc-600 mt-1">
+              Key prefix in the bucket. Leave empty for no prefix.
+            </p>
+          </div>
+
           <div>
             <label htmlFor="total-storage-limit" className="block text-xs text-zinc-500 mb-1">
               Total App Storage Limit (bytes, 0 = unlimited)
@@ -222,7 +282,7 @@ export function StorageConfig({ apiFetch }: Props) {
                 S3 Multipart Upload
               </span>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Direct-to-storage chunked uploads (requires B2)
+                Direct-to-storage chunked uploads
               </p>
             </div>
             <button

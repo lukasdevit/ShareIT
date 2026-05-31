@@ -43,8 +43,6 @@ export const TAG_COLORS: Record<string, string> = {
 export const DEFAULT_TAG_COLOR =
   'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
 
-// ── Admin tab labels & descriptions ──
-
 export type AdminTab =
   | 'users'
   | 'database'

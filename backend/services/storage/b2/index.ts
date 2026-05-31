@@ -8,6 +8,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getS3Client, getBucket } from './client.js';
+import { B2_SETTING_KEYS } from './client.js';
+import { registerProvider } from '../providers.js';
 import type { StorageProvider } from '../types.js';
 
 export class B2Storage implements StorageProvider {
@@ -126,3 +128,5 @@ export class B2Storage implements StorageProvider {
     return keys;
   }
 }
+
+registerProvider('b2', () => new B2Storage(), B2_SETTING_KEYS, '☁️ Backblaze B2');

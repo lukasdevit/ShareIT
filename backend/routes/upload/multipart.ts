@@ -11,11 +11,8 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { requireAuth } from '../../middleware/index.js';
-import { getS3Client, getBucket } from '../../services/storage/b2/client.js';
 import { sanitizeFilename, validateFile, checkStorageQuota, finalizeFile } from '../../services/files/index.js';
-import { buildStorageKey } from '../../services/storage/index.js';
-import { getTotalUsed } from '../../repositories/fileRepository.js';
-import { getTotalStorageLimit } from '../../config/index.js';
+import { buildStorageKey, getCurrentS3Client } from '../../services/storage/index.js';
 
 const PRESIGN_EXPIRY_SECONDS = 3600; // 1 hour per part URL
 
@@ -47,15 +44,11 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(415).send({ error: validationError });
       }
 
-      // Check global app-wide storage limit
-      const totalLimit = await getTotalStorageLimit();
-      if (totalLimit > 0) {
-        const total = await getTotalUsed();
-        if (total >= totalLimit) {
-          return reply
-            .code(507)
-            .send({ error: 'Server storage limit reached. Contact the administrator.' });
-        }
+      try {
+        await checkStorageQuota(1, request.user!.id);
+      } catch (err) {
+        const e = err as { statusCode?: number; message: string };
+        return reply.code(e.statusCode || 507).send({ error: e.message });
       }
 
       const id = nanoid(10);
@@ -63,8 +56,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
       const filename = `${id}${ext}`;
       const key = await buildStorageKey(request.user!.id, filename);
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const createCmd = new CreateMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
@@ -102,8 +94,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'key, uploadId, and partNumber required' });
       }
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new UploadPartCommand({
         Bucket: bucket,
         Key: key,
@@ -191,8 +182,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'key and parts array required' });
       }
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new CompleteMultipartUploadCommand({
         Bucket: bucket,
         Key: body.key,
@@ -213,7 +203,6 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
         });
       }
 
-      // Quota check before DB insert
       const filename = path.basename(body.key);
       const size = body.size || 0;
       try {
@@ -224,7 +213,6 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
           .send({ error: (err as Error).message });
       }
 
-      // DB record via shared finalizeFile
       const fileParams: {
         filename: string;
         originalName: string;
@@ -270,8 +258,7 @@ export async function multipartUploadRoutes(app: FastifyInstance) {
       const { uploadId } = request.params as { uploadId: string };
       const { key } = request.body as { key: string };   
 
-      const s3 = await getS3Client();
-      const bucket = await getBucket();
+      const { client: s3, bucket } = await getCurrentS3Client();
       const cmd = new AbortMultipartUploadCommand({
         Bucket: bucket,
         Key: key,

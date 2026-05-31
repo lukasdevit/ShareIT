@@ -1,5 +1,5 @@
-import { getTotalUsed, getUsedByUser } from '../../repositories/fileRepository.js';
-import { getStorageLimit } from '../../repositories/userRepository.js';
+import { getTotalUsed, getUsedByUser } from '../../repositories/file-repository.js';
+import { getStorageLimit } from '../../repositories/user-repository.js';
 import { getTotalStorageLimit } from '../../config/index.js';
 import { formatBytes } from '../../utils/index.js';
 
@@ -11,7 +11,6 @@ export async function checkStorageQuota(
   size: number,
   userId?: number
 ): Promise<void> {
-  // Check global app-wide storage limit
   const totalLimit = await getTotalStorageLimit();
   if (totalLimit > 0) {
     const total = await getTotalUsed();
@@ -23,7 +22,6 @@ export async function checkStorageQuota(
     }
   }
 
-  // Check per-user storage quota
   if (userId !== undefined) {
     const quota = await getUserQuota(userId);
     if (quota.used + size > quota.limit) {

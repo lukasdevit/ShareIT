@@ -182,14 +182,12 @@ export function LogViewer({ apiFetch }: Props) {
     fetchLogs();
   }, [fetchLogs]);
 
-  // Auto-refresh every 5 seconds
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(fetchLogs, 5000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchLogs]);
 
-  // Auto-scroll to bottom on new logs
   useEffect(() => {
     if (autoRefresh) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs, autoRefresh]);

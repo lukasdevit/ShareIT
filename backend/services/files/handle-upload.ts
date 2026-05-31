@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { BASE_URL } from '../../config/index.js';
 import { sanitizeFilename } from '../../utils/sanitize-filename.js';
 import { validateFile } from '../../utils/validate-file.js';
-import { saveFile } from './saveFile.js';
+import { saveFile } from './save-file.js';
 
 /** Shared upload handler (used by /upload and /sharex/upload). */
 export async function handleUpload(

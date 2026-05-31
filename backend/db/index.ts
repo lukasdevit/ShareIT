@@ -1,4 +1,3 @@
-// Re-export everything from a single entry point
 export { db, closeDb } from './connection.js';
 export { initSchema } from './schema.js';
 export { dbGet, dbAll, dbRun } from './helpers.js';

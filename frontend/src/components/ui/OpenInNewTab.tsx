@@ -10,7 +10,7 @@ export function OpenInNewTab({ href, onClick }: Props) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+      className="pressable px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
       onClick={onClick}
     >
       Open in new Tab

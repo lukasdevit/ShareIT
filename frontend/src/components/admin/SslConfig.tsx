@@ -58,7 +58,6 @@ export function SslConfig({ apiFetch }: Props) {
       toast('Certificate uploaded and applied', 'ok');
       setCertPem('');
       setKeyPem('');
-      // Refresh status
       const cr = await apiFetch('/admin/ssl/cert');
       setCustomCert(await cr.json());
     } catch (e) {
@@ -142,7 +141,7 @@ export function SslConfig({ apiFetch }: Props) {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <SslCard label="Protocol" value={data.protocol.toUpperCase()} />
+        <SslCard label="Protocol" value={(data.protocol || 'http').toUpperCase()} />
         <SslCard
           label="Auto-renewal"
           value={data.is_local ? 'N/A' : '✅ Enabled'}
