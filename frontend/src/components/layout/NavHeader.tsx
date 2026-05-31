@@ -5,8 +5,16 @@ import { useRouter, usePathname } from 'next/navigation';
 
 function CloudIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 40 28"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 24c-3.31 0-6-2.69-6-6s2.69-6 6-6c.8-2.8 3.5-4.8 6.6-4.8 2.9 0 5.4 1.7 6.4 4.2 1.8-.8 3.8-1.2 6-1.2 4.4 0 8 3.6 8 8s-3.6 8-8 8H8z" />
     </svg>
   );
 }
@@ -24,12 +32,12 @@ function NavButton({ active, icon, label, highlight, onClick }: NavButtonProps) 
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
         active
-          ? highlight
-            ? 'bg-blue-600/20 text-blue-400'
-            : 'bg-zinc-800 text-zinc-200'
-          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50'
+          ? 'bg-blue-600 text-white'
+          : highlight
+            ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white'
+            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
       }`}
     >
       {icon}
